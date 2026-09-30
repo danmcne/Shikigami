@@ -1,0 +1,23 @@
+; Engine configuration file.
+config_version=5
+
+[application]
+
+config/name="Shikigami (working title)"
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.3")
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+
+[physics]
+
+common/physics_ticks_per_second=60
+common/max_physics_steps_per_frame=8
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
