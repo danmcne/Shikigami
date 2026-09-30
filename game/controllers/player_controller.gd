@@ -16,4 +16,6 @@ func read(_me: Fighter, _them: Fighter) -> Intent:
 	i.down = Input.is_action_pressed(prefix + "down")
 	i.light = Input.is_action_just_pressed(prefix + "light")
 	i.heavy = Input.is_action_just_pressed(prefix + "heavy")
+	i.special = Input.is_action_just_pressed(prefix + "special")
+	i.spirit = Input.is_action_just_pressed(prefix + "spirit")
 	return i

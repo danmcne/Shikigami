@@ -7,6 +7,9 @@ extends RefCounted
 var x: int = 0
 var up: bool = false
 var down: bool = false
-## Button presses (edges, not holds) on this frame.
+## Button presses (edges, not holds) on this frame. In command notation these
+## are A, B, C and D.
 var light: bool = false
 var heavy: bool = false
+var special: bool = false
+var spirit: bool = false

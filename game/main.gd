@@ -1,6 +1,6 @@
 extends Node2D
-## Prototype 1 view. Steps the Bout once per physics tick (60 Hz) and draws
-## its state as rectangles. All game rules live in game/combat/.
+## Prototype view. Steps the Bout once per physics tick (60 Hz) and draws its
+## state as rectangles. All game rules live in game/combat/.
 ##
 ## F1: show boxes and state   F2: cycle player 2 (human / dummy modes)
 ## F5: restart bout
@@ -9,6 +9,7 @@ const PrototypeRect := preload("res://game/fighters/prototype_rect.gd")
 
 const ORIGIN := Vector2(640, 640)
 const COLORS: Array[Color] = [Color(0.85, 0.25, 0.2), Color(0.2, 0.45, 0.9)]
+const MOVE_LIST := "6 = toward opponent.   C palm   6C rush   2C rising (invulnerable start)   236C projectile   A+B throw (4 for back)   66 / 44 dash"
 
 var bout: Bout
 var p1 := PlayerController.new("p1_")
@@ -55,12 +56,13 @@ func _draw() -> void:
 	draw_line(Vector2(Bout.STAGE_LEFT, 0), Vector2(Bout.STAGE_RIGHT, 0), Color(0.5, 0.45, 0.4), 2.0)
 	for i in 2:
 		_draw_fighter(bout.fighters[i], COLORS[i])
+	for e in bout.entities:
+		_draw_entity(e, COLORS[e.owner_index])
 	draw_set_transform(Vector2.ZERO)
 	_draw_hud()
 
 
 func _draw_fighter(f: Fighter, base: Color) -> void:
-	var body := f.hurtbox()
 	var color := base
 	match f.state:
 		Fighter.State.HITSTUN:
@@ -69,32 +71,49 @@ func _draw_fighter(f: Fighter, base: Color) -> void:
 			color = base.lerp(Color.GRAY, 0.6)
 		Fighter.State.KO:
 			color = base.darkened(0.6)
+	if f.invulnerable():
+		color.a = 0.45
+
+	var body := f.hurtbox()
+	if f.state == Fighter.State.KNOCKDOWN and not f.airborne:
+		body = Rect2(f.position.x - 70, f.position.y - 30, 140, 30)
 	draw_rect(body, color)
 	# A notch on the leading edge shows facing.
 	var notch_x := body.end.x - 10.0 if f.facing == 1 else body.position.x
 	draw_rect(Rect2(notch_x, body.position.y + 12, 10, 10), Color.BLACK)
 
-	# The attacking limb: outline during startup, solid while active,
-	# faint during recovery.
-	if f.state == Fighter.State.ATTACK:
-		var atk := f.attack
-		for local in atk.hitboxes:
+	# The moving limb: outline during startup, solid while active, faint in recovery.
+	if f.state == Fighter.State.MOVE:
+		var m := f.move
+		for local in m.hitboxes:
 			var box := f.to_world(local)
-			if f.state_frame < atk.startup:
+			if f.state_frame < m.startup:
 				draw_rect(box, color, false, 2.0)
-			elif atk.is_active_on(f.state_frame):
-				draw_rect(box, color.lightened(0.3))
+			elif m.is_active_on(f.state_frame):
+				draw_rect(box, Color(color.lightened(0.3), 1.0))
 			else:
 				draw_rect(box, Color(color, 0.35))
 
 	if show_boxes:
-		draw_rect(f.hurtbox(), Color.CYAN, false, 1.0)
+		if not f.invulnerable():
+			draw_rect(f.hurtbox(), Color.CYAN, false, 1.0)
 		draw_rect(f.pushbox(), Color.YELLOW, false, 1.0)
 		for box in f.active_hitboxes():
 			draw_rect(box, Color.RED, false, 2.0)
-		var label := "%s %d" % [Fighter.State.keys()[f.state], f.state_frame]
+		var label: String = Fighter.State.keys()[f.state]
+		if f.move:
+			label += " " + f.move.id
+		label += " %d" % f.state_frame
 		draw_string(ThemeDB.fallback_font, body.position + Vector2(-20, -10), label,
 				HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color.WHITE)
+
+
+func _draw_entity(e: Entity, base: Color) -> void:
+	for box in e.active_hitboxes():
+		draw_rect(box, base.lightened(0.4))
+		draw_rect(box, Color.WHITE, false, 2.0)
+		if show_boxes:
+			draw_rect(box, Color.RED, false, 2.0)
 
 
 func _draw_hud() -> void:
@@ -129,6 +148,8 @@ func _draw_hud() -> void:
 	if message != "":
 		draw_string(font, Vector2(0, 250), message, HORIZONTAL_ALIGNMENT_CENTER, width, 56)
 
+	var grey := Color(0.8, 0.8, 0.8)
 	var p2_label := "human" if p2_dummy_mode < 0 else "dummy: " + p2_dummy.mode_name()
-	var help := "P1: WASD + F/G    P2 (%s): arrows + Num1/Num2 or , .    F1 boxes   F2 P2 mode   F5 restart" % p2_label
-	draw_string(font, Vector2(0, 700), help, HORIZONTAL_ALIGNMENT_CENTER, width, 16, Color(0.8, 0.8, 0.8))
+	var keys := "P1: WASD, J light  I heavy  L special (C)  K spirit    P2 (%s): arrows, Num 4 8 6 2    F1 boxes  F2 P2 mode  F5 restart" % p2_label
+	draw_string(font, Vector2(0, 690), keys, HORIZONTAL_ALIGNMENT_CENTER, width, 15, grey)
+	draw_string(font, Vector2(0, 710), MOVE_LIST, HORIZONTAL_ALIGNMENT_CENTER, width, 15, grey)

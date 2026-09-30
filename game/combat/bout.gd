@@ -1,7 +1,9 @@
 class_name Bout
 extends RefCounted
-## Two fighters, one stage, a best-of-three. Owns the frame order:
-##   face -> step -> push apart -> clamp to stage -> resolve hits -> check KO.
+## Two fighters, their entities, one stage, a best-of-three. Owns the frame
+## order:
+##   record input -> (hitstop? stop) -> face, flag threats -> step fighters
+##   -> step and spawn entities -> push apart, clamp -> resolve hits -> KO?
 ## Pure simulation; the view reads its state and draws it.
 
 enum Phase { FIGHT, ROUND_OVER, BOUT_OVER }
@@ -12,8 +14,11 @@ const STAGE_RIGHT := 600.0
 const START_OFFSET := 150.0
 const ROUND_OVER_FRAMES := 120
 const BOUT_OVER_FRAMES := 240
+## Where a back throw puts the victim, measured behind the thrower.
+const BACK_THROW_DISTANCE := 60.0
 
 var fighters: Array[Fighter] = []
+var entities: Array[Entity] = []
 var wins: Array[int] = [0, 0]
 var round_number := 1
 var phase := Phase.FIGHT
@@ -31,6 +36,7 @@ func _init(a: FighterDefinition, b: FighterDefinition) -> void:
 func start_round() -> void:
 	fighters[0].reset(-START_OFFSET, 1)
 	fighters[1].reset(START_OFFSET, -1)
+	entities.clear()
 	phase = Phase.FIGHT
 	phase_frame = 0
 	hitstop = 0
@@ -70,6 +76,8 @@ func winner() -> int:
 
 
 func _fight_step(intents: Array[Intent]) -> void:
+	for i in 2:
+		fighters[i].record(intents[i])
 	if hitstop > 0:
 		hitstop -= 1
 		return
@@ -77,41 +85,108 @@ func _fight_step(intents: Array[Intent]) -> void:
 		var me := fighters[i]
 		var them := fighters[1 - i]
 		me.face_toward(them.position.x)
-		me.threatened = them.state == Fighter.State.ATTACK
+		me.threatened = them.threatening() or _has_entity(1 - i)
+		me.has_projectile = _has_entity(i)
+	for f in fighters:
+		f.step()
+	for e in entities:
+		e.step()
 	for i in 2:
-		fighters[i].step(intents[i])
+		if fighters[i].pending_spawn:
+			entities.append(Entity.new(fighters[i].pending_spawn, fighters[i], i))
 	_push_apart()
 	_resolve_hits()
+	entities.assign(entities.filter(func(e: Entity) -> bool: return not e.spent))
 	_check_ko()
 
 
 ## After a KO the fighters keep falling and sliding, but take no input.
 func _settle_step() -> void:
 	for f in fighters:
-		f.step(Intent.new())
+		f.record(Intent.new())
+		f.step()
 	_push_apart()
 
 
-## Hits are collected first and applied together, so two attacks that connect
-## on the same frame trade instead of the first one cancelling the second.
+## Strikes are collected first and applied together, so two that land on the
+## same frame trade. Throws are applied afterwards: a thrower struck on the
+## same frame loses the throw, and two throws on the same frame cancel out.
 func _resolve_hits() -> void:
-	var hits: Array = []
+	_clash_entities()
+	var strikes: Array = []
+	var throws: Array[int] = []
 	for i in 2:
-		var hurt := fighters[1 - i].hurtbox()
-		for box in fighters[i].active_hitboxes():
-			if box.intersects(hurt):
-				hits.append([i, fighters[i].attack])
-				break
-	for hit in hits:
-		var attacker := fighters[hit[0]]
-		var defender := fighters[1 - hit[0]]
-		var atk: AttackDefinition = hit[1]
-		attacker.attack_connected = true
-		defender.receive(atk, attacker.facing)
-		hitstop = maxi(hitstop, atk.hitstop)
-		# A cornered defender cannot slide back, so the attacker recoils instead.
-		if _against_wall(defender, attacker.facing) and not attacker.airborne:
-			attacker.slide = -attacker.facing * atk.knockback
+		var target := fighters[1 - i]
+		if target.invulnerable():
+			continue
+		var hurt := target.hurtbox()
+		var f := fighters[i]
+		if _any_hit(f.active_hitboxes(), hurt):
+			if f.move.throw:
+				throws.append(i)
+			else:
+				strikes.append([i, f.move, f.facing, f])
+		for e in entities:
+			if e.owner_index == i and _any_hit(e.active_hitboxes(), hurt):
+				strikes.append([i, e.move, e.facing, null])
+				e.spent = true
+
+	var struck := [false, false]
+	for s in strikes:
+		var m: MoveDefinition = s[1]
+		var target := fighters[1 - s[0]]
+		target.receive(m, s[2])
+		struck[1 - s[0]] = true
+		hitstop = maxi(hitstop, m.hitstop)
+		var attacker: Fighter = s[3]
+		if attacker:
+			attacker.move_connected = true
+			# A cornered defender cannot slide back, so the attacker recoils instead.
+			if _against_wall(target, attacker.facing) and not attacker.airborne:
+				attacker.slide = -attacker.facing * m.knockback
+
+	if throws.size() == 2:
+		for i in throws:
+			fighters[i].move_connected = true
+		return
+	for i in throws:
+		var thrower := fighters[i]
+		var target := fighters[1 - i]
+		if struck[i] or not target.throwable():
+			continue
+		thrower.move_connected = true
+		var direction := thrower.facing
+		if thrower.move_reversed:
+			direction = -thrower.facing
+			target.position.x = thrower.position.x - thrower.facing * BACK_THROW_DISTANCE
+		target.receive(thrower.move, direction)
+		hitstop = maxi(hitstop, thrower.move.hitstop)
+
+
+## Opposing entities that touch destroy each other.
+func _clash_entities() -> void:
+	for a in entities:
+		for b in entities:
+			if a.owner_index < b.owner_index and not a.spent and not b.spent:
+				for box in a.active_hitboxes():
+					if _any_hit(b.active_hitboxes(), box):
+						a.spent = true
+						b.spent = true
+						break
+
+
+func _any_hit(boxes: Array[Rect2], target: Rect2) -> bool:
+	for box in boxes:
+		if box.intersects(target):
+			return true
+	return false
+
+
+func _has_entity(index: int) -> bool:
+	for e in entities:
+		if e.owner_index == index and not e.spent:
+			return true
+	return false
 
 
 func _push_apart() -> void:

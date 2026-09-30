@@ -12,11 +12,11 @@ func _init(initial := Mode.IDLE) -> void:
 	mode = initial
 
 
-func read(me: Fighter, them: Fighter) -> Intent:
+func read(me: Fighter, _them: Fighter) -> Intent:
 	var i := Intent.new()
 	i.down = mode == Mode.CROUCH or mode == Mode.CROUCH_GUARD
 	var guards := mode == Mode.GUARD or mode == Mode.CROUCH_GUARD
-	if guards and (them.state == Fighter.State.ATTACK or me.state == Fighter.State.BLOCKSTUN):
+	if guards and (me.threatened or me.state == Fighter.State.BLOCKSTUN):
 		i.x = -me.facing
 	return i
 

@@ -3,7 +3,7 @@ extends Resource
 ## Everything that distinguishes one fighter from another. No behaviour lives
 ## here; the same definition drives campaign, versus and training.
 ##
-## Boxes use the same local space as AttackDefinition. The pushbox is assumed
+## Boxes use the same local space as MoveDefinition. The pushbox is assumed
 ## symmetric about x = 0.
 
 @export var id: StringName
@@ -18,5 +18,9 @@ extends Resource
 @export var crouch_hurtbox: Rect2
 @export var air_hurtbox: Rect2
 @export var pushbox: Rect2
-## Keyed by stance and button: &"stand_light", &"crouch_heavy", &"jump_light", ...
-@export var attacks: Dictionary = {}
+## All moves by id. Normals are found by stance and button:
+## &"stand_light", &"crouch_heavy", &"jump_light", ...
+@export var moves: Dictionary = {}
+## Command pattern -> move id, e.g. {"236C": &"projectile", "AB": &"throw"}.
+## Grammar in command.gd.
+@export var commands: Dictionary = {}

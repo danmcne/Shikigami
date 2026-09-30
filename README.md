@@ -4,7 +4,7 @@ A 2D fighting game set in a fantasy Japan, in the lineage of Street Fighter and 
 
 The guiding principle: **the fighting is the game; the campaign exists to produce unusual fights.** There are no levels, stat sheets or grinding.
 
-This repository currently contains Prototype 1, which consists of two rectangles and the combat core. Everything below the "Prototype 1" heading describes that code. Everything above it describes the plan.
+This repository currently contains Prototype 2: two rectangles with the combat core and the move system. Everything below the "Prototype 2" heading describes that code. Everything above it describes the plan.
 
 ## The planned game
 
@@ -38,9 +38,11 @@ Every defeated opponent yields a spirit, humans included; a vanquished warrior's
 - **Two slots.** A run yields about eight spirits, but you carry only two, on D and ↓D. Choosing which to keep after each binding is the run's main strategic decision.
 - **A cooldown per spirit** rather than a shared meter. Slow, powerful spirits balance themselves through long cooldowns; Shuten-dōji hits hard and rarely.
 
-### Controls (planned)
+### Controls
 
-Directions plus four buttons. A is light, B heavy, C special, and D spirit. Few buttons, with lots of character-specific behaviour. Exact motion inputs, throws and any super are undecided.
+Directions plus four buttons: A light, B heavy, C special, D spirit. The buttons form the same diamond on keyboard and gamepad (see Prototype 2 below), so what you learn on one transfers to the other.
+
+Normals come from stance plus A or B. Specials are C with a direction or a motion, throws are A+B, and dashes are a double tap. All of these are written in one command notation (numpad directions relative to facing, then buttons) and matched by one mechanism. Whether the real roster uses simple direction+C, classic motions like 236C, or both is an open question; the prototype has both so they can be compared by feel.
 
 ### Monster-tier bosses
 
@@ -70,56 +72,75 @@ These are not scaled-down fighters. Ushi-oni occupies two or three times a fight
 
 ### Roadmap
 
-1. **Two rectangles.** Movement, jump, crouch, guard, light and heavy attacks, hit detection, health, rounds. *(This repository.)* If this doesn't feel good, nothing later matters.
-2. **Three real fighters:** Musashi (weapon fighter), Benkei (heavyweight), kitsune (trickster). Sprites, specials, throws.
-3. **The campaign loop:** a CPU opponent good enough to be worth fighting, finisher/binding, spirit slots and cooldowns, tiered shuffled encounters, save/resume.
-4. **The roster:** six to eight more fighters.
-5. **Bosses:** the per-boss rule changes.
-6. **Presentation:** art, sound, menus, story framing.
+The original plan put art second. With no art pipeline in place, art is the costliest and least reversible investment, so it now comes after the systems it has to serve are proven on rectangles.
+
+1. **Two rectangles.** Movement, jump, crouch, guard, light and heavy attacks, hit detection, health, rounds. *Done.*
+2. **Inputs and moves on rectangles.** Four-button layout, command notation, dashes, specials, projectiles, throws, knockdown, invulnerability. *This repository.*
+3. **Spirits on rectangles.** Finisher and binding, two slots, per-spirit cooldowns, and several rectangle archetypes (heavy, long-reach, fast) that differ only in data.
+4. **CPU opponent and campaign loop.** An opponent worth fighting, tiered shuffled encounters, save and resume.
+5. **Art for three fighters:** Musashi, Benkei, kitsune.
+6. **Roster, bosses, presentation.**
 
 ### Open questions
 
 - The unlock rule after completing the campaign.
 - Whether binding is ever optional, and how slot replacement is presented.
 - CPU opponent design. It is the largest unplanned cost before the campaign is playable.
-- Throws, specials, and whether any meter or super exists.
+- Direction+C, motion+C, or both for the real roster.
+- Whether any meter or super exists.
 - How the story is presented between fights.
 
 ---
 
-## Prototype 1
+## Prototype 2
+
+Two rectangles with the full move system. Prototype 1's rules all still hold.
 
 ### Running
 
 Open the folder in Godot 4.3+ and press Play, or run `godot --path .` from the command line.
 
-| | Player 1 | Player 2 |
-|---|---|---|
-| Move / jump / crouch | A D / W / S | ← → / ↑ / ↓ |
-| Light | F | Numpad 1 or `,` |
-| Heavy | G | Numpad 2 or `.` |
-| Gamepad | first pad | second pad |
+| | Player 1 | Player 2 | Gamepad |
+|---|---|---|---|
+| Move / jump / crouch | A D / W / S | ← → / ↑ / ↓ | d-pad or left stick |
+| A: light | J | Num 4 | X / Square |
+| B: heavy | I | Num 8 | Y / Triangle |
+| C: special | L | Num 6 | B / Circle |
+| D: spirit (not yet used) | K | Num 2 | A / Cross |
 
-On a gamepad, light is X (Square) and heavy is Y (Triangle); the d-pad and left stick both move. Function keys:
+The first gamepad drives player 1 and the second drives player 2. Keys are bound by physical position, so the shapes hold on non-US layouts. Player 2's keyboard binding needs a numpad; without one, use a gamepad.
 
-- **F1** shows hurtboxes (cyan), pushboxes (yellow), live hitboxes (red), and each fighter's state and frame.
+- **F1** shows hurtboxes (cyan), pushboxes (yellow), live hitboxes (red), and each fighter's state, move and frame.
 - **F2** cycles player 2 between human control and a training dummy (idle, crouch, guard, crouch guard).
 - **F5** restarts the bout.
 
-The attacking limb is drawn as an outline during startup, solid while active, and faint during recovery.
+A fighter drawn translucent is invulnerable. A knocked-down fighter lies flat.
 
-### Rules implemented
+### The prototype fighter's moves
 
-- **Guard by holding away from the opponent.** Standing guard stops mid and high attacks; crouching guard stops mid and low. Holding back while the opponent is attacking guards in place instead of walking away.
-- **Attack heights.** Standing normals are mid, crouching normals are low, and jumping normals are high (overheads).
-- **Geometry, not rules, decides whiffs.** Standing light sits at chest height and passes over a crouch, while standing heavy reaches low enough to hit one.
-- **Simultaneous hits trade.** Both land, neither cancels the other.
-- **Hitstop** freezes both fighters for a few frames on contact.
-- **Input buffer.** A press made up to 5 frames before the fighter can act still comes out.
-- **Corner recoil.** A cornered defender can't slide back, so the attacker recoils instead.
-- **Rounds.** Best of three, with double KO counting for no one.
+Directions are numpad notation relative to facing: 6 is toward the opponent, 4 away, 2 down.
 
-All numbers live in `game/fighters/prototype_rect.gd`. They are starting points for tuning feel, not balanced values.
+| Input | Move | What it is for |
+|---|---|---|
+| C | palm | Mid-range strike with heavy knockback. |
+| 6C | rush | Slides forward; knocks down on hit, punishable on guard. |
+| 2C | rising | Anti-air. Invulnerable for its first 8 frames, then launches upward; knocks down; long landing recovery. |
+| 236C | projectile | Crosses the stage. Only one at a time; opposing projectiles cancel. |
+| A+B | throw | Beats guard. Loses to any strike landing on the same frame; two throws cancel. Hold 4 to throw backward. |
+| 66 / 44 | dash forward / back | A short burst of ground movement. |
+
+The specials deliberately mix direction+C and motion+C, so both styles can be judged by feel before the real roster commits to one.
+
+The rising move's hitbox also reaches a standing opponent at close range. With 3 frames of startup and invulnerability, it beats almost anything up close and is punishable only when it whiffs or is guarded. That is a known shape of problem in fighting games, and a tuning target, not a bug.
+
+### Rules added in this prototype
+
+- **Commands.** Each fighter lists command patterns such as `"236C"`, `"6C"`, `"AB"` or `"656"`, mapped to moves. The pattern's directions must occur in order within a short window, and the last must be held at the button press. When several patterns match, one with buttons beats one without, then more directions beat fewer. This is why 236C is a projectile even though it ends in 6C.
+- **Input leniency.** For 2 frames after a normal starts, a throw or special that now matches replaces it. A then B one frame later is still a throw.
+- **Input during hitstop** is recorded, so it isn't lost.
+- **Knockdown.** Some moves knock down instead of causing hitstun. A knocked-down fighter is invulnerable until they stand.
+- **Launched moves.** A move with upward motion keeps running after landing, so its recovery happens on the ground.
+- **Entities.** A move can release a body-less performer of another move. Today that is a projectile. The spirit summon in Prototype 3 will be the same mechanism with a different move.
 
 ### Structure
 
@@ -129,23 +150,34 @@ game/
   main.gd                  view: reads input, steps the bout at 60 Hz, draws rectangles
   input_setup.gd           all key and gamepad bindings, registered in code
   combat/
-    attack_definition.gd   frame data, damage, height, local hitboxes
-    fighter_definition.gd  stats, hurtboxes, pushbox, attack table
+    move_definition.gd     frame data, damage, height, hitboxes, throw, knockdown,
+                           invulnerability, motion, spawn
+    fighter_definition.gd  stats, hurtboxes, pushbox, moves, commands
+    command.gd             command notation and priority
+    input_history.gd       recent input and the queries commands need
     intent.gd              one frame of what a controller wants
     fighter.gd             per-fighter state machine (pure logic)
-    bout.gd                frame order, hits, pushboxes, stage, rounds
+    entity.gd              projectiles now, spirits later
+    bout.gd                frame order, hits, throws, clashes, pushboxes, stage, rounds
   controllers/
     player_controller.gd   InputMap -> Intent
     dummy_controller.gd    training dummy; the seed of CPU opponents
   fighters/
-    prototype_rect.gd      the one prototype fighter, as data
+    prototype_rect.gd      the prototype fighter, as data
 tests/
   selftest.gd              mechanics checks, run only on request
 ```
 
-The simulation (`combat/`) has no nodes, drawing or input, and the view only reads it. That separation is what will let sprites replace rectangles, and a CPU replace a player, without touching the rules.
+The simulation (`combat/`) has no nodes, drawing or input devices. The view only reads it. Each frame runs in a fixed order:
 
-Each frame runs in a fixed order: face the opponent, step both fighters, push apart and clamp to the stage, resolve hits, check for KO.
+1. Record input.
+2. If in hitstop, stop here.
+3. Face the opponent and flag threats.
+4. Step the fighters.
+5. Step and spawn entities.
+6. Push the fighters apart and clamp them to the stage.
+7. Resolve hits: strikes, then throws.
+8. Check for KO.
 
 ### Self-test
 
@@ -154,4 +186,4 @@ godot --headless --path . --import          # once, to build the class cache
 godot --headless --path . --script res://tests/selftest.gd
 ```
 
-This checks that the rules behave as written: guards against each height, the whiff over a crouch, trades, KO and round reset, and pushboxes never overlapping. It cannot tell you whether the game feels good; only playing it can.
+The self-test checks that the rules behave as written: guards against each height, trades, KO and round reset, pushboxes, command recognition and facing, special selection and priority, dashes, chord leniency, throws against guard, back throws, throw against throw, strike against throw, knockdown invulnerability, projectiles, and the rising move's invulnerable start. It cannot tell you whether any of this feels good; only playing it can.
