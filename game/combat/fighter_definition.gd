@@ -6,14 +6,21 @@ extends Resource
 ## Boxes use the same local space as MoveDefinition. The pushbox is assumed
 ## symmetric about x = 0.
 
+## Humans bind yokai spirits and yokai bind human spirits, never their own kind.
+enum Kind { HUMAN, YOKAI }
+
 @export var id: StringName
 @export var display_name: String
+@export var kind: Kind = Kind.HUMAN
 @export var max_health: int = 1000
 @export var walk_forward: float = 4.0
 @export var walk_back: float = 3.0
 @export var jump_velocity: float = 18.0
 @export var jump_forward: float = 4.5
 @export var gravity: float = 0.9
+## Walking speed multipliers while crouching and while guarding.
+@export var crawl_factor: float = 0.5
+@export var guard_factor: float = 0.4
 @export var stand_hurtbox: Rect2
 @export var crouch_hurtbox: Rect2
 @export var air_hurtbox: Rect2
@@ -35,3 +42,13 @@ extends Resource
 @export var spirit_cooldown: int = 300
 ## Where the copy appears, relative to the summoner (+x toward the opponent).
 @export var spirit_offset: Vector2 = Vector2.ZERO
+
+@export_group("Finisher")
+## Performed on a beaten opponent whose spirit this fighter can bind; if it
+## connects, the spirit is bound. Empty command: no finisher.
+@export var finisher_command: String = ""
+@export var finisher_move: MoveDefinition
+
+
+func binds(other: FighterDefinition) -> bool:
+	return kind != other.kind

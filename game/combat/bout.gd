@@ -5,16 +5,20 @@ extends RefCounted
 ##   record input -> (throw held? check escape, stop) -> (hitstop? stop)
 ##   -> face, flag threats -> step fighters and spirits -> spawn
 ##   -> push apart, clamp -> resolve hits -> KO?
+## When the deciding KO leaves a loser the winner can bind, the bout enters
+## FINISH: the loser stands dazed and the winner has a few seconds to perform
+## their finisher. The bout ends in BOUT_OVER and does not restart itself.
 ## Pure simulation; the view reads its state and draws it.
 
-enum Phase { FIGHT, ROUND_OVER, BOUT_OVER }
+enum Phase { FIGHT, ROUND_OVER, FINISH, BOUT_OVER }
 
 const ROUNDS_TO_WIN := 2
 const STAGE_LEFT := -600.0
 const STAGE_RIGHT := 600.0
 const START_OFFSET := 150.0
 const ROUND_OVER_FRAMES := 120
-const BOUT_OVER_FRAMES := 240
+const BOUT_OVER_FRAMES := 180
+const FINISH_FRAMES := 300
 ## Where a back throw puts the victim, measured behind the thrower.
 const BACK_THROW_DISTANCE := 60.0
 ## Frames a throw holds its victim before landing. Pressing A+B within this
@@ -34,9 +38,13 @@ var phase_frame := 0
 ## Index of the last round's winner, or -1 for a double KO.
 var round_winner := -1
 var hitstop := 0
-## While positive, a throw is holding its victim and the fight is frozen.
+## True once a finisher has sealed the loser's spirit.
+var bound := false
+## While positive, a throw is holding its victim and the fight is frozen. The
+## thrower may be a fighter or a spirit.
 var grab_frames := 0
-var grab_thrower := -1
+var grab_thrower: Fighter = null
+var grab_victim := -1
 var _grab_input_start := 0
 
 
@@ -55,13 +63,19 @@ func start_round() -> void:
 	phase_frame = 0
 	hitstop = 0
 	grab_frames = 0
-	grab_thrower = -1
+	grab_thrower = null
 
 
 func restart() -> void:
 	wins = [0, 0]
 	round_number = 1
+	bound = false
 	start_round()
+
+
+## True once the bout has been decided and its closing pause has passed.
+func is_over() -> bool:
+	return phase == Phase.BOUT_OVER and phase_frame >= BOUT_OVER_FRAMES
 
 
 func step(intents: Array[Intent]) -> void:
@@ -72,15 +86,12 @@ func step(intents: Array[Intent]) -> void:
 		Phase.ROUND_OVER:
 			_settle_step()
 			if phase_frame >= ROUND_OVER_FRAMES:
-				if wins.max() >= ROUNDS_TO_WIN:
-					_enter(Phase.BOUT_OVER)
-				else:
-					round_number += 1
-					start_round()
+				round_number += 1
+				start_round()
+		Phase.FINISH:
+			_finish_step(intents)
 		Phase.BOUT_OVER:
 			_settle_step()
-			if phase_frame >= BOUT_OVER_FRAMES:
-				restart()
 
 
 func winner() -> int:
@@ -157,9 +168,9 @@ func _spawn() -> void:
 ## pressing A+B; otherwise the throw lands when the window closes.
 func _hold_throw() -> void:
 	grab_frames -= 1
-	var thrower := fighters[grab_thrower]
-	var victim := fighters[1 - grab_thrower]
-	if victim.input.chord(InputHistory.A | InputHistory.B, _grab_input_start - TECH_PREBUFFER) >= 0:
+	var thrower := grab_thrower
+	var victim := fighters[grab_victim]
+	if victim.input.pressed(InputHistory.A | InputHistory.B, _grab_input_start - TECH_PREBUFFER) >= 0:
 		grab_frames = 0
 		thrower.release_from_throw(-thrower.facing)
 		victim.release_from_throw(thrower.facing)
@@ -172,6 +183,27 @@ func _hold_throw() -> void:
 		victim.position.x = thrower.position.x - thrower.facing * BACK_THROW_DISTANCE
 	victim.receive(thrower.move, direction)
 	hitstop = maxi(hitstop, thrower.move.hitstop)
+
+
+## The loser stands dazed; the winner may walk and perform the finisher. If it
+## connects, the loser's spirit is sealed; if time runs out, they collapse.
+func _finish_step(intents: Array[Intent]) -> void:
+	var winner_fighter := fighters[round_winner]
+	var loser := fighters[1 - round_winner]
+	for i in 2:
+		fighters[i].record(intents[i])
+	for f in fighters:
+		f.step()
+	_push_apart()
+	if winner_fighter.performing_finisher() and _any_hit(winner_fighter.active_hitboxes(), loser.hurtbox()):
+		loser.seal()
+		bound = true
+	elif phase_frame >= FINISH_FRAMES:
+		loser.collapse()
+	else:
+		return
+	winner_fighter.awaiting_finisher = false
+	_enter(Phase.BOUT_OVER)
 
 
 ## After a KO the fighters keep falling and sliding, but take no input.
@@ -189,7 +221,7 @@ func _settle_step() -> void:
 func _resolve_hits() -> void:
 	_clash_entities()
 	var strikes: Array = []
-	var throws: Array[int] = []
+	var throwers: Array[Fighter] = []
 	for i in 2:
 		var target := fighters[1 - i]
 		if target.invulnerable():
@@ -198,7 +230,7 @@ func _resolve_hits() -> void:
 		var f := fighters[i]
 		if _any_hit(f.active_hitboxes(), hurt):
 			if f.move.throw:
-				throws.append(i)
+				throwers.append(f)
 			else:
 				strikes.append([i, f.move, f.facing, f])
 		for e in entities:
@@ -206,10 +238,12 @@ func _resolve_hits() -> void:
 				strikes.append([i, e.move, e.facing, null])
 				e.spent = true
 		for s in spirits:
-			if s.summoner == i and s.state == Fighter.State.MOVE and not s.move.throw \
-					and _any_hit(s.active_hitboxes(), hurt):
-				strikes.append([i, s.move, s.facing, null])
-				s.move_connected = true
+			if s.summoner == i and s.state == Fighter.State.MOVE and _any_hit(s.active_hitboxes(), hurt):
+				if s.move.throw:
+					throwers.append(s)
+				else:
+					strikes.append([i, s.move, s.facing, null])
+					s.move_connected = true
 
 	var struck := [false, false]
 	for s in strikes:
@@ -225,18 +259,21 @@ func _resolve_hits() -> void:
 			if _against_wall(target, attacker.facing) and not attacker.airborne:
 				attacker.slide = -attacker.facing * m.knockback
 
-	if throws.size() == 2:
-		for i in throws:
-			fighters[i].move_connected = true
-		return
-	for i in throws:
-		var thrower := fighters[i]
-		var target := fighters[1 - i]
-		if struck[i] or not target.throwable():
+	# Two fighters throwing each other on the same frame cancel out.
+	if fighters.all(func(f: Fighter) -> bool: return f in throwers):
+		for f in fighters:
+			f.move_connected = true
+			throwers.erase(f)
+	for thrower in throwers:
+		var side := thrower.summoner if thrower.summoner >= 0 else fighters.find(thrower)
+		var target := fighters[1 - side]
+		var thrower_struck: bool = thrower.summoner < 0 and struck[side]
+		if thrower_struck or grab_frames > 0 or not target.throwable():
 			continue
 		thrower.move_connected = true
 		target.grabbed()
-		grab_thrower = i
+		grab_thrower = thrower
+		grab_victim = 1 - side
 		grab_frames = TECH_WINDOW
 		_grab_input_start = target.input.frame
 
@@ -315,7 +352,17 @@ func _check_ko() -> void:
 		wins[round_winner] += 1
 	entities.clear()
 	spirits.clear()
-	_enter(Phase.ROUND_OVER)
+	if round_winner < 0 or wins[round_winner] < ROUNDS_TO_WIN:
+		_enter(Phase.ROUND_OVER)
+		return
+	var w := fighters[round_winner]
+	var loser := fighters[1 - round_winner]
+	if w.definition.binds(loser.definition) and w.definition.finisher_command != "":
+		loser.daze()
+		w.awaiting_finisher = true
+		_enter(Phase.FINISH)
+	else:
+		_enter(Phase.BOUT_OVER)
 
 
 func _enter(p: Phase) -> void:

@@ -49,6 +49,24 @@ func _init() -> void:
 	_test_spirit_releases_projectile_for_summoner()
 	print("controls text")
 	_test_controls_text()
+	print("guard button, crawling, input slop")
+	_test_holding_away_does_not_guard()
+	_test_guard_shuffle_and_crawl()
+	_test_no_attacking_while_guarding()
+	_test_late_direction_upgrades_special()
+	_test_chord_window_is_per_player()
+	_test_unavailable_spirit_does_not_fall_through()
+	print("kinds, spirit throws, finishers")
+	_test_kinds_bind_the_other_kind()
+	_test_spirit_throw_can_be_escaped_or_land()
+	_test_finisher_binds()
+	_test_no_finisher_on_own_kind()
+	_test_finisher_times_out()
+	print("CPU, run, calibration")
+	_test_cpu_enters_motions()
+	_test_cpu_attacks()
+	_test_run_rules()
+	_test_calibration()
 	print("selftest: %s" % ("all passed" if failures == 0 else "%d failed" % failures))
 	quit(1 if failures > 0 else 0)
 
@@ -62,22 +80,16 @@ func _bout(distance := 100.0) -> Bout:
 	return b
 
 
-## An Intent from numpad notation relative to `f`'s facing, plus buttons "ABCD".
+## An Intent from numpad notation relative to `f`'s facing, plus buttons
+## "ABCD" and "G" for guard.
 func _in(f: Fighter, n: int, buttons := "") -> Intent:
-	var i := Intent.new()
-	i.x = ((n - 1) % 3 - 1) * f.facing
-	i.up = n >= 7
-	i.down = n <= 3
-	i.light = "A" in buttons
-	i.heavy = "B" in buttons
-	i.special = "C" in buttons
-	i.spirit = "D" in buttons
-	return i
+	return Intent.from_numpad(n, f.facing, buttons)
 
 
-## A script: frame -> [numpad, buttons], holding `hold` on unlisted frames.
-func _at(events: Dictionary, hold := 5) -> Callable:
-	return func(n: int) -> Array: return events.get(n, [hold, ""])
+## A script: frame -> [numpad, buttons]; unlisted frames hold direction `hold`
+## and held buttons `held` (guard, "G").
+func _at(events: Dictionary, hold := 5, held := "") -> Callable:
+	return func(n: int) -> Array: return events.get(n, [hold, held])
 
 
 ## Runs `frames` frames. Player 1 is a script Callable, a DummyController, or
@@ -268,7 +280,7 @@ func _test_chord_lenient_across_frames() -> void:
 func _test_throw_beats_guard() -> void:
 	var b := _bout(70.0)
 	var seen := {}
-	_run(b, 30, _at({0: [5, "AB"]}), _at({}, 4),
+	_run(b, 30, _at({0: [5, "AB"]}), _at({}, 5, "G"),
 			func(x: Bout) -> void: seen[x.fighters[1].state] = true)
 	_check("throw beats a standing guard",
 			_taken(b, 1) == _dmg(&"throw") and Fighter.State.KNOCKDOWN in seen,
@@ -370,9 +382,9 @@ func _test_full_guard_stops_everything() -> void:
 
 # --- spirits -----------------------------------------------------------------
 
-func _spirit_bout(spirit: FighterDefinition, distance: float) -> Bout:
+func _spirit_bout(spirit: FighterDefinition, distance: float, summoner: FighterDefinition = def) -> Bout:
 	var bound: Array[FighterDefinition] = [spirit]
-	var b := Bout.new(def, def, bound, [])
+	var b := Bout.new(summoner, def, bound, [])
 	b.fighters[0].position.x = -distance / 2.0
 	b.fighters[1].position.x = distance / 2.0
 	return b
@@ -399,7 +411,7 @@ func _test_spirit_cooldown() -> void:
 
 func _test_spirit_with_motion() -> void:
 	var balanced := Roster.balanced()
-	var b := _spirit_bout(balanced, 200.0)
+	var b := _spirit_bout(balanced, 200.0, Roster.swift())
 	_run(b, 60, _at({0: [5, "D"]}))
 	_check("a spirit performing a moving move travels like a fighter",
 			_taken(b, 1) == balanced.moves[balanced.spirit_move].damage, "took %d" % _taken(b, 1))
@@ -426,3 +438,208 @@ func _test_controls_text() -> void:
 	_check("commands render as player 1's keys for each facing",
 			right == "S, S+D, D + L" and left == "S, S+A, A + L" and tap == "D, release, D",
 			"%s | %s | %s" % [right, left, tap])
+
+
+# --- guard button, crawling, input slop --------------------------------------
+
+func _test_holding_away_does_not_guard() -> void:
+	var b := _bout()
+	_run(b, 40, _at({0: [5, "B"]}), _at({}, 4))
+	_check("holding away only walks; it does not guard",
+			_taken(b, 1) == _dmg(&"stand_heavy"), "took %d" % _taken(b, 1))
+
+
+func _test_guard_shuffle_and_crawl() -> void:
+	var b := _bout(400.0)
+	var start := b.fighters[0].position.x
+	_run(b, 30, _at({}, 6, "G"))
+	var guarded := b.fighters[0].position.x - start
+	b = _bout(400.0)
+	_run(b, 30, _at({}, 3))
+	var crawled := b.fighters[0].position.x - start
+	var expect_guard := 30 * def.walk_forward * def.guard_factor
+	var expect_crawl := 30 * def.walk_forward * def.crawl_factor
+	_check("guarding shuffles and crouching crawls at their own speeds",
+			is_equal_approx(guarded, expect_guard) and is_equal_approx(crawled, expect_crawl),
+			"guard %.1f (want %.1f), crawl %.1f (want %.1f)" % [guarded, expect_guard, crawled, expect_crawl])
+
+
+func _test_no_attacking_while_guarding() -> void:
+	var b := _bout()
+	_run(b, 30, _at({0: [5, "AG"]}, 5, "G"))
+	_check("attack buttons do nothing while guard is held", _taken(b, 1) == 0,
+			"took %d" % _taken(b, 1))
+
+
+func _test_late_direction_upgrades_special() -> void:
+	var b := _bout(300.0)
+	_run(b, 4, _at({0: [5, "C"], 1: [2, ""]}, 2))
+	var m := b.fighters[0].move
+	var id: StringName = m.id if m else &""
+	_check("down arriving a frame after special still gives the down special", id == &"rising",
+			"got %s" % id)
+
+
+func _test_chord_window_is_per_player() -> void:
+	var narrow := _bout(70.0)
+	_run(narrow, 40, _at({0: [5, "A"], 4: [5, "B"]}))
+	var wide := _bout(70.0)
+	wide.fighters[0].set_chord_window(6)
+	_run(wide, 40, _at({0: [5, "A"], 4: [5, "B"]}))
+	_check("presses 4 frames apart: separate by default, together with a wider window",
+			_taken(narrow, 1) != _dmg(&"throw") and _taken(wide, 1) == _dmg(&"throw"),
+			"default took %d, wide took %d" % [_taken(narrow, 1), _taken(wide, 1)])
+
+
+func _test_unavailable_spirit_does_not_fall_through() -> void:
+	var bound: Array[FighterDefinition] = [Roster.heavy(), Roster.swift()]
+	var b := Bout.new(def, def, bound, [])
+	b.fighters[0].position.x = -400
+	b.fighters[1].position.x = 400
+	var sources := {}
+	_run(b, 90, _at({0: [2, "D"], 50: [2, "D"]}, 2), null, func(x: Bout) -> void:
+		for s in x.spirits:
+			sources[s.definition.id] = true)
+	_check("down+spirit on cooldown summons nothing, not the other slot",
+			sources.keys() == [&"swift"], "summoned %s" % [sources.keys()])
+
+
+# --- kinds, spirit throws, finishers -----------------------------------------
+
+func _test_kinds_bind_the_other_kind() -> void:
+	var human := Roster.balanced()
+	var oni := Roster.heavy()
+	var fox := Roster.swift()
+	_check("humans bind yokai, yokai bind humans, never their own kind",
+			human.binds(oni) and oni.binds(human) and not oni.binds(fox) and not human.binds(human))
+
+
+func _throwing_spirit() -> FighterDefinition:
+	var d := Roster.balanced()
+	d.spirit_move = &"throw"
+	return d
+
+
+func _test_spirit_throw_can_be_escaped_or_land() -> void:
+	var landed := _spirit_bout(_throwing_spirit(), 80.0, Roster.heavy())
+	_run(landed, 50, _at({0: [5, "D"]}))
+	var escaped := _spirit_bout(_throwing_spirit(), 80.0, Roster.heavy())
+	var seen_grab := [false]
+	_run(escaped, 50, _at({0: [5, "D"]}), func(n: int) -> Array:
+		return [5, "AB" if seen_grab[0] else ""], func(x: Bout) -> void:
+			if x.fighters[1].state == Fighter.State.GRABBED:
+				seen_grab[0] = true)
+	_check("a spirit's throw lands, or can be escaped like any throw",
+			_taken(landed, 1) == _dmg(&"throw") and seen_grab[0] and _taken(escaped, 1) == 0,
+			"landed took %d, escaped took %d" % [_taken(landed, 1), _taken(escaped, 1)])
+
+
+func _beaten(winner_def: FighterDefinition, loser_def: FighterDefinition) -> Bout:
+	var b := Bout.new(winner_def, loser_def)
+	b.fighters[0].position.x = -50
+	b.fighters[1].position.x = 50
+	b.wins[0] = 1
+	b.fighters[1].health = 10
+	_run(b, 20, _at({0: [5, "A"]}))
+	return b
+
+
+func _test_finisher_binds() -> void:
+	var b := _beaten(def, Roster.heavy())
+	var dazed := b.phase == Bout.Phase.FINISH and b.fighters[1].state == Fighter.State.DAZED
+	_run(b, 80, _at({0: [4, ""], 1: [6, "D"]}))
+	_check("a beaten foe of the other kind can be sealed by the finisher",
+			dazed and b.bound and b.phase == Bout.Phase.BOUT_OVER,
+			"dazed %s bound %s phase %d" % [dazed, b.bound, b.phase])
+
+
+func _test_no_finisher_on_own_kind() -> void:
+	var b := _beaten(def, def)
+	_check("no finisher against one's own kind", b.phase == Bout.Phase.BOUT_OVER and not b.bound,
+			"phase %d" % b.phase)
+
+
+func _test_finisher_times_out() -> void:
+	var b := _beaten(def, Roster.heavy())
+	_run(b, Bout.FINISH_FRAMES + 5, _at({}))
+	_check("without a finisher the foe collapses and nothing is bound",
+			b.phase == Bout.Phase.BOUT_OVER and not b.bound and b.fighters[1].state == Fighter.State.KO,
+			"phase %d bound %s" % [b.phase, b.bound])
+
+
+# --- CPU, run, calibration ---------------------------------------------------
+
+func _test_cpu_enters_motions() -> void:
+	var queue := CpuController.inputs_for("236C", 1)
+	var b := _bout(300.0)
+	var found := [&""]
+	for n in 6:
+		var i0: Intent = queue[n] if n < queue.size() else Intent.new()
+		var intents: Array[Intent] = [i0, Intent.new()]
+		b.step(intents)
+		if b.fighters[0].move and found[0] == &"":
+			found[0] = b.fighters[0].move.id
+	_check("the CPU enters command patterns frame by frame", found[0] == &"projectile",
+			"got %s" % found[0])
+
+
+func _test_cpu_attacks() -> void:
+	var b := _bout(300.0)
+	var cpu := CpuController.new(CpuController.EASY, 7)
+	for n in 1500:
+		var intents: Array[Intent] = [cpu.read(b.fighters[0], b.fighters[1]), Intent.new()]
+		b.step(intents)
+	_check("the easy CPU closes in and lands hits on an idle opponent", _taken(b, 1) > 0,
+			"took %d" % _taken(b, 1))
+
+
+func _test_run_rules() -> void:
+	var all := Roster.all()
+	var run := Run.new(all[0], all, 11)
+	var kinds_ok := true
+	var counts_ok := true
+	for k in 300:
+		for s in run.opponent_spirits:
+			kinds_ok = kinds_ok and run.opponent.binds(s)
+		counts_ok = counts_ok and run.opponent_spirits.size() <= Run.SLOTS
+		run._draw_opponent()
+	var r := Run.new(all[0], all, 3)
+	var first := r.win(all[1])
+	var second := r.win(all[2])
+	var third := r.win(all[1])
+	r.choose(0)
+	var fights := 0
+	while r.advance():
+		fights += 1
+	_check("opponent spirits follow the kind rule, at most two",
+			kinds_ok and counts_ok)
+	_check("binding fills free slots, then asks; a run lasts its length",
+			not first and not second and third and r.spirits[0] == all[1] and fights == Run.LENGTH - 1,
+			"%s %s %s fights %d" % [first, second, third, fights])
+
+
+func _test_calibration() -> void:
+	var separable: Array[int] = [0, 1, 1, 2]
+	var quick: Array[int] = [5, 6, 7]
+	var close: Array[int] = [0, 3]
+	var overlap: Array[int] = [2, 4]
+	var ok := Calibration.window_for(separable, quick) == 4 \
+			and Calibration.window_for(close, overlap) == 4
+	var c := Calibration.new()
+	for trial in Calibration.TRIALS:
+		_press_pair(c, 1)
+	for trial in Calibration.TRIALS:
+		_press_pair(c, 6)
+	_check("calibration sets the window between together and sequence",
+			ok and c.stage() == Calibration.Stage.DONE and c.player == 0 and c.window() == 4,
+			"window %d" % c.window())
+
+
+## Feeds the calibration light, then heavy `gap` frames later, then a pause.
+func _press_pair(c: Calibration, gap: int) -> void:
+	for f in gap + 30:
+		var i := Intent.new()
+		i.light = f == 0
+		i.heavy = f == gap
+		var intents: Array[Intent] = [i, Intent.new()]
+		c.observe(intents)

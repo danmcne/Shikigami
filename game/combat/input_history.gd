@@ -8,13 +8,16 @@ extends RefCounted
 const CAPACITY := 40
 ## A press stays usable for this many frames.
 const BUFFER := 5
-## Buttons pressed within this many frames of each other count as together.
-const CHORD := 3
+const DEFAULT_CHORD := 3
 const A := 1
 const B := 2
 const C := 4
 const D := 8
 
+## Presses fewer than this many frames apart count as together, and a
+## direction this close to a button press counts as held with it. Set per
+## player by calibration.
+var chord := DEFAULT_CHORD
 var frame := -1
 var _dirs := PackedInt32Array()
 var _presses := PackedInt32Array()
@@ -38,15 +41,21 @@ func direction(f: int, facing: int) -> int:
 
 
 func matches(cmd: Command, facing: int, after: int) -> bool:
-	var end := chord(cmd.buttons, after) if cmd.buttons != 0 else _entered(after)
+	var end := pressed(cmd.buttons, after) if cmd.buttons != 0 else _entered(after)
 	if end < 0:
 		return false
 	if cmd.dirs.is_empty():
 		return true
-	if direction(end, facing) != cmd.dirs[-1]:
+	# The final direction may be entered slightly before or after the buttons.
+	var slop := chord - 1 if cmd.buttons != 0 else 0
+	var held_at := -1
+	for f in range(maxi(end - slop, _first(after)), mini(end + slop, frame) + 1):
+		if direction(f, facing) == cmd.dirs[-1]:
+			held_at = f
+	if held_at < 0:
 		return false
 	var runs: Array[int] = []
-	for f in range(maxi(end - cmd.window, _first(after)), end + 1):
+	for f in range(maxi(held_at - cmd.window, _first(after)), held_at + 1):
 		var d := direction(f, facing)
 		if runs.is_empty() or runs[-1] != d:
 			runs.append(d)
@@ -59,10 +68,10 @@ func matches(cmd: Command, facing: int, after: int) -> bool:
 	return k < 0
 
 
-## Latest frame on which every button in `mask` has been pressed, all within
-## CHORD frames of each other and the latest within BUFFER; -1 if none.
-func chord(mask: int, after: int) -> int:
-	var first := maxi(_first(after), frame - BUFFER - CHORD + 2)
+## Latest frame on which every button in `mask` has been pressed, all fewer
+## than `chord` frames apart and the latest within BUFFER; -1 if none.
+func pressed(mask: int, after: int) -> int:
+	var first := maxi(_first(after), frame - BUFFER - chord + 2)
 	var latest := -1
 	var earliest := frame + 1
 	for bit in 4:
@@ -73,7 +82,7 @@ func chord(mask: int, after: int) -> int:
 			return -1
 		latest = maxi(latest, f)
 		earliest = mini(earliest, f)
-	if latest <= frame - BUFFER or latest - earliest >= CHORD:
+	if latest <= frame - BUFFER or latest - earliest >= chord:
 		return -1
 	return latest
 

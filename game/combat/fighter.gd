@@ -2,24 +2,26 @@ class_name Fighter
 extends RefCounted
 ## One fighter's simulation state. Pure logic: no nodes, no drawing, no input
 ## devices. The Bout records each frame's Intent, then steps the fighter.
+## A summoned spirit is also a Fighter, performing one move with no input.
 
-enum State { STAND, WALK, CROUCH, JUMP, MOVE, HITSTUN, BLOCKSTUN, KNOCKDOWN, GRABBED, KO }
+enum State { STAND, WALK, CROUCH, GUARD, JUMP, MOVE, HITSTUN, BLOCKSTUN, KNOCKDOWN,
+		GRABBED, DAZED, SEALED, KO }
 
 const FLOOR_Y := 0.0
 ## Deceleration of ground slide (knockback, blockback, dashes), in px/frame².
 const SLIDE_DECEL := 0.5
-## For this many frames after a normal starts, a throw or special that now
-## matches replaces it. Buttons meant together need not land on one frame.
-const LENIENCY := 2
 ## Summoning is the same for everyone: D for the first bound spirit, 2D for
 ## the second.
 const SUMMON_COMMANDS := ["D", "2D"]
 ## Frames of blockstun both fighters take when a throw is escaped.
 const TECH_STUN := 14
 const TECH_PUSH := 8.0
+const FINISHER := &"finisher"
 
 var definition: FighterDefinition
 var input := InputHistory.new()
+## This player's chord window (see InputHistory.chord); survives round resets.
+var chord_window := InputHistory.DEFAULT_CHORD
 var position := Vector2.ZERO
 ## Airborne velocity, px/frame.
 var velocity := Vector2.ZERO
@@ -40,10 +42,14 @@ var airborne := false
 var crouching := false
 var holding_back := false
 var air_move_used := false
-## Set by the Bout each frame: moves whose released entity is still alive.
-## Such a move cannot be repeated until its entity is gone.
+## Set by the Bout each frame. `threatened` is perception for controllers;
+## `live_spawns` lists moves whose released entity is still alive, which
+## cannot be repeated until it is gone.
 var threatened := false
 var live_spawns: Array = []
+## Set by the Bout when the opponent is beaten and this fighter may seal them:
+## only walking and the finisher are possible.
+var awaiting_finisher := false
 ## Set by step() on the frame a move releases something for the Bout to spawn.
 var pending_spawn: MoveDefinition = null
 ## Set by step() on the frame a summon releases a spirit: the slot index.
@@ -56,16 +62,21 @@ var summoner := -1
 
 var _commands: Array[Command] = []
 var _moves: Dictionary = {}
+var _finisher: Command = null
 var _summon_slot := -1
 var _intent := Intent.new()
 var _consumed := -1
-var _from_normal := false
-var _consumed_before_normal := -1
+## Rank of the input that started the current move (0 for a normal), or -1 if
+## it cannot be replaced; and what had been consumed before it started.
+var _started_rank := -1
+var _consumed_before_start := -1
 
 
 func _init(def: FighterDefinition, bound: Array[FighterDefinition] = []) -> void:
 	definition = def
 	spirits = bound
+	for s in spirits:
+		assert(def.binds(s), "%s cannot bind %s" % [def.display_name, s.display_name])
 	_moves = def.moves.duplicate()
 	for pattern in def.commands:
 		_commands.append(Command.parse(pattern, def.commands[pattern]))
@@ -74,10 +85,14 @@ func _init(def: FighterDefinition, bound: Array[FighterDefinition] = []) -> void
 		_moves[id] = def.summon_move
 		_commands.append(Command.parse(SUMMON_COMMANDS[slot], id))
 	_commands.sort_custom(func(a: Command, b: Command) -> bool: return a.rank() > b.rank())
+	if def.finisher_command != "":
+		_moves[FINISHER] = def.finisher_move
+		_finisher = Command.parse(def.finisher_command, FINISHER)
 
 
 func reset(x: float, face: int) -> void:
 	input = InputHistory.new()
+	input.chord = chord_window
 	position = Vector2(x, FLOOR_Y)
 	velocity = Vector2.ZERO
 	slide = 0.0
@@ -95,17 +110,27 @@ func reset(x: float, face: int) -> void:
 	air_move_used = false
 	threatened = false
 	live_spawns = []
+	awaiting_finisher = false
 	pending_spawn = null
 	pending_summon = -1
 	cooldowns.assign(spirits.map(func(_s: FighterDefinition) -> int: return 0))
 	_summon_slot = -1
 	_intent = Intent.new()
 	_consumed = -1
-	_from_normal = false
+	_started_rank = -1
+
+
+func set_chord_window(frames: int) -> void:
+	chord_window = frames
+	input.chord = frames
 
 
 func can_turn() -> bool:
-	return not airborne and state in [State.STAND, State.WALK, State.CROUCH]
+	return not airborne and state in [State.STAND, State.WALK, State.CROUCH, State.GUARD]
+
+
+func actionable() -> bool:
+	return can_turn()
 
 
 func face_toward(x: float) -> void:
@@ -132,11 +157,11 @@ func step() -> void:
 	for slot in cooldowns.size():
 		cooldowns[slot] = maxi(cooldowns[slot] - 1, 0)
 	holding_back = _intent.x == -facing
-	if state in [State.STAND, State.WALK, State.CROUCH, State.BLOCKSTUN]:
+	if state in [State.STAND, State.WALK, State.CROUCH, State.GUARD, State.BLOCKSTUN]:
 		crouching = _intent.down
 
 	match state:
-		State.STAND, State.WALK, State.CROUCH:
+		State.STAND, State.WALK, State.CROUCH, State.GUARD:
 			_act_on_ground()
 		State.JUMP:
 			_act_in_air()
@@ -151,7 +176,7 @@ func step() -> void:
 				stun -= 1
 				if stun <= 0:
 					_set_state(State.STAND)
-		State.GRABBED, State.KO:
+		State.GRABBED, State.DAZED, State.SEALED, State.KO:
 			pass
 
 	if state == State.MOVE and state_frame == move.startup:
@@ -164,11 +189,11 @@ func step() -> void:
 
 
 func receive(m: MoveDefinition, from_facing: int) -> void:
-	var guarding := not m.throw and not airborne and holding_back \
-			and state in [State.STAND, State.WALK, State.CROUCH, State.BLOCKSTUN]
+	var guarding := not m.throw and not airborne and _intent.guard \
+			and state in [State.GUARD, State.BLOCKSTUN]
 	var unguardable := MoveDefinition.Height.HIGH if crouching else MoveDefinition.Height.LOW
 	move = null
-	_from_normal = false
+	_started_rank = -1
 	if guarding and m.height != unguardable:
 		stun = m.blockstun
 		slide = from_facing * m.knockback
@@ -190,36 +215,55 @@ func receive(m: MoveDefinition, from_facing: int) -> void:
 		_set_state(State.HITSTUN, true)
 
 
-## Held by a throw while the thrower's opponent may still escape it.
+## Held by a throw while the victim may still escape it.
 func grabbed() -> void:
-	move = null
-	_from_normal = false
-	slide = 0.0
+	_halt()
 	_set_state(State.GRABBED, true)
 
 
 ## Both fighters separate after an escaped throw.
 func release_from_throw(away: int) -> void:
-	move = null
-	_from_normal = false
+	_halt()
 	stun = TECH_STUN
 	slide = away * TECH_PUSH
 	_set_state(State.BLOCKSTUN, true)
 
 
+## Beaten in the deciding round by someone who may seal this fighter's spirit.
+func daze() -> void:
+	_halt()
+	crouching = false
+	_set_state(State.DAZED, true)
+
+
+func seal() -> void:
+	_halt()
+	_set_state(State.SEALED, true)
+
+
+func collapse() -> void:
+	_halt()
+	_set_state(State.KO, true)
+
+
 func invulnerable() -> bool:
-	return state == State.KNOCKDOWN or (state == State.MOVE and state_frame < move.invulnerable)
+	return state in [State.KNOCKDOWN, State.DAZED, State.SEALED] \
+			or (state == State.MOVE and state_frame < move.invulnerable)
 
 
 func throwable() -> bool:
 	return not airborne and not invulnerable() \
-			and state in [State.STAND, State.WALK, State.CROUCH, State.MOVE]
+			and state in [State.STAND, State.WALK, State.CROUCH, State.GUARD, State.MOVE]
 
 
 ## Whether this fighter's current move still has hits to come.
 func threatening() -> bool:
 	return state == State.MOVE and (not move.hitboxes.is_empty() or move.spawn != null) \
 			and state_frame < move.startup + move.active
+
+
+func performing_finisher() -> bool:
+	return state == State.MOVE and _finisher != null and move == _moves[FINISHER]
 
 
 func hurtbox() -> Rect2:
@@ -245,16 +289,29 @@ func to_world(local: Rect2) -> Rect2:
 
 
 func _act_on_ground() -> void:
-	var cmd := _matching_command(false, _consumed)
+	if awaiting_finisher:
+		if input.matches(_finisher, facing, _consumed):
+			_start(FINISHER)
+		else:
+			_walk(1.0)
+			_set_state(State.WALK if _intent.x != 0 else State.STAND)
+		return
+	if _intent.guard:
+		_walk(definition.guard_factor)
+		_set_state(State.GUARD)
+		return
+	var cmd := _matching_command(false, _consumed, -1)
 	if cmd:
-		_start(cmd.move)
+		if _available(cmd):
+			_start_by(cmd.move, cmd.rank(), _consumed)
+		else:
+			# Asking for something unavailable spends the input; it does not
+			# fall through to a lesser command.
+			_consumed = input.frame
 		return
 	var button := _pressed_normal()
 	if button != "":
-		var prior := _consumed
-		_start(StringName(("crouch_" if crouching else "stand_") + button))
-		_from_normal = true
-		_consumed_before_normal = prior
+		_start_by(StringName(("crouch_" if crouching else "stand_") + button), 0, _consumed)
 		return
 	if _intent.up:
 		crouching = false
@@ -264,13 +321,17 @@ func _act_on_ground() -> void:
 		_set_state(State.JUMP)
 		return
 	if crouching:
+		_walk(definition.crawl_factor)
 		_set_state(State.CROUCH)
-	elif _intent.x == 0 or (holding_back and threatened):
-		_set_state(State.STAND)
 	else:
+		_walk(1.0)
+		_set_state(State.WALK if _intent.x != 0 else State.STAND)
+
+
+func _walk(factor: float) -> void:
+	if _intent.x != 0:
 		var speed := definition.walk_back if holding_back else definition.walk_forward
-		position.x += _intent.x * speed
-		_set_state(State.WALK)
+		position.x += _intent.x * speed * factor
 
 
 func _act_in_air() -> void:
@@ -282,35 +343,44 @@ func _act_in_air() -> void:
 		_start(StringName("jump_" + button))
 
 
+## While a move started from input has not yet become active, and within the
+## chord window, a higher-ranked command that now matches replaces it. Buttons
+## and directions meant together need not land on one frame.
 func _continue_move() -> void:
-	if _from_normal and state_frame <= LENIENCY:
-		var cmd := _matching_command(true, _consumed_before_normal)
-		if cmd:
-			_start(cmd.move)
+	if _started_rank >= 0 and state_frame < input.chord and state_frame < move.startup:
+		var cmd := _matching_command(true, _consumed_before_start, _started_rank)
+		if cmd and _available(cmd):
+			_start_by(cmd.move, cmd.rank(), _consumed_before_start)
 			return
 	if state_frame >= move.total_frames():
 		move = null
 		_set_state(State.JUMP if airborne else State.STAND)
 
 
-func _matching_command(buttons_only: bool, after: int) -> Command:
+## The highest-ranked command matching the input, above `above_rank`.
+func _matching_command(buttons_only: bool, after: int, above_rank: int) -> Command:
 	for cmd in _commands:
+		if cmd.rank() <= above_rank:
+			break
 		if buttons_only and cmd.buttons == 0:
-			continue
-		var m: MoveDefinition = _moves[cmd.move]
-		if m.spawn and m.spawn in live_spawns:
-			continue
-		if cmd.move in _summon_ids() and cooldowns[_summon_ids().find(cmd.move)] > 0:
 			continue
 		if input.matches(cmd, facing, after):
 			return cmd
 	return null
 
 
+func _available(cmd: Command) -> bool:
+	var m: MoveDefinition = _moves[cmd.move]
+	if m.spawn and m.spawn in live_spawns:
+		return false
+	var slot := _summon_ids().find(cmd.move)
+	return slot < 0 or cooldowns[slot] == 0
+
+
 func _pressed_normal() -> String:
-	if input.chord(InputHistory.B, _consumed) >= 0:
+	if input.pressed(InputHistory.B, _consumed) >= 0:
 		return "heavy"
-	if input.chord(InputHistory.A, _consumed) >= 0:
+	if input.pressed(InputHistory.A, _consumed) >= 0:
 		return "light"
 	return ""
 
@@ -319,11 +389,17 @@ func _summon_ids() -> Array:
 	return range(cooldowns.size()).map(func(slot: int) -> StringName: return StringName("summon_%d" % slot))
 
 
+func _start_by(id: StringName, rank: int, consumed_before: int) -> void:
+	_start(id)
+	_started_rank = rank
+	_consumed_before_start = consumed_before
+
+
 func _start(id: StringName) -> void:
 	move = _moves[id]
 	_summon_slot = _summon_ids().find(id)
 	_consumed = input.frame
-	_from_normal = false
+	_started_rank = -1
 	move_connected = false
 	move_reversed = holding_back
 	if move.motion.y < 0.0:
@@ -334,6 +410,12 @@ func _start(id: StringName) -> void:
 	elif move.motion.x != 0.0 and not airborne:
 		slide = facing * move.motion.x
 	_set_state(State.MOVE, true)
+
+
+func _halt() -> void:
+	move = null
+	_started_rank = -1
+	slide = 0.0
 
 
 func _integrate() -> void:

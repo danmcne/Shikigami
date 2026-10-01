@@ -14,6 +14,7 @@ static func definition() -> FighterDefinition:
 	var d := FighterDefinition.new()
 	d.id = &"prototype_rect"
 	d.display_name = "Rectangle"
+	d.kind = FighterDefinition.Kind.HUMAN
 	d.stand_hurtbox = Rect2(-30, -160, 60, 160)
 	d.crouch_hurtbox = Rect2(-30, -100, 60, 100)
 	d.air_hurtbox = Rect2(-30, -140, 60, 120)
@@ -77,6 +78,11 @@ static func definition() -> FighterDefinition:
 	d.summon_move = _move({id = &"summon", startup = 6, active = 1, recovery = 14})
 	d.spirit_move = &"rush"
 	d.spirit_cooldown = 360
+
+	# Away, toward, spirit. Wide reach: sealing is not a test of spacing.
+	d.finisher_command = "46D"
+	d.finisher_move = _move({id = &"finisher", startup = 20, active = 12, recovery = 40,
+		damage = 0, hitboxes = [Rect2(0, -220, 320, 220)]})
 
 	d.commands = {
 		"AB": &"throw",        # hold back for a back throw

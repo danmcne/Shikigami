@@ -5,7 +5,7 @@ extends RefCounted
 ##   "236C" facing right, player 1  ->  "S, S+D, D + L"
 ## Command notation stays the data format; players only ever see keys.
 
-const BUTTON_VERBS := {"A": "light", "B": "heavy", "C": "special", "D": "spirit"}
+const BUTTON_VERBS := {"A": "light", "B": "heavy", "C": "special", "D": "spirit", "G": "guard"}
 
 
 static func describe(pattern: String, facing: int, prefix: String) -> String:

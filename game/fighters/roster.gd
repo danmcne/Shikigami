@@ -1,7 +1,8 @@
 extends RefCounted
-## Prototype archetypes. All three share one move set and differ only in
-## numbers: body size, speed, power, tempo, health, and which of their moves
-## they perform when bound as a spirit.
+## Prototype archetypes, placeholders until real characters exist. All three
+## share one move set and differ only in data: body size, speed, power,
+## tempo, health, kind, finisher input, and which of their moves they perform
+## when bound as a spirit. Nothing in the game refers to them by name.
 ##
 ## Deriving variants by scaling is a prototype convenience for testing whether
 ## data alone makes fighters feel different. Real characters will be written
@@ -18,24 +19,29 @@ static func balanced() -> FighterDefinition:
 	var d := PrototypeRect.definition()
 	d.id = &"balanced"
 	d.display_name = "Balanced"
+	d.kind = FighterDefinition.Kind.HUMAN
 	return d
 
 
 static func heavy() -> FighterDefinition:
 	var d := _variant(&"heavy", "Heavy", {
 		health = 1200, size = 1.2, speed = 0.72, jump = 0.9, power = 1.3, tempo = 2})
+	d.kind = FighterDefinition.Kind.YOKAI
 	d.spirit_move = &"stand_heavy"
 	d.spirit_cooldown = 300
 	d.spirit_offset = Vector2(50, 0)
+	d.finisher_command = "28D"
 	return d
 
 
 static func swift() -> FighterDefinition:
 	var d := _variant(&"swift", "Swift", {
 		health = 850, size = 0.85, speed = 1.35, jump = 1.06, power = 0.8, tempo = -1})
+	d.kind = FighterDefinition.Kind.YOKAI
 	d.spirit_move = &"projectile"
 	d.spirit_cooldown = 240
 	d.spirit_offset = Vector2(-40, 0)
+	d.finisher_command = "64D"
 	return d
 
 
@@ -55,7 +61,7 @@ static func _variant(id: StringName, name: String, p: Dictionary) -> FighterDefi
 	d.crouch_hurtbox = _scale(d.crouch_hurtbox, p.size)
 	d.air_hurtbox = _scale(d.air_hurtbox, p.size)
 	d.pushbox = _scale(d.pushbox, p.size)
-	for m in d.moves.values() + [d.summon_move]:
+	for m in d.moves.values() + [d.summon_move, d.finisher_move]:
 		var move: MoveDefinition = m
 		move.hitboxes.assign(move.hitboxes.map(func(r: Rect2) -> Rect2: return _scale(r, p.size)))
 		move.spawn_offset *= p.size
