@@ -7,8 +7,9 @@ extends Resource
 ## local space: origin at the feet, +x toward the opponent, -y upward.
 
 ## Which guard stops the move. Standing guard stops MID and HIGH;
-## crouching guard stops MID and LOW.
-enum Height { HIGH, MID, LOW }
+## crouching guard stops MID and LOW; nothing stops HIGH_LOW, which strikes
+## high and low together.
+enum Height { HIGH, MID, LOW, HIGH_LOW }
 
 @export var id: StringName
 ## Frames before the first active frame.
@@ -52,6 +53,18 @@ enum Height { HIGH, MID, LOW }
 @export var teleport_distance: float = 70.0
 ## Frames before this move can be used again. Zero: no recharge.
 @export var cooldown: int = 0
+## Frames of armour granted when the move starts: hits still deal damage but
+## do not interrupt. Throws ignore armour. A spirit's armour goes to its
+## summoner.
+@export var armor: int = 0
+## On a hit that is not guarded, slows the target's walking and jumping for
+## this many frames.
+@export var slows: int = 0
+## A counter stance: if struck by a strike while this move is active, the hit
+## is ignored and the performer does `counter` instead.
+@export var counter: MoveDefinition
+## May be performed in the air as well as on the ground.
+@export var air: bool = false
 
 
 func total_frames() -> int:

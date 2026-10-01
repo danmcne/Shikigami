@@ -49,7 +49,7 @@ var _grab_input_start := 0
 
 
 func _init(a: FighterDefinition, b: FighterDefinition,
-		spirits_a: Array[FighterDefinition] = [], spirits_b: Array[FighterDefinition] = []) -> void:
+		spirits_a: Array[SpiritBinding] = [], spirits_b: Array[SpiritBinding] = []) -> void:
 	fighters.assign([Fighter.new(a, spirits_a), Fighter.new(b, spirits_b)])
 	start_round()
 
@@ -168,6 +168,8 @@ func _spawn() -> void:
 			entities.append(Entity.new(f.pending_spawn, f, side))
 		if f.pending_heal > 0:
 			fighters[side].heal(f.pending_heal)
+		if f.pending_armor > 0:
+			fighters[side].gain_armor(f.pending_armor)
 		if f.pending_teleport > 0.0:
 			var target := fighters[1 - side]
 			var across := signf(target.position.x - f.position.x)
@@ -177,11 +179,11 @@ func _spawn() -> void:
 			f.facing = -int(across)
 			_clamp(f)
 		if f.pending_summon >= 0:
-			var source := f.spirits[f.pending_summon]
-			var s := Fighter.new(source)
-			s.reset(f.position.x + f.facing * source.spirit_offset.x, f.facing)
+			var binding := f.spirits[f.pending_summon]
+			var s := Fighter.new(binding.source)
+			s.reset(f.position.x + f.facing * binding.source.spirit_offset.x, f.facing)
 			s.summoner = side
-			s.perform(source.signature)
+			s.perform(binding.move)
 			spirits.append(s)
 
 
@@ -381,8 +383,8 @@ func _check_ko() -> void:
 	var w := fighters[round_winner]
 	var loser := fighters[1 - round_winner]
 	# A spirit already held cannot be sealed again.
-	var held := w.spirits.any(func(d: FighterDefinition) -> bool: return d.id == loser.definition.id)
-	if w.definition.binds(loser.definition) and w.definition.finisher_command != "" and not held:
+	var held := w.spirits.any(func(b: SpiritBinding) -> bool: return b.source.id == loser.definition.id)
+	if w.definition.binds(loser.definition) and w.definition.finisher_move and not held:
 		loser.daze()
 		w.awaiting_finisher = true
 		_enter(Phase.FINISH)

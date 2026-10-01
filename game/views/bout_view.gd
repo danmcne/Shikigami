@@ -53,6 +53,8 @@ static func _fighter(ci: CanvasItem, f: Fighter, base: Color, show_boxes: bool) 
 			color = Color(base.lerp(Color.WHITE, 0.7), 0.5)
 		Fighter.State.KO:
 			color = base.darkened(0.6)
+	if f.slow_frames > 0:
+		color = color.lerp(Color(0.6, 0.85, 1.0, color.a), 0.5)
 	if f.invulnerable() and f.state != Fighter.State.DAZED:
 		color.a = minf(color.a, 0.45)
 
@@ -61,6 +63,14 @@ static func _fighter(ci: CanvasItem, f: Fighter, base: Color, show_boxes: bool) 
 	if lying:
 		body = Rect2(f.position.x - 70, f.position.y - 30, 140, 30)
 	ci.draw_rect(body, color)
+	if f.armor_frames > 0:
+		ci.draw_rect(body.grow(3), Color(1.0, 0.8, 0.2, 0.9), false, 3.0)
+	if f.summoner < 0:
+		ci.draw_string(ThemeDB.fallback_font, Vector2(body.position.x - 60, body.position.y - 26),
+				f.definition.display_name, HORIZONTAL_ALIGNMENT_CENTER, body.size.x + 120, 13, Color(1, 1, 1, 0.75))
+	if f.notice_frames > 0:
+		ci.draw_string(ThemeDB.fallback_font, Vector2(body.position.x - 60, body.position.y - 44),
+				f.notice, HORIZONTAL_ALIGNMENT_CENTER, body.size.x + 120, 18, Color(1.0, 0.95, 0.5))
 	var notch_x := body.end.x - 10.0 if f.facing == 1 else body.position.x
 	ci.draw_rect(Rect2(notch_x, body.position.y + 12, 10, 10), Color(0, 0, 0, color.a))
 	if f.state == Fighter.State.GUARD or (f.state == Fighter.State.BLOCKSTUN and not lying):
@@ -127,21 +137,22 @@ static func _hud(ci: CanvasItem, bout: Bout, names: Array[String]) -> void:
 				message(ci, "PLAYER %d WINS" % (bout.winner() + 1))
 
 
-## Recharging abilities under the name: the signature special, then each
-## spirit slot. The fill drains on use and refills as it recharges.
+## Recharging abilities under the name: the two specials, then each spirit
+## slot. The fill drains on use and refills as it recharges.
 static func _slots(ci: CanvasItem, f: Fighter, index: int, bar: Rect2, left: bool) -> void:
 	var prefix := "p%d_" % (index + 1)
 	var slots: Array = []  # [label, remaining, full]
 	var d := f.definition
-	if d.signature != &"":
-		var m: MoveDefinition = d.moves[d.signature]
-		slots.append([ControlsText.key(prefix, "special") + "  " + _name(m.id),
+	var patterns := ["C", "4C"]
+	for k in d.specials.size():
+		var m: MoveDefinition = d.moves[d.specials[k]]
+		slots.append([ControlsText.describe(patterns[k], f.facing, prefix) + "  " + _name(m.id),
 				f.move_cooldowns.get(m.id, 0), maxi(m.cooldown, 1)])
 	for slot in f.spirits.size():
-		var source := f.spirits[slot]
+		var binding := f.spirits[slot]
 		slots.append([ControlsText.describe(Fighter.SUMMON_COMMANDS[slot], f.facing, prefix)
-				+ "  " + source.display_name, f.cooldowns[slot], source.spirit_cooldown])
-	var w := 180.0
+				+ "  " + binding.label(), f.cooldowns[slot], binding.source.spirit_cooldown])
+	var w := 130.0
 	for k in slots.size():
 		var x := bar.position.x + k * (w + 10) if left else bar.end.x - (k + 1) * (w + 10) + 10
 		var r := Rect2(x, 86, w, 18)
@@ -167,7 +178,7 @@ static func move_list(f: Fighter, prefix: String) -> Array[String]:
 	var special := ControlsText.key(prefix, "special")
 	var spirit := ControlsText.key(prefix, "spirit")
 	var rows: Array[String] = [
-		"Guard: hold %s+%s (with %s: low). Spirit guard, also stops spirits: hold %s+%s+%s." % [
+		"Guard: hold %s+%s (with %s: low). Against spirits instead: hold %s+%s+%s." % [
 				light, special, down, light, spirit, special],
 		"%s light, %s heavy. Crouching: lows. Jumping: overheads." % [light, heavy],
 	]
@@ -175,12 +186,12 @@ static func move_list(f: Fighter, prefix: String) -> Array[String]:
 	for pattern in d.commands:
 		var m: MoveDefinition = d.moves[d.commands[pattern]]
 		var name := _name(m.id)
-		if m.id == d.signature:
-			name += " (signature; recharges)"
+		if m.id in d.specials:
+			name += " (recharges)"
 		if m.throw:
 			name += " (hold %s to throw backward)" % away
 		rows.append("%s   %s" % [ControlsText.describe(pattern, f.facing, prefix), name])
 	rows.append("Escape a throw: %s+%s as you are grabbed." % [light, heavy])
-	if d.finisher_command != "":
-		rows.append("Finisher (beaten foe you can bind): %s" % ControlsText.describe(d.finisher_command, f.facing, prefix))
+	if d.finisher_move:
+		rows.append("Finisher (beaten foe you can bind): %s" % ControlsText.describe(Fighter.FINISHER_COMMAND, f.facing, prefix))
 	return rows

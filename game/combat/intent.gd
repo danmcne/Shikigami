@@ -8,8 +8,9 @@ const A := 1
 const B := 2
 const C := 4
 const D := 8
-## Held chords: guard is light + special; spirit guard adds the spirit button
-## and also stops spirits' attacks, which plain guard does not.
+## Held chords: guard is light + special and stops ordinary attacks; spirit
+## guard adds the spirit button and stops spirits' attacks instead. Neither
+## stops what the other does.
 const GUARD := A | C
 const SPIRIT_GUARD := A | C | D
 

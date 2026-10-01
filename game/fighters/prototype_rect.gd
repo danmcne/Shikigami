@@ -1,9 +1,9 @@
 extends RefCounted
-## The kit every prototype fighter shares: six normals, a throw, two dashes,
-## two shared specials (toward + special, down + special), the summon gesture
-## and a finisher. roster.gd gives each archetype its proportions, its
-## signature special (neutral special) and sometimes a second special. The
-## numbers are starting points for tuning feel, not balance claims.
+## The kit every fighter shares: six normals, a throw, two dashes, two shared
+## techniques (toward + special: rush; down + special: rising anti-air), the
+## summon gesture and a finisher. roster.gd gives each character its
+## proportions and its two specials. The numbers are starting points for
+## tuning feel, not balance claims.
 
 const H := MoveDefinition.Height
 
@@ -67,8 +67,7 @@ static func definition() -> FighterDefinition:
 	d.summon_move = _move({id = &"summon", startup = 6, active = 1, recovery = 14})
 	d.spirit_cooldown = 360
 
-	# Away, toward, spirit. Wide reach: sealing is not a test of spacing.
-	d.finisher_command = "46D"
+	# Wide reach: sealing is not a test of spacing.
 	d.finisher_move = _move({id = &"finisher", startup = 20, active = 12, recovery = 40,
 		damage = 0, hitboxes = [Rect2(0, -220, 320, 220)]})
 

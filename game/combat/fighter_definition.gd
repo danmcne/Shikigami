@@ -36,17 +36,18 @@ enum Kind { HUMAN, YOKAI }
 ## The gesture this fighter makes to summon a bound spirit. The spirit appears
 ## on its first active frame.
 @export var summon_move: MoveDefinition
-## This fighter's signature special: its own move on the special button, and
-## what its body-less copy performs when bound and summoned as a spirit.
-@export var signature: StringName
+## This fighter's two specials, on special and on away + special. Both
+## recharge. When this fighter is bound as a spirit, its binder chooses which
+## of the two the spirit performs.
+@export var specials: Array[StringName] = []
 @export var spirit_cooldown: int = 300
 ## Where the copy appears, relative to the summoner (+x toward the opponent).
 @export var spirit_offset: Vector2 = Vector2.ZERO
 
 @export_group("Finisher")
-## Performed on a beaten opponent whose spirit this fighter can bind; if it
-## connects, the spirit is bound. Empty command: no finisher.
-@export var finisher_command: String = ""
+## Performed (with the same input for everyone, Fighter.FINISHER_COMMAND) on a
+## beaten opponent whose spirit this fighter can bind; if it connects, the
+## spirit is bound. No move: no finisher.
 @export var finisher_move: MoveDefinition
 
 

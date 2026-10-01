@@ -17,6 +17,9 @@ const SUMMON_COMMANDS := ["D", "2D"]
 const TECH_STUN := 14
 const TECH_PUSH := 8.0
 const FINISHER := &"finisher"
+## The finisher's input, the same for every fighter: away, toward, spirit.
+const FINISHER_COMMAND := "46D"
+const NOTICE_FRAMES := 60
 
 var definition: FighterDefinition
 var input := InputHistory.new()
@@ -24,6 +27,12 @@ var input := InputHistory.new()
 var chord_window := InputHistory.DEFAULT_CHORD
 ## A practice cheat: hits still land and stun, but take no health.
 var invincible := false
+## Status effects, in frames remaining.
+var armor_frames := 0
+var slow_frames := 0
+## A short message shown over the fighter ("+100", "COUNTER"), for the view.
+var notice := ""
+var notice_frames := 0
 var position := Vector2.ZERO
 ## Airborne velocity, px/frame.
 var velocity := Vector2.ZERO
@@ -57,13 +66,15 @@ var awaiting_finisher := false
 var pending_spawn: MoveDefinition = null
 ## Set by step() on the frame a summon releases a spirit: the slot index.
 var pending_summon := -1
-## Set by step() on the frame a move heals, or teleports (the distance).
+## Set by step() on the frame a move heals, grants armour, or teleports (the
+## distance).
 var pending_heal := 0
+var pending_armor := 0
 var pending_teleport := 0.0
 ## Recharge remaining on moves that have one, by move id.
 var move_cooldowns: Dictionary = {}
-## Bound spirits (the fighters they came from) and their cooldowns, by slot.
-var spirits: Array[FighterDefinition] = []
+## Bound spirits and their cooldowns, by slot.
+var spirits: Array[SpiritBinding] = []
 var cooldowns: Array[int] = []
 ## For a spirit: the index of the fighter who summoned it; -1 for a fighter.
 var summoner := -1
@@ -78,13 +89,16 @@ var _consumed := -1
 ## it cannot be replaced; and what had been consumed before it started.
 var _started_rank := -1
 var _consumed_before_start := -1
+## Set when a move begins, so its start-of-move effects are raised on the next
+## step even if it began outside one (a summoned spirit, a counter).
+var _fresh := false
 
 
-func _init(def: FighterDefinition, bound: Array[FighterDefinition] = []) -> void:
+func _init(def: FighterDefinition, bound: Array[SpiritBinding] = []) -> void:
 	definition = def
 	spirits = bound
 	for s in spirits:
-		assert(def.binds(s), "%s cannot bind %s" % [def.display_name, s.display_name])
+		assert(def.binds(s.source), "%s cannot bind %s" % [def.display_name, s.source.display_name])
 	_moves = def.moves.duplicate()
 	for pattern in def.commands:
 		_commands.append(Command.parse(pattern, def.commands[pattern]))
@@ -93,9 +107,9 @@ func _init(def: FighterDefinition, bound: Array[FighterDefinition] = []) -> void
 		_moves[id] = def.summon_move
 		_commands.append(Command.parse(SUMMON_COMMANDS[slot], id))
 	_commands.sort_custom(func(a: Command, b: Command) -> bool: return a.rank() > b.rank())
-	if def.finisher_command != "":
+	if def.finisher_move:
 		_moves[FINISHER] = def.finisher_move
-		_finisher = Command.parse(def.finisher_command, FINISHER)
+		_finisher = Command.parse(FINISHER_COMMAND, FINISHER)
 
 
 func reset(x: float, face: int) -> void:
@@ -122,10 +136,14 @@ func reset(x: float, face: int) -> void:
 	pending_spawn = null
 	pending_summon = -1
 	pending_heal = 0
+	pending_armor = 0
 	pending_teleport = 0.0
 	move_cooldowns.clear()
 	spirit_threatened = false
-	cooldowns.assign(spirits.map(func(_s: FighterDefinition) -> int: return 0))
+	armor_frames = 0
+	slow_frames = 0
+	notice_frames = 0
+	cooldowns.assign(spirits.map(func(_s: SpiritBinding) -> int: return 0))
 	_summon_slot = -1
 	_intent = Intent.new()
 	_consumed = -1
@@ -147,6 +165,17 @@ func spirit_guard_held() -> bool:
 
 func heal(amount: int) -> void:
 	health = mini(health + amount, definition.max_health)
+	show_notice("+%d" % amount)
+
+
+func gain_armor(frames: int) -> void:
+	armor_frames = maxi(armor_frames, frames)
+	show_notice("ARMOUR")
+
+
+func show_notice(text: String) -> void:
+	notice = text
+	notice_frames = NOTICE_FRAMES
 
 
 func can_turn() -> bool:
@@ -179,7 +208,11 @@ func step() -> void:
 	pending_spawn = null
 	pending_summon = -1
 	pending_heal = 0
+	pending_armor = 0
 	pending_teleport = 0.0
+	armor_frames = maxi(armor_frames - 1, 0)
+	slow_frames = maxi(slow_frames - 1, 0)
+	notice_frames = maxi(notice_frames - 1, 0)
 	for slot in cooldowns.size():
 		cooldowns[slot] = maxi(cooldowns[slot] - 1, 0)
 	for id in move_cooldowns:
@@ -207,33 +240,53 @@ func step() -> void:
 		State.GRABBED, State.DAZED, State.SEALED, State.KO:
 			pass
 
+	if state == State.MOVE and _fresh:
+		pending_armor = move.armor
+	_fresh = false
 	if state == State.MOVE and state_frame == move.startup:
 		if move.spawn:
 			pending_spawn = move.spawn
 		if _summon_slot >= 0:
 			pending_summon = _summon_slot
-			cooldowns[_summon_slot] = spirits[_summon_slot].spirit_cooldown
+			cooldowns[_summon_slot] = spirits[_summon_slot].source.spirit_cooldown
 		pending_heal = move.heal
 	if state == State.MOVE and state_frame == move.teleport_frame:
 		pending_teleport = move.teleport_distance
 	_integrate()
 
 
-## `from_spirit`: the hit comes from a spirit or a spirit's projectile, and
-## only spirit guard stops it.
+## `from_spirit`: the hit comes from a spirit or a spirit's projectile. Only
+## spirit guard stops those, and spirit guard stops nothing else, so a
+## defender must choose which threat to guard against.
 func receive(m: MoveDefinition, from_facing: int, from_spirit := false) -> void:
-	var held := spirit_guard_held() if from_spirit else guard_held()
+	if state == State.MOVE and move.counter and move.is_active_on(state_frame) and not m.throw:
+		show_notice("COUNTER")
+		_begin(move.counter)
+		return
+	var held := spirit_guard_held() if from_spirit else (guard_held() and not spirit_guard_held())
 	var guarding := not m.throw and not airborne and held \
 			and state in [State.GUARD, State.BLOCKSTUN]
 	var unguardable := MoveDefinition.Height.HIGH if crouching else MoveDefinition.Height.LOW
-	move = null
-	_started_rank = -1
-	if guarding and m.height != unguardable:
+	var stops := m.height != unguardable and m.height != MoveDefinition.Height.HIGH_LOW
+	if guarding and stops:
+		move = null
+		_started_rank = -1
 		stun = m.blockstun
 		slide = from_facing * m.knockback
 		_set_state(State.BLOCKSTUN, true)
 		return
-
+	if m.slows > 0:
+		slow_frames = maxi(slow_frames, m.slows)
+		show_notice("SLOWED")
+	if armor_frames > 0 and not m.throw:
+		if not invincible:
+			health = maxi(health - m.damage, 0)
+		if health == 0:
+			_halt()
+			_set_state(State.KO, true)
+		return
+	move = null
+	_started_rank = -1
 	if not invincible:
 		health = maxi(health - m.damage, 0)
 	if airborne:
@@ -351,7 +404,7 @@ func _act_on_ground() -> void:
 		crouching = false
 		airborne = true
 		air_move_used = false
-		velocity = Vector2(_intent.x * definition.jump_forward, -definition.jump_velocity)
+		velocity = Vector2(_intent.x * definition.jump_forward * _pace(), -definition.jump_velocity)
 		_set_state(State.JUMP)
 		return
 	if crouching:
@@ -365,11 +418,24 @@ func _act_on_ground() -> void:
 func _walk(factor: float) -> void:
 	if _intent.x != 0:
 		var speed := definition.walk_back if holding_back else definition.walk_forward
-		position.x += _intent.x * speed * factor
+		position.x += _intent.x * speed * factor * _pace()
+
+
+## Movement multiplier: halved while slowed.
+func _pace() -> float:
+	return 0.5 if slow_frames > 0 else 1.0
 
 
 func _act_in_air() -> void:
 	if air_move_used:
+		return
+	var cmd := _matching_command(true, _consumed, -1, true)
+	if cmd:
+		if _available(cmd):
+			air_move_used = true
+			_start_by(cmd.move, cmd.rank(), _consumed)
+		else:
+			_consumed = input.frame
 		return
 	var button := _pressed_normal()
 	if button != "":
@@ -404,12 +470,15 @@ func _continue_move() -> void:
 		_set_state(State.JUMP if airborne else State.STAND)
 
 
-## The highest-ranked command matching the input, above `above_rank`.
-func _matching_command(buttons_only: bool, after: int, above_rank: int) -> Command:
+## The highest-ranked command matching the input, above `above_rank`; in the
+## air, only moves that may be performed there.
+func _matching_command(buttons_only: bool, after: int, above_rank: int, in_air := false) -> Command:
 	for cmd in _commands:
 		if cmd.rank() <= above_rank:
 			break
 		if buttons_only and cmd.buttons == 0:
+			continue
+		if in_air and not _moves[cmd.move].air:
 			continue
 		if input.matches(cmd, facing, after):
 			return cmd
@@ -445,8 +514,14 @@ func _start_by(id: StringName, rank: int, consumed_before: int) -> void:
 
 
 func _start(id: StringName) -> void:
-	move = _moves[id]
+	_begin(_moves[id])
 	_summon_slot = _summon_ids().find(id)
+
+
+func _begin(m: MoveDefinition) -> void:
+	move = m
+	_fresh = true
+	_summon_slot = -1
 	_consumed = input.frame
 	_started_rank = -1
 	move_connected = false

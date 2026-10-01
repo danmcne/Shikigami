@@ -1,89 +1,245 @@
 extends RefCounted
-## Prototype archetypes, placeholders until real characters exist. Each shares
-## the base kit, scaled to its proportions, and adds its own signature special
-## on the special button. The signature is also what its spirit does when
-## bound and summoned. Nothing in the game refers to these by name.
+## The roster: eight humans and eight yokai, still drawn as rectangles. Each
+## shares the base kit, scaled to its proportions, and adds two specials of
+## its own: one on special, one on away + special. Both recharge. When bound
+## as a spirit, the binder chooses which of the two the spirit performs.
 ##
-##   Balanced  human, a two-sword swordsman. Signature: Two Heavens, a spinning
-##             double cut that strikes in front and behind at once.
-##   Heavy     yokai, an oni after Shuten-dōji. Signature: Sake, a long,
-##             exposed drink that restores health; as a spirit it heals its
-##             summoner. Second special: Oni Grab, a long-reach throw.
-##   Swift     yokai, a kitsune. Signature: Fox Step, vanishing and reappearing
-##             behind the opponent to strike. Second special: Foxfire, the
-##             only projectile in the roster.
+## Everything is data. Specials are built from a small set of effects that
+## MoveDefinition provides: strikes in any direction, high-and-low strikes,
+## throws, projectiles (including stationary traps and barriers), launches,
+## teleports, counters, heals, armour, slow, and pulls (negative knockback).
 
 const PrototypeRect := preload("res://game/fighters/prototype_rect.gd")
 const H := MoveDefinition.Height
+const HUMAN := FighterDefinition.Kind.HUMAN
+const YOKAI := FighterDefinition.Kind.YOKAI
 
 
 static func all() -> Array[FighterDefinition]:
-	return [balanced(), heavy(), swift()]
+	var out: Array[FighterDefinition] = []
+	for entry in _table():
+		out.append(_build(entry))
+	return out
 
 
-static func balanced() -> FighterDefinition:
+static func by_id(id: StringName) -> FighterDefinition:
+	for d in all():
+		if d.id == id:
+			return d
+	return null
+
+
+## One entry per character: identity, proportions, and two specials.
+## Proportions: size scales boxes, speed walking and jump distance, jump
+## height, power damage; tempo is added to every shared move's startup and
+## recovery. Specials are authored per character and are not scaled.
+static func _table() -> Array:
+	return [
+		# --- humans ---------------------------------------------------------
+		{id = &"musashi", name = "Miyamoto Musashi", kind = HUMAN,
+			p = {health = 1000, size = 1.0, speed = 1.0, jump = 1.0, power = 1.0, tempo = 0},
+			# Niten Ichi-ryū: one sword high, one low, at once.
+			specials = [{id = &"two_heavens", startup = 14, active = 4, recovery = 22, cooldown = 120,
+					damage = 100, knockdown = 40, knockback = 8.0, hitstop = 10, height = H.HIGH_LOW,
+					hitboxes = [Rect2(15, -140, 85, 40), Rect2(15, -45, 85, 40)]},
+				# The Void, last of the Five Rings: a still stance that answers any strike.
+				{id = &"void_stance", startup = 2, active = 24, recovery = 18, cooldown = 150,
+					counter = {id = &"void_cut", startup = 2, active = 4, recovery = 14, damage = 110,
+						knockdown = 45, knockback = 9.0, hitstop = 12, hitboxes = [Rect2(0, -150, 110, 120)]}}]},
+		{id = &"kojiro", name = "Sasaki Kojirō", kind = HUMAN,
+			p = {health = 950, size = 1.05, speed = 1.05, jump = 1.0, power = 1.0, tempo = 0},
+			# Tsubame Gaeshi: a cut that turns back on itself like a swallow, from the air too.
+			specials = [{id = &"swallow_cut", startup = 6, active = 8, recovery = 20, cooldown = 90, air = true,
+					damage = 90, knockdown = 40, knockback = 7.0, hitstop = 10,
+					hitboxes = [Rect2(0, -230, 90, 110), Rect2(20, -130, 100, 50)]},
+				# The Drying Pole, his overlong nodachi.
+				{id = &"drying_pole", startup = 11, active = 4, recovery = 20, cooldown = 60,
+					damage = 80, hitstun = 18, blockstun = 12, knockback = 12.0, hitstop = 9,
+					hitboxes = [Rect2(30, -115, 190, 25)]}]},
+		{id = &"tomoe", name = "Tomoe Gozen", kind = HUMAN,
+			p = {health = 950, size = 0.95, speed = 1.1, jump = 1.0, power = 0.95, tempo = -1},
+			# The naginata swung full circle, front and back, also in the air.
+			specials = [{id = &"naginata_wheel", startup = 9, active = 8, recovery = 18, cooldown = 90, air = true,
+					damage = 85, hitstun = 18, blockstun = 12, knockback = 9.0, hitstop = 9,
+					hitboxes = [Rect2(10, -140, 120, 70), Rect2(-130, -140, 120, 70)]},
+				{id = &"naginata_sweep", startup = 10, active = 5, recovery = 24, cooldown = 60,
+					damage = 75, knockdown = 40, knockback = 6.0, hitstop = 9, height = H.LOW,
+					hitboxes = [Rect2(20, -35, 170, 30)]}]},
+		{id = &"benkei", name = "Benkei", kind = HUMAN,
+			p = {health = 1250, size = 1.25, speed = 0.75, jump = 0.9, power = 1.25, tempo = 2},
+			# He died standing on the bridge, still blocking it: armour while he advances.
+			specials = [{id = &"standing_death", startup = 4, active = 40, recovery = 20, cooldown = 240,
+					armor = 64, motion = Vector2(5, 0), damage = 90, hitstun = 20, blockstun = 14,
+					knockback = 10.0, hitstop = 10, hitboxes = [Rect2(10, -170, 90, 150)]},
+				{id = &"seven_weapons", startup = 8, active = 3, recovery = 30, cooldown = 60, throw = true,
+					damage = 170, knockdown = 60, knockback = 10.0, hitstop = 14,
+					hitboxes = [Rect2(10, -170, 100, 150)]}]},
+		{id = &"hanzo", name = "Hattori Hanzō", kind = HUMAN,
+			p = {health = 850, size = 0.9, speed = 1.3, jump = 1.1, power = 0.85, tempo = -1},
+			# Kawarimi, the substitution: struck, he is gone, and behind you.
+			specials = [{id = &"kawarimi", startup = 2, active = 20, recovery = 22, cooldown = 150,
+					counter = {id = &"kawarimi_strike", startup = 10, active = 4, recovery = 12,
+						teleport_frame = 1, teleport_distance = 70.0, invulnerable = 8,
+						damage = 80, hitstun = 20, knockback = 7.0, hitstop = 9, hitboxes = [Rect2(10, -120, 70, 50)]}},
+				{id = &"shuriken", startup = 8, active = 1, recovery = 16, cooldown = 45, air = true,
+					spawn_offset = Vector2(40, -120),
+					spawn = {id = &"shuriken_star", startup = 0, active = 70, recovery = 0, motion = Vector2(11, 0),
+						damage = 35, hitstun = 12, blockstun = 8, knockback = 3.0, hitstop = 3,
+						hitboxes = [Rect2(-10, -8, 20, 16)]}}]},
+		{id = &"monk", name = "Buddhist Monk", kind = HUMAN,
+			p = {health = 1100, size = 1.0, speed = 0.9, jump = 1.0, power = 0.9, tempo = 0},
+			# Meditation, after Yoshimitsu: still and exposed, then restored.
+			specials = [{id = &"meditation", startup = 45, active = 1, recovery = 15, cooldown = 420, heal = 150},
+				{id = &"sutra_palm", startup = 8, active = 4, recovery = 18, cooldown = 60,
+					damage = 60, hitstun = 18, blockstun = 14, knockback = 20.0, hitstop = 10,
+					hitboxes = [Rect2(20, -130, 70, 70)]}]},
+		{id = &"miko", name = "Shinto Miko", kind = HUMAN,
+			p = {health = 900, size = 0.9, speed = 1.0, jump = 1.0, power = 0.9, tempo = 0},
+			# Ofuda: paper talismans thrown, or laid on the ground as a ward.
+			specials = [{id = &"ofuda", startup = 10, active = 1, recovery = 20, cooldown = 60,
+					spawn_offset = Vector2(45, -115),
+					spawn = {id = &"ofuda_paper", startup = 0, active = 90, recovery = 0, motion = Vector2(8, 0),
+						damage = 50, hitstun = 16, blockstun = 12, knockback = 5.0, hitstop = 5,
+						hitboxes = [Rect2(-12, -18, 24, 36)]}},
+				{id = &"warding_seal", startup = 12, active = 1, recovery = 18, cooldown = 240,
+					spawn_offset = Vector2(120, 0),
+					spawn = {id = &"warding_seal_trap", startup = 0, active = 300, recovery = 0,
+						damage = 70, knockdown = 40, knockback = 4.0, hitstop = 8, height = H.LOW,
+						hitboxes = [Rect2(-25, -12, 50, 12)]}}]},
+		{id = &"onmyoji", name = "Onmyōji", kind = HUMAN,
+			p = {health = 900, size = 0.95, speed = 0.9, jump = 1.0, power = 0.9, tempo = 0},
+			# Paper shikigami: birds that climb as they fly.
+			specials = [{id = &"paper_birds", startup = 10, active = 1, recovery = 20, cooldown = 60, air = true,
+					spawn_offset = Vector2(40, -120),
+					spawn = {id = &"paper_bird", startup = 0, active = 80, recovery = 0, motion = Vector2(6, -4),
+						damage = 50, hitstun = 16, blockstun = 12, knockback = 5.0, hitstop = 5,
+						hitboxes = [Rect2(-15, -10, 30, 20)]}},
+				# A five-element seal: stops projectiles, repels whoever walks into it.
+				{id = &"five_element_seal", startup = 8, active = 1, recovery = 16, cooldown = 300,
+					spawn_offset = Vector2(70, 0),
+					spawn = {id = &"seal_barrier", startup = 0, active = 120, recovery = 0,
+						damage = 0, hitstun = 6, blockstun = 6, knockback = 12.0, hitstop = 2,
+						hitboxes = [Rect2(-10, -180, 20, 180)]}}]},
+
+		# --- yokai ----------------------------------------------------------
+		{id = &"shuten", name = "Shuten-dōji", kind = YOKAI,
+			p = {health = 1300, size = 1.3, speed = 0.7, jump = 0.9, power = 1.3, tempo = 2},
+			# The sake-drinking oni: drinks unbothered, then fights on shrugging off blows.
+			specials = [{id = &"sake", startup = 40, active = 1, recovery = 20, cooldown = 480,
+					heal = 100, armor = 220},
+				# The iron club: slow, overhead, armoured while it comes down.
+				{id = &"kanabo", startup = 22, active = 5, recovery = 26, cooldown = 120, armor = 26,
+					damage = 150, knockdown = 55, knockback = 12.0, hitstop = 14, height = H.HIGH,
+					hitboxes = [Rect2(20, -90, 130, 90)]}]},
+		{id = &"kitsune", name = "Kitsune", kind = YOKAI,
+			p = {health = 850, size = 0.85, speed = 1.35, jump = 1.06, power = 0.8, tempo = -1},
+			# Fox illusion: gone, then behind you.
+			specials = [{id = &"fox_step", startup = 20, active = 4, recovery = 16, cooldown = 120,
+					invulnerable = 16, teleport_frame = 14, teleport_distance = 70.0,
+					damage = 70, hitstun = 18, blockstun = 12, knockback = 7.0, hitstop = 8,
+					hitboxes = [Rect2(10, -120, 70, 50)]},
+				# Kitsune-bi.
+				{id = &"foxfire", startup = 12, active = 2, recovery = 24, cooldown = 45,
+					spawn_offset = Vector2(45, -95),
+					spawn = {id = &"foxfire_flame", startup = 0, active = 100, recovery = 0, motion = Vector2(7, 0),
+						damage = 50, hitstun = 16, blockstun = 12, knockback = 5.0, hitstop = 5,
+						hitboxes = [Rect2(-15, -15, 30, 30)]}}]},
+		{id = &"tengu", name = "Tengu", kind = YOKAI,
+			p = {health = 1000, size = 1.05, speed = 1.1, jump = 1.15, power = 1.0, tempo = 0},
+			# The feather fan: a gust that hurls more than it hurts.
+			specials = [{id = &"gale_fan", startup = 12, active = 1, recovery = 20, cooldown = 90,
+					spawn_offset = Vector2(50, 0),
+					spawn = {id = &"gale", startup = 0, active = 60, recovery = 0, motion = Vector2(9, 0),
+						damage = 20, hitstun = 14, blockstun = 10, knockback = 22.0, hitstop = 4,
+						hitboxes = [Rect2(-20, -150, 40, 150)]}},
+				{id = &"tengu_flight", startup = 6, active = 18, recovery = 14, cooldown = 90, air = true,
+					motion = Vector2(11, -7), damage = 80, knockdown = 35, knockback = 8.0, hitstop = 9,
+					height = H.HIGH, hitboxes = [Rect2(0, -120, 80, 60)]}]},
+		{id = &"kappa", name = "Kappa", kind = YOKAI,
+			p = {health = 1000, size = 0.8, speed = 0.9, jump = 1.0, power = 1.1, tempo = 0},
+			# Kappa challenge travellers to sumo.
+			specials = [{id = &"sumo_grab", startup = 8, active = 3, recovery = 28, cooldown = 60, throw = true,
+					damage = 150, knockdown = 55, knockback = 14.0, hitstop = 14,
+					hitboxes = [Rect2(10, -140, 85, 140)]},
+				# Water from the dish on its head, along the ground: a low projectile.
+				{id = &"water_jet", startup = 10, active = 1, recovery = 20, cooldown = 60,
+					spawn_offset = Vector2(40, 0),
+					spawn = {id = &"water", startup = 0, active = 70, recovery = 0, motion = Vector2(9, 0),
+						damage = 45, hitstun = 16, blockstun = 12, knockback = 5.0, hitstop = 5, height = H.LOW,
+						hitboxes = [Rect2(-20, -20, 40, 20)]}}]},
+		{id = &"yuki_onna", name = "Yuki-onna", kind = YOKAI,
+			p = {health = 900, size = 0.95, speed = 1.05, jump = 1.0, power = 0.95, tempo = 0},
+			# The snow woman's breath: it chills, and the chilled are slow.
+			specials = [{id = &"frost_breath", startup = 10, active = 10, recovery = 18, cooldown = 120,
+					damage = 40, hitstun = 16, blockstun = 12, knockback = 4.0, hitstop = 6, slows = 180,
+					hitboxes = [Rect2(15, -140, 110, 60)]},
+				# An icicle falling from above, some way ahead: an overhead.
+				{id = &"icicle", startup = 14, active = 1, recovery = 18, cooldown = 75,
+					spawn_offset = Vector2(180, -300),
+					spawn = {id = &"icicle_shard", startup = 0, active = 50, recovery = 0, motion = Vector2(0, 9),
+						damage = 70, hitstun = 18, blockstun = 12, knockback = 4.0, hitstop = 8, height = H.HIGH,
+						hitboxes = [Rect2(-12, -30, 24, 30)]}}]},
+		{id = &"jorogumo", name = "Jorōgumo", kind = YOKAI,
+			p = {health = 950, size = 1.0, speed = 1.0, jump = 1.0, power = 1.0, tempo = 0},
+			# Silk that reels the victim in (negative knockback).
+			specials = [{id = &"web", startup = 12, active = 1, recovery = 22, cooldown = 120,
+					spawn_offset = Vector2(40, -110),
+					spawn = {id = &"web_strand", startup = 0, active = 70, recovery = 0, motion = Vector2(8, 0),
+						damage = 30, hitstun = 22, blockstun = 12, knockback = -14.0, hitstop = 6,
+						hitboxes = [Rect2(-15, -15, 30, 30)]}},
+				# Up into the rafters, out of reach, and down again on top of you.
+				{id = &"ceiling_drop", startup = 20, active = 12, recovery = 18, cooldown = 120, invulnerable = 18,
+					motion = Vector2(4, -20), damage = 90, knockdown = 40, knockback = 6.0, hitstop = 10,
+					height = H.HIGH, hitboxes = [Rect2(-20, -40, 80, 50)]}]},
+		{id = &"nekomata", name = "Nekomata", kind = YOKAI,
+			p = {health = 800, size = 0.8, speed = 1.4, jump = 1.15, power = 0.85, tempo = -1},
+			specials = [{id = &"pounce", startup = 6, active = 16, recovery = 14, cooldown = 75,
+					motion = Vector2(10, -12), damage = 70, hitstun = 18, knockback = 6.0, hitstop = 8,
+					height = H.HIGH, hitboxes = [Rect2(0, -90, 80, 60)]},
+				# Two tails, low and mid at once.
+				{id = &"twin_tails", startup = 8, active = 6, recovery = 18, cooldown = 60,
+					damage = 65, knockdown = 30, knockback = 6.0, hitstop = 8, height = H.LOW,
+					hitboxes = [Rect2(15, -40, 90, 30), Rect2(15, -120, 60, 40)]}]},
+		{id = &"tanuki", name = "Tanuki", kind = YOKAI,
+			p = {health = 1100, size = 0.9, speed = 0.9, jump = 1.0, power = 0.95, tempo = 0},
+			# Hara-tsuzumi, the belly drum: a low shockwave to both sides.
+			specials = [{id = &"belly_drum", startup = 14, active = 6, recovery = 22, cooldown = 120,
+					damage = 70, knockdown = 40, knockback = 6.0, hitstop = 9, height = H.LOW,
+					hitboxes = [Rect2(0, -30, 140, 30), Rect2(-140, -30, 140, 30)]},
+				# A leaf on the head and it is a stone statue; strike it and it strikes back.
+				{id = &"leaf_disguise", startup = 3, active = 30, recovery = 24, cooldown = 180,
+					counter = {id = &"statue_slam", startup = 3, active = 4, recovery = 16, damage = 100,
+						knockdown = 45, knockback = 8.0, hitstop = 12, hitboxes = [Rect2(0, -140, 100, 140)]}}]},
+	]
+
+
+static func _build(e: Dictionary) -> FighterDefinition:
 	var d := PrototypeRect.definition()
-	d.id = &"balanced"
-	d.display_name = "Balanced"
-	d.kind = FighterDefinition.Kind.HUMAN
-	_add(d, "C", {id = &"two_heavens", startup = 9, active = 6, recovery = 18, cooldown = 90,
-		damage = 90, hitstun = 18, blockstun = 12, knockback = 9.0, hitstop = 9, height = H.MID,
-		hitboxes = [Rect2(10, -135, 95, 60), Rect2(-105, -135, 95, 60)]})
-	d.signature = &"two_heavens"
-	d.spirit_cooldown = 360
+	d.id = e.id
+	d.display_name = e.name
+	d.kind = e.kind
+	_scale_kit(d, e.p)
+	var patterns := ["C", "4C"]
+	for k in e.specials.size():
+		var m := _special(e.specials[k])
+		d.moves[m.id] = m
+		d.commands[patterns[k]] = m.id
+		d.specials.append(m.id)
+	d.spirit_cooldown = e.get("spirit_cooldown", 360)
 	return d
 
 
-static func heavy() -> FighterDefinition:
-	var d := _variant(&"heavy", "Heavy", {
-		health = 1200, size = 1.2, speed = 0.72, jump = 0.9, power = 1.3, tempo = 2})
-	d.kind = FighterDefinition.Kind.YOKAI
-	_add(d, "C", {id = &"sake", startup = 40, active = 1, recovery = 20, cooldown = 480, heal = 150})
-	_add(d, "4C", {id = &"oni_grab", startup = 9, active = 3, recovery = 30, throw = true,
-		damage = 160, knockdown = 60, knockback = 10.0, hitstop = 14,
-		hitboxes = [Rect2(10, -170, 95, 150)]})
-	d.signature = &"sake"
-	d.spirit_cooldown = 600
-	d.spirit_offset = Vector2(-50, 0)
-	d.finisher_command = "28D"
-	return d
+## A MoveDefinition from a dictionary; nested `counter` and `spawn`
+## dictionaries become moves too.
+static func _special(props: Dictionary) -> MoveDefinition:
+	var flat := props.duplicate()
+	for key in ["counter", "spawn"]:
+		if flat.has(key):
+			flat[key] = _special(flat[key])
+	return PrototypeRect._move(flat)
 
 
-static func swift() -> FighterDefinition:
-	var d := _variant(&"swift", "Swift", {
-		health = 850, size = 0.85, speed = 1.35, jump = 1.06, power = 0.8, tempo = -1})
-	d.kind = FighterDefinition.Kind.YOKAI
-	_add(d, "C", {id = &"fox_step", startup = 20, active = 4, recovery = 16, cooldown = 120,
-		invulnerable = 16, teleport_frame = 14, teleport_distance = 70.0,
-		damage = 70, hitstun = 18, blockstun = 12, knockback = 7.0, hitstop = 8, height = H.MID,
-		hitboxes = [Rect2(10, -120, 70, 50)]})
-	_add(d, "4C", {id = &"foxfire", startup = 12, active = 2, recovery = 24,
-		spawn_offset = Vector2(45, -95),
-		spawn = PrototypeRect._move({id = &"foxfire_flame", startup = 0, active = 100, recovery = 0,
-			motion = Vector2(7, 0), damage = 50, hitstun = 16, blockstun = 12,
-			knockback = 5.0, hitstop = 5, height = H.MID, hitboxes = [Rect2(-15, -15, 30, 30)]})})
-	d.signature = &"fox_step"
-	d.spirit_cooldown = 300
-	d.finisher_command = "64D"
-	return d
-
-
-## Adds a move authored for this fighter and binds it to `pattern`.
-static func _add(d: FighterDefinition, pattern: String, props: Dictionary) -> void:
-	var m := PrototypeRect._move(props)
-	d.moves[m.id] = m
-	d.commands[pattern] = m.id
-
-
-## Scales the shared kit. size scales every box and offset about the feet;
-## speed scales walking and jump distance; jump scales jump height; power
-## scales damage; tempo is added to every move's startup and recovery (never
-## below one frame). Signature and second specials are authored per fighter
-## and added afterwards, unscaled.
-static func _variant(id: StringName, name: String, p: Dictionary) -> FighterDefinition:
-	var d := PrototypeRect.definition()
-	d.id = id
-	d.display_name = name
+static func _scale_kit(d: FighterDefinition, p: Dictionary) -> void:
 	d.max_health = p.health
 	d.walk_forward *= p.speed
 	d.walk_back *= p.speed
@@ -96,12 +252,10 @@ static func _variant(id: StringName, name: String, p: Dictionary) -> FighterDefi
 	for m in d.moves.values() + [d.summon_move, d.finisher_move]:
 		var move: MoveDefinition = m
 		move.hitboxes.assign(move.hitboxes.map(func(r: Rect2) -> Rect2: return _scale(r, p.size)))
-		move.spawn_offset *= p.size
 		move.damage = roundi(move.damage * p.power)
 		if move.startup > 0:
 			move.startup = maxi(move.startup + p.tempo, 1)
 		move.recovery = maxi(move.recovery + p.tempo, 1)
-	return d
 
 
 static func _scale(r: Rect2, s: float) -> Rect2:

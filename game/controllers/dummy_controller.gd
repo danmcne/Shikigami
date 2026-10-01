@@ -5,9 +5,9 @@ extends RefCounted
 ##
 ## IDLE and CROUCH defend against nothing. STAND_GUARD and CROUCH_GUARD hold
 ## plain guard at one height, so lows, overheads and spirits get through.
-## FULL_GUARD holds spirit guard at the height of each incoming attack,
-## showing that an attentive defender can stop every strike. All guarding
-## modes escape every throw.
+## FULL_GUARD guards at the height of each incoming attack, switching to
+## spirit guard when a spirit is the threat, showing that an attentive
+## defender can stop every strike. All guarding modes escape every throw.
 
 enum Mode { IDLE, CROUCH, STAND_GUARD, CROUCH_GUARD, FULL_GUARD }
 
@@ -22,7 +22,8 @@ func read(me: Fighter, them: Fighter) -> Intent:
 	var i := Intent.new()
 	var guards := mode in [Mode.STAND_GUARD, Mode.CROUCH_GUARD, Mode.FULL_GUARD]
 	if guards:
-		i.held = Intent.SPIRIT_GUARD if mode == Mode.FULL_GUARD else Intent.GUARD
+		var against_spirit := mode == Mode.FULL_GUARD and me.spirit_threatened
+		i.held = Intent.SPIRIT_GUARD if against_spirit else Intent.GUARD
 	i.down = mode == Mode.CROUCH or mode == Mode.CROUCH_GUARD
 	if mode == Mode.FULL_GUARD and them.state == Fighter.State.MOVE:
 		i.down = them.move.height == MoveDefinition.Height.LOW

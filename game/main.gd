@@ -3,9 +3,10 @@ extends Node2D
 ##
 ##   MENU       1 new run   2 continue run   3 versus   4 calibrate timing
 ##              5 difficulty   6 game speed   7 invincibility (player 1)
-##   SELECT     1-3 pick a fighter for the run
+##   SELECT     A / D or arrows to choose a fighter, Enter or J to confirm
 ##   RUN        you against the CPU; finish beaten foes you can bind
-##   BIND       both slots full: choose what to give up
+##   BIND       choose which special the bound spirit performs (1 / 2),
+##              then, if both slots are full, what to give up (1 / 2 / 3)
 ##   RUN_END    result; Enter returns to the menu
 ##   VERSUS     sandbox: F2 player 2 human/dummy/CPU, F3 dummy behaviour,
 ##              F5 restart, F6/F7 change fighters
@@ -19,6 +20,7 @@ enum Driver { HUMAN, DUMMY, CPU }
 const KIND_NAMES := {FighterDefinition.Kind.HUMAN: "human", FighterDefinition.Kind.YOKAI: "yokai"}
 
 var roster: Array[FighterDefinition] = Roster.all()
+var selected := 0
 var screen := Screen.MENU
 var show_boxes := false
 var players: Array[PlayerController] = [PlayerController.new("p1_"), PlayerController.new("p2_")]
@@ -99,12 +101,20 @@ func _unhandled_input(event: InputEvent) -> void:
 				6:
 					Settings.set_option("invincible", not Settings.invincible())
 		Screen.SELECT:
-			if number >= 0 and number < roster.size():
-				run = Run.new(roster[number], roster, Time.get_ticks_usec())
-				_start_fight()
+			match key:
+				KEY_A, KEY_LEFT, KEY_W, KEY_UP:
+					selected = (selected - 1 + roster.size()) % roster.size()
+				KEY_D, KEY_RIGHT, KEY_S, KEY_DOWN:
+					selected = (selected + 1) % roster.size()
+				KEY_ENTER, KEY_KP_ENTER, KEY_J:
+					run = Run.new(roster[selected], roster, Time.get_ticks_usec())
+					_start_fight()
 		Screen.BIND:
-			if number >= 0 and number <= Run.SLOTS:
-				run.choose(number if number < Run.SLOTS else -1)
+			if run.sealed and number >= 0 and number < run.sealed.specials.size():
+				if not run.choose_special(number):
+					_next_fight()
+			elif run.pending and number >= 0 and number <= Run.SLOTS:
+				run.choose_slot(number if number < Run.SLOTS else -1)
 				_next_fight()
 		Screen.RUN_END:
 			if key == KEY_ENTER or key == KEY_KP_ENTER:
@@ -142,8 +152,8 @@ func _after_fight() -> void:
 		end_text = ["Defeated in fight %d of %d." % [run.fight + 1, Run.length()]]
 		_end_run()
 		return
-	var bound := run.opponent if bout.bound else null
-	if run.win(bound):
+	if bout.bound:
+		run.seal(run.opponent)
 		screen = Screen.BIND
 	else:
 		_next_fight()
@@ -158,7 +168,7 @@ func _next_fight() -> void:
 
 
 func _end_run() -> void:
-	var names := run.spirits.map(func(d: FighterDefinition) -> String: return d.display_name)
+	var names := run.spirits.map(func(b: SpiritBinding) -> String: return b.label())
 	end_text.append("Spirits bound: %s" % (", ".join(names) if not names.is_empty() else "none"))
 	Settings.save_run({})
 	screen = Screen.RUN_END
@@ -168,8 +178,11 @@ func _start_versus() -> void:
 	var defs := versus_choice.map(func(c: int) -> FighterDefinition: return roster[c])
 	var loadouts: Array = []
 	for d in defs:
-		var bound: Array[FighterDefinition] = []
-		bound.assign(roster.filter(func(o: FighterDefinition) -> bool: return d.binds(o)).slice(0, Run.SLOTS))
+		# In versus each fighter carries two spirits it could bind, each with
+		# its first special.
+		var bound: Array[SpiritBinding] = []
+		for o in roster.filter(func(o: FighterDefinition) -> bool: return d.binds(o)).slice(0, Run.SLOTS):
+			bound.append(SpiritBinding.new(o, o.specials[0]))
 		loadouts.append(bound)
 	bout = _make_bout(defs[0], defs[1], loadouts[0], loadouts[1])
 	cpu = _cpu(Time.get_ticks_usec())
@@ -181,7 +194,7 @@ func _cpu(seed_value: int) -> CpuController:
 
 
 func _make_bout(a: FighterDefinition, b: FighterDefinition,
-		sa: Array[FighterDefinition], sb: Array[FighterDefinition]) -> Bout:
+		sa: Array[SpiritBinding], sb: Array[SpiritBinding]) -> Bout:
 	var made := Bout.new(a, b, sa.duplicate(), sb.duplicate())
 	for i in 2:
 		made.fighters[i].set_chord_window(Settings.chord_window(i))
@@ -218,32 +231,76 @@ func _draw() -> void:
 			rows.append("Esc returns here from anywhere.   F1 shows boxes.")
 			BoutView.lines(self, Vector2(0, 280), rows, 1280, HORIZONTAL_ALIGNMENT_CENTER, 20)
 		Screen.SELECT:
-			BoutView.message(self, "Choose your fighter", 160, 40)
-			var rows: Array[String] = []
-			for k in roster.size():
-				var d := roster[k]
-				rows.append("%d   %s  (%s)   health %d   walk %.1f   finisher %s" % [k + 1, d.display_name,
-						KIND_NAMES[d.kind], d.max_health, d.walk_forward,
-						ControlsText.describe(d.finisher_command, 1, "p1_")])
-			rows.append("")
-			rows.append("Humans bind yokai spirits; yokai bind human spirits. You start with none.")
-			BoutView.lines(self, Vector2(0, 260), rows, 1280, HORIZONTAL_ALIGNMENT_CENTER, 20)
+			_draw_select()
 		Screen.RUN, Screen.VERSUS:
 			_draw_fight()
 		Screen.BIND:
-			BoutView.message(self, "%s's spirit is bound" % run.pending.display_name, 220, 40)
-			BoutView.lines(self, Vector2(0, 300), [
-				"Both slots are full. Choose:",
-				"1   replace %s" % run.spirits[0].display_name,
-				"2   replace %s" % run.spirits[1].display_name,
-				"3   release %s" % run.pending.display_name,
-			], 1280, HORIZONTAL_ALIGNMENT_CENTER, 22)
+			if run.sealed:
+				BoutView.message(self, "%s's spirit is sealed" % run.sealed.display_name, 220, 40)
+				var rows: Array[String] = ["Which of its specials will the spirit perform?"]
+				for k in run.sealed.specials.size():
+					rows.append("%d   %s" % [k + 1, _special_line(run.sealed, run.sealed.specials[k])])
+				BoutView.lines(self, Vector2(0, 300), rows, 1280, HORIZONTAL_ALIGNMENT_CENTER, 22)
+			else:
+				BoutView.message(self, "Both slots are full", 220, 40)
+				BoutView.lines(self, Vector2(0, 300), [
+					"1   replace %s" % run.spirits[0].label(),
+					"2   replace %s" % run.spirits[1].label(),
+					"3   release %s" % run.pending.label(),
+				], 1280, HORIZONTAL_ALIGNMENT_CENTER, 22)
 		Screen.RUN_END:
 			BoutView.message(self, "Run over", 220, 48)
 			BoutView.lines(self, Vector2(0, 300), end_text + ["", "Enter to continue."], 1280,
 					HORIZONTAL_ALIGNMENT_CENTER, 22)
 		Screen.CALIBRATE:
 			_draw_calibration()
+
+
+func _draw_select() -> void:
+	BoutView.message(self, "Choose your fighter", 70, 36)
+	var humans: Array[String] = []
+	var yokai: Array[String] = []
+	for k in roster.size():
+		var d := roster[k]
+		var row := (">  " if k == selected else "    ") + d.display_name
+		(humans if d.kind == FighterDefinition.Kind.HUMAN else yokai).append(row)
+	BoutView.lines(self, Vector2(200, 130), ["HUMANS", ""] + humans, 400, HORIZONTAL_ALIGNMENT_LEFT, 20)
+	BoutView.lines(self, Vector2(700, 130), ["YOKAI", ""] + yokai, 400, HORIZONTAL_ALIGNMENT_LEFT, 20)
+	var d := roster[selected]
+	var info: Array[String] = [
+		"%s, %s.   Health %d, walking speed %.1f." % [d.display_name, KIND_NAMES[d.kind], d.max_health, d.walk_forward],
+		"Special:  %s" % _special_line(d, d.specials[0]),
+		"Away + special:  %s" % _special_line(d, d.specials[1]),
+		"",
+		"A / D to choose, Enter or J to begin.   Humans bind yokai spirits; yokai bind humans.",
+	]
+	BoutView.lines(self, Vector2(0, 470), info, 1280, HORIZONTAL_ALIGNMENT_CENTER, 18)
+
+
+## A special's name and what it does, in a few words, from its data.
+func _special_line(d: FighterDefinition, id: StringName) -> String:
+	var m: MoveDefinition = d.moves[id]
+	var traits: Array[String] = []
+	if m.counter: traits.append("counter stance")
+	if m.throw: traits.append("throw")
+	if m.spawn:
+		if m.spawn.damage == 0: traits.append("barrier")
+		elif m.spawn.motion == Vector2.ZERO: traits.append("trap")
+		else: traits.append("projectile")
+	if m.teleport_frame >= 0: traits.append("teleport")
+	if m.heal > 0: traits.append("heals %d" % m.heal)
+	if m.armor > 0: traits.append("armour")
+	if m.slows > 0: traits.append("slows")
+	if m.motion.y < 0: traits.append("leaps")
+	if m.air: traits.append("also in the air")
+	var striking := m.spawn if m.spawn else m
+	if striking.hitboxes.is_empty() or striking.damage == 0: pass
+	elif striking.height == MoveDefinition.Height.HIGH_LOW: traits.append("high and low at once")
+	elif striking.height == MoveDefinition.Height.LOW: traits.append("low")
+	elif striking.height == MoveDefinition.Height.HIGH: traits.append("overhead")
+	if m.hitboxes.any(func(r: Rect2) -> bool: return r.end.x <= 0): traits.append("strikes behind")
+	if m.knockback < 0 or (m.spawn and m.spawn.knockback < 0): traits.append("pulls")
+	return "%s (%s; recharges in %.1f s)" % [String(id).replace("_", " "), ", ".join(traits) if not traits.is_empty() else "strike", m.cooldown / 60.0]
 
 
 func _draw_fight() -> void:
@@ -265,7 +322,7 @@ func _draw_fight() -> void:
 	if bout.phase == Bout.Phase.FINISH and bout.round_winner == 0:
 		var f := bout.fighters[0]
 		var seconds := ceili((Bout.FINISH_FRAMES - bout.phase_frame) / 60.0)
-		BoutView.message(self, "SEAL THE SPIRIT:  %s" % ControlsText.describe(f.definition.finisher_command, f.facing, "p1_"), 380, 40)
+		BoutView.message(self, "SEAL THE SPIRIT:  %s" % ControlsText.describe(Fighter.FINISHER_COMMAND, f.facing, "p1_"), 380, 40)
 		BoutView.message(self, "%d" % seconds, 430, 28)
 	elif bout.phase == Bout.Phase.FINISH:
 		BoutView.message(self, "K.O.")
