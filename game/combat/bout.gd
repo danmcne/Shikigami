@@ -170,7 +170,9 @@ func _hold_throw() -> void:
 	grab_frames -= 1
 	var thrower := grab_thrower
 	var victim := fighters[grab_victim]
-	if victim.input.pressed(InputHistory.A | InputHistory.B, _grab_input_start - TECH_PREBUFFER) >= 0:
+	var escape := InputHistory.A | InputHistory.B
+	var since := _grab_input_start - TECH_PREBUFFER
+	if victim.input.pressed(escape, since) >= 0 or victim.input.pressed_while_holding(escape, since) >= 0:
 		grab_frames = 0
 		thrower.release_from_throw(-thrower.facing)
 		victim.release_from_throw(thrower.facing)
@@ -357,7 +359,9 @@ func _check_ko() -> void:
 		return
 	var w := fighters[round_winner]
 	var loser := fighters[1 - round_winner]
-	if w.definition.binds(loser.definition) and w.definition.finisher_command != "":
+	# A spirit already held cannot be sealed again.
+	var held := w.spirits.any(func(d: FighterDefinition) -> bool: return d.id == loser.definition.id)
+	if w.definition.binds(loser.definition) and w.definition.finisher_command != "" and not held:
 		loser.daze()
 		w.awaiting_finisher = true
 		_enter(Phase.FINISH)

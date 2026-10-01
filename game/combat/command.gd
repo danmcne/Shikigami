@@ -13,19 +13,21 @@ extends RefCounted
 ## "AB"    A and B together
 ## "656"   tap forward twice (no button)
 ##
-## Directions must appear in order within `window` frames but need not be
-## contiguous. The last one must be held when the buttons are pressed or, for a
+## Directions must appear in order within a window (the player's motion
+## window for commands with buttons, TAP_WINDOW for those without) but need
+## not be contiguous, and a diagonal between two other directions may be
+## skipped. The last one must be held when the buttons are pressed or, for a
 ## command without buttons, must have just been entered. When several commands
 ## match, one with buttons beats one without, then more directions beat fewer,
 ## then more buttons beat fewer.
 
-const MOTION_WINDOW := 18
 const TAP_WINDOW := 12
 
 var pattern: String
 var dirs := PackedInt32Array()
 var buttons := 0
-var window := MOTION_WINDOW
+## For commands without buttons only.
+var window := TAP_WINDOW
 var move: StringName
 
 
@@ -40,8 +42,6 @@ static func parse(text: String, move_id: StringName) -> Command:
 			var bit := "ABCD".find(ch)
 			assert(bit >= 0, "bad character '%s' in command '%s'" % [ch, text])
 			c.buttons |= 1 << bit
-	if c.buttons == 0:
-		c.window = TAP_WINDOW
 	return c
 
 

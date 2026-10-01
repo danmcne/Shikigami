@@ -9,29 +9,34 @@ const CAPACITY := 40
 ## A press stays usable for this many frames.
 const BUFFER := 5
 const DEFAULT_CHORD := 3
-const A := 1
-const B := 2
-const C := 4
-const D := 8
+const A := Intent.A
+const B := Intent.B
+const C := Intent.C
+const D := Intent.D
+const DEFAULT_MOTION_WINDOW := 18
 
 ## Presses fewer than this many frames apart count as together, and a
 ## direction this close to a button press counts as held with it. Set per
 ## player by calibration.
 var chord := DEFAULT_CHORD
+## Frames a motion such as down, down-toward, toward may span. Set per player.
+var motion_window := DEFAULT_MOTION_WINDOW
 var frame := -1
 var _dirs := PackedInt32Array()
 var _presses := PackedInt32Array()
+var _held := PackedInt32Array()
 
 
 func push(intent: Intent) -> void:
 	frame += 1
 	var y := 1 if intent.up else (-1 if intent.down else 0)
 	_dirs.append(5 + intent.x + 3 * y)
-	_presses.append(int(intent.light) * A | int(intent.heavy) * B
-			| int(intent.special) * C | int(intent.spirit) * D)
+	_presses.append(intent.pressed_mask())
+	_held.append(intent.held | intent.pressed_mask())
 	if _dirs.size() > CAPACITY:
 		_dirs.remove_at(0)
 		_presses.remove_at(0)
+		_held.remove_at(0)
 
 
 ## Numpad direction held on frame `f`, relative to `facing`.
@@ -54,17 +59,23 @@ func matches(cmd: Command, facing: int, after: int) -> bool:
 			held_at = f
 	if held_at < 0:
 		return false
+	var window := cmd.window if cmd.buttons == 0 else motion_window
 	var runs: Array[int] = []
-	for f in range(maxi(held_at - cmd.window, _first(after)), held_at + 1):
+	for f in range(maxi(held_at - window, _first(after)), held_at + 1):
 		var d := direction(f, facing)
 		if runs.is_empty() or runs[-1] != d:
 			runs.append(d)
+	# Walk back through the pattern. A diagonal between two other directions
+	# may be skipped: rolling from down to toward on a keyboard does not always
+	# register the down-toward in between.
 	var k := cmd.dirs.size() - 2
 	for i in range(runs.size() - 2, -1, -1):
 		if k < 0:
 			break
 		if runs[i] == cmd.dirs[k]:
 			k -= 1
+		elif k > 0 and _diagonal(cmd.dirs[k]) and runs[i] == cmd.dirs[k - 1]:
+			k -= 2
 	return k < 0
 
 
@@ -85,6 +96,22 @@ func pressed(mask: int, after: int) -> int:
 	if latest <= frame - BUFFER or latest - earliest >= chord:
 		return -1
 	return latest
+
+
+## Latest fresh frame on which a button in `mask` was pressed while all of
+## `mask` was held. Unlike pressed(), the others may have been held for any
+## length of time. Used where no sequence of presses can be meant, such as
+## escaping a throw while still holding guard.
+func pressed_while_holding(mask: int, after: int) -> int:
+	for f in range(frame, maxi(_first(after), frame - BUFFER + 1) - 1, -1):
+		var i := _index(f)
+		if _presses[i] & mask and (_held[i] & mask) == mask:
+			return f
+	return -1
+
+
+static func _diagonal(n: int) -> bool:
+	return n in [1, 3, 7, 9]
 
 
 ## Frame on which the currently held direction was entered, if within BUFFER

@@ -5,18 +5,27 @@ extends RefCounted
 ## characters: it chooses among the fighter's own normals and commands by
 ## whether they can reach, and enters them as a player would, frame by frame.
 ##
-## Difficulty is a table of numbers; EASY is the only one so far.
+## Difficulty is a table of numbers. LEVELS lists them, easiest first.
 
-const EASY := {
-	think = 18,           # frames between decisions
-	aggression = 0.4,     # chance per decision to attack if something reaches
-	guard_chance = 0.3,   # chance to guard a threat it sees
-	guard_delay = 8,      # reaction time before that guard goes up
-	low_read = 0.5,       # chance of guarding a low attack at the right height
-	escape_chance = 0.2,  # chance to escape a throw
-	summon_chance = 0.15, # chance per decision to summon a ready spirit
-	jump_chance = 0.05,
+const PRACTICE := {
+	think = 45,           # frames between decisions
+	aggression = 0.15,    # chance per decision to attack if something reaches
+	guard_chance = 0.1,   # chance to guard a threat it sees
+	guard_delay = 20,     # reaction time before that guard goes up
+	low_read = 0.3,       # chance of guarding a low attack at the right height
+	escape_chance = 0.05, # chance to escape a throw
+	summon_chance = 0.05, # chance per decision to summon a ready spirit
+	jump_chance = 0.02,
 }
+const EASY := {
+	think = 18, aggression = 0.4, guard_chance = 0.3, guard_delay = 8, low_read = 0.5,
+	escape_chance = 0.2, summon_chance = 0.15, jump_chance = 0.05,
+}
+const NORMAL := {
+	think = 10, aggression = 0.6, guard_chance = 0.55, guard_delay = 5, low_read = 0.8,
+	escape_chance = 0.4, summon_chance = 0.25, jump_chance = 0.05,
+}
+const LEVELS := [["Practice", PRACTICE], ["Easy", EASY], ["Normal", NORMAL]]
 ## Normals by input; their move ids follow the engine's stance_button rule.
 const NORMALS := {"A": &"stand_light", "B": &"stand_heavy", "2A": &"crouch_light", "2B": &"crouch_heavy"}
 

@@ -20,7 +20,8 @@ func _init(initial := Mode.IDLE) -> void:
 func read(me: Fighter, them: Fighter) -> Intent:
 	var i := Intent.new()
 	var guards := mode in [Mode.STAND_GUARD, Mode.CROUCH_GUARD, Mode.FULL_GUARD]
-	i.guard = guards
+	if guards:
+		i.held = Fighter.GUARD_CHORD
 	i.down = mode == Mode.CROUCH or mode == Mode.CROUCH_GUARD
 	if mode == Mode.FULL_GUARD and them.state == Fighter.State.MOVE:
 		i.down = them.move.height == MoveDefinition.Height.LOW

@@ -10,8 +10,8 @@ extends RefCounted
 ##
 ##                             player 1     player 2        gamepad
 ##
-## Guard is held with the thumb: Space for player 1, Numpad 0 for player 2,
-## the right shoulder button on a gamepad.
+## Guard is held as a chord of light and special (J+L, Num 4 + Num 6,
+## Square + Circle), so it has no key of its own.
 ##
 ## Player 1 moves with WASD, player 2 with the arrow keys. Keys are physical
 ## positions, so non-US layouts keep the same shape. Gamepads: first pad is
@@ -19,16 +19,14 @@ extends RefCounted
 
 const KEYS := {
 	"p1_": {left = [KEY_A], right = [KEY_D], up = [KEY_W], down = [KEY_S],
-			light = [KEY_J], heavy = [KEY_I], special = [KEY_L], spirit = [KEY_K], guard = [KEY_SPACE]},
+			light = [KEY_J], heavy = [KEY_I], special = [KEY_L], spirit = [KEY_K]},
 	"p2_": {left = [KEY_LEFT], right = [KEY_RIGHT], up = [KEY_UP], down = [KEY_DOWN],
-			light = [KEY_KP_4], heavy = [KEY_KP_8], special = [KEY_KP_6], spirit = [KEY_KP_2],
-			guard = [KEY_KP_0]},
+			light = [KEY_KP_4], heavy = [KEY_KP_8], special = [KEY_KP_6], spirit = [KEY_KP_2]},
 }
 const PAD_BUTTONS := {
 	left = JOY_BUTTON_DPAD_LEFT, right = JOY_BUTTON_DPAD_RIGHT,
 	up = JOY_BUTTON_DPAD_UP, down = JOY_BUTTON_DPAD_DOWN,
 	light = JOY_BUTTON_X, heavy = JOY_BUTTON_Y, special = JOY_BUTTON_B, spirit = JOY_BUTTON_A,
-	guard = JOY_BUTTON_RIGHT_SHOULDER,
 }
 const PAD_AXES := {
 	left = [JOY_AXIS_LEFT_X, -1.0], right = [JOY_AXIS_LEFT_X, 1.0],

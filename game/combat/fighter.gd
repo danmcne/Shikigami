@@ -17,11 +17,16 @@ const SUMMON_COMMANDS := ["D", "2D"]
 const TECH_STUN := 14
 const TECH_PUSH := 8.0
 const FINISHER := &"finisher"
+## Guard is held with light + special together.
+const GUARD_CHORD := Intent.A | Intent.C
 
 var definition: FighterDefinition
 var input := InputHistory.new()
-## This player's chord window (see InputHistory.chord); survives round resets.
+## This player's input timing (see InputHistory); survives round resets.
 var chord_window := InputHistory.DEFAULT_CHORD
+var motion_window := InputHistory.DEFAULT_MOTION_WINDOW
+## A practice cheat: hits still land and stun, but take no health.
+var invincible := false
 var position := Vector2.ZERO
 ## Airborne velocity, px/frame.
 var velocity := Vector2.ZERO
@@ -93,6 +98,7 @@ func _init(def: FighterDefinition, bound: Array[FighterDefinition] = []) -> void
 func reset(x: float, face: int) -> void:
 	input = InputHistory.new()
 	input.chord = chord_window
+	input.motion_window = motion_window
 	position = Vector2(x, FLOOR_Y)
 	velocity = Vector2.ZERO
 	slide = 0.0
@@ -120,9 +126,15 @@ func reset(x: float, face: int) -> void:
 	_started_rank = -1
 
 
-func set_chord_window(frames: int) -> void:
-	chord_window = frames
-	input.chord = frames
+func set_input_timing(chord: int, motion: int) -> void:
+	chord_window = chord
+	motion_window = motion
+	input.chord = chord
+	input.motion_window = motion
+
+
+func guard_held() -> bool:
+	return (_intent.held & GUARD_CHORD) == GUARD_CHORD
 
 
 func can_turn() -> bool:
@@ -189,7 +201,7 @@ func step() -> void:
 
 
 func receive(m: MoveDefinition, from_facing: int) -> void:
-	var guarding := not m.throw and not airborne and _intent.guard \
+	var guarding := not m.throw and not airborne and guard_held() \
 			and state in [State.GUARD, State.BLOCKSTUN]
 	var unguardable := MoveDefinition.Height.HIGH if crouching else MoveDefinition.Height.LOW
 	move = null
@@ -200,7 +212,8 @@ func receive(m: MoveDefinition, from_facing: int) -> void:
 		_set_state(State.BLOCKSTUN, true)
 		return
 
-	health = maxi(health - m.damage, 0)
+	if not invincible:
+		health = maxi(health - m.damage, 0)
 	if airborne:
 		velocity = Vector2(from_facing * m.knockback * 0.5, minf(velocity.y, -6.0))
 	else:
@@ -296,9 +309,8 @@ func _act_on_ground() -> void:
 			_walk(1.0)
 			_set_state(State.WALK if _intent.x != 0 else State.STAND)
 		return
-	if _intent.guard:
-		_walk(definition.guard_factor)
-		_set_state(State.GUARD)
+	if guard_held():
+		_guard()
 		return
 	var cmd := _matching_command(false, _consumed, -1)
 	if cmd:
@@ -343,11 +355,24 @@ func _act_in_air() -> void:
 		_start(StringName("jump_" + button))
 
 
+## Guarding spends any attack presses made while the chord is held, so
+## nothing fires on release.
+func _guard() -> void:
+	_consumed = input.frame
+	_walk(definition.guard_factor)
+	_set_state(State.GUARD)
+
+
 ## While a move started from input has not yet become active, and within the
-## chord window, a higher-ranked command that now matches replaces it. Buttons
-## and directions meant together need not land on one frame.
+## chord window, completing the guard chord or a higher-ranked command
+## replaces it. Buttons and directions meant together need not land on one
+## frame.
 func _continue_move() -> void:
 	if _started_rank >= 0 and state_frame < input.chord and state_frame < move.startup:
+		if guard_held():
+			_halt()
+			_guard()
+			return
 		var cmd := _matching_command(true, _consumed_before_start, _started_rank)
 		if cmd and _available(cmd):
 			_start_by(cmd.move, cmd.rank(), _consumed_before_start)

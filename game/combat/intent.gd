@@ -3,22 +3,31 @@ extends RefCounted
 ## What a controller wants on one frame. Human input and CPU logic both reduce
 ## to this, so a fighter never knows which is driving it.
 
+## Button bits, also used in command notation as A, B, C and D.
+const A := 1
+const B := 2
+const C := 4
+const D := 8
+
 ## Screen-relative horizontal direction: -1, 0 or +1.
 var x: int = 0
 var up: bool = false
 var down: bool = false
-## Held, not pressed: guarding lasts as long as the button is down.
-var guard: bool = false
-## Button presses (edges, not holds) on this frame. In command notation these
-## are A, B, C and D.
+## Button presses (edges) on this frame.
 var light: bool = false
 var heavy: bool = false
 var special: bool = false
 var spirit: bool = false
+## Buttons currently held down (a pressed button is also held).
+var held: int = 0
 
 
-## An Intent from numpad notation relative to `facing`, pressing `buttons`
-## (any of "ABCD") and holding guard if "G" is among them.
+func pressed_mask() -> int:
+	return int(light) * A | int(heavy) * B | int(special) * C | int(spirit) * D
+
+
+## An Intent from numpad notation relative to `facing`. `buttons` are pressed
+## this frame (any of "ABCD"); "G" holds the guard chord without pressing it.
 static func from_numpad(n: int, facing: int, buttons := "") -> Intent:
 	var i := Intent.new()
 	i.x = ((n - 1) % 3 - 1) * facing
@@ -28,5 +37,5 @@ static func from_numpad(n: int, facing: int, buttons := "") -> Intent:
 	i.heavy = "B" in buttons
 	i.special = "C" in buttons
 	i.spirit = "D" in buttons
-	i.guard = "G" in buttons
+	i.held = i.pressed_mask() | (Fighter.GUARD_CHORD if "G" in buttons else 0)
 	return i

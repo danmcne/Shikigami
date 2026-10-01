@@ -49,7 +49,7 @@ func _init() -> void:
 	_test_spirit_releases_projectile_for_summoner()
 	print("controls text")
 	_test_controls_text()
-	print("guard button, crawling, input slop")
+	print("guard, crawling, input slop")
 	_test_holding_away_does_not_guard()
 	_test_guard_shuffle_and_crawl()
 	_test_no_attacking_while_guarding()
@@ -62,6 +62,13 @@ func _init() -> void:
 	_test_finisher_binds()
 	_test_no_finisher_on_own_kind()
 	_test_finisher_times_out()
+	print("guard chord, motions, cheats")
+	_test_guard_chord_cancels_a_starting_attack()
+	_test_motion_without_diagonal()
+	_test_motion_window_is_per_player()
+	_test_escape_while_holding_guard()
+	_test_no_sealing_a_held_spirit()
+	_test_invincible_takes_no_damage()
 	print("CPU, run, calibration")
 	_test_cpu_enters_motions()
 	_test_cpu_attacks()
@@ -484,7 +491,7 @@ func _test_chord_window_is_per_player() -> void:
 	var narrow := _bout(70.0)
 	_run(narrow, 40, _at({0: [5, "A"], 4: [5, "B"]}))
 	var wide := _bout(70.0)
-	wide.fighters[0].set_chord_window(6)
+	wide.fighters[0].set_input_timing(6, InputHistory.DEFAULT_MOTION_WINDOW)
 	_run(wide, 40, _at({0: [5, "A"], 4: [5, "B"]}))
 	_check("presses 4 frames apart: separate by default, together with a wider window",
 			_taken(narrow, 1) != _dmg(&"throw") and _taken(wide, 1) == _dmg(&"throw"),
@@ -623,23 +630,109 @@ func _test_calibration() -> void:
 	var quick: Array[int] = [5, 6, 7]
 	var close: Array[int] = [0, 3]
 	var overlap: Array[int] = [2, 4]
-	var ok := Calibration.window_for(separable, quick) == 4 \
+	var math_ok := Calibration.window_for(separable, quick) == 4 \
 			and Calibration.window_for(close, overlap) == 4
 	var c := Calibration.new()
-	for trial in Calibration.TRIALS:
-		_press_pair(c, 1)
-	for trial in Calibration.TRIALS:
-		_press_pair(c, 6)
-	_check("calibration sets the window between together and sequence",
-			ok and c.stage() == Calibration.Stage.DONE and c.player == 0 and c.window() == 4,
-			"window %d" % c.window())
+	_feed(c, [{light = true}])  # player 1 chooses
+	for rep in Calibration.REPS:
+		_feed(c, [{light = true}, {heavy = true}])                 # throw, 1 frame apart
+	for rep in Calibration.REPS:
+		_feed(c, [{light = true, special = true}])                 # guard, same frame
+	for rep in Calibration.REPS:
+		_feed(c, [{x = 1}, {x = 1}, {x = 1, special = true}])       # toward held first: never late
+	for rep in Calibration.REPS:
+		_feed(c, [{spirit = true}, {down = true}])                  # spirit 1 frame before down
+	for rep in Calibration.REPS:
+		_feed(c, [{down = true}, {down = true, x = 1}] + _repeat({x = 1}, 8) + [{x = 1, special = true}])
+	for rep in Calibration.REPS:
+		_feed(c, [{light = true}] + _repeat({}, 6) + [{heavy = true}])  # 7 frames apart
+	_check("calibration: window maths, and the whole sequence of trials",
+			math_ok and c.stage == Calibration.Stage.DONE and c.player == 0
+			and c.chord_gaps.max() == 1 and c.sequence_gaps.min() == 7
+			and c.chord_window() == 4 and c.motion_window() == 10 + Calibration.MOTION_MARGIN,
+			"stage %d gaps %s seq %s spans %s" % [c.stage, c.chord_gaps, c.sequence_gaps, c.motion_spans])
 
 
-## Feeds the calibration light, then heavy `gap` frames later, then a pause.
-func _press_pair(c: Calibration, gap: int) -> void:
-	for f in gap + 30:
+func _repeat(frame: Dictionary, n: int) -> Array:
+	var out := []
+	for k in n:
+		out.append(frame)
+	return out
+
+
+## Feeds frames (dictionaries of Intent fields) for player 1, then a pause.
+func _feed(c: Calibration, frames: Array) -> void:
+	for f in frames + _repeat({}, 35):
 		var i := Intent.new()
-		i.light = f == 0
-		i.heavy = f == gap
+		for key in f:
+			i.set(key, f[key])
 		var intents: Array[Intent] = [i, Intent.new()]
 		c.observe(intents)
+
+
+# --- guard chord, motions, cheats --------------------------------------------
+
+func _test_guard_chord_cancels_a_starting_attack() -> void:
+	var b := _bout()
+	var seen := {}
+	_run(b, 30, _at({0: [5, "A"], 1: [5, "CG"]}, 5, "G"), null, func(x: Bout) -> void:
+		seen[x.fighters[0].state] = true)
+	_check("light, then special a frame later while holding light, becomes guard",
+			Fighter.State.GUARD in seen and _taken(b, 1) == 0 and b.fighters[0].state == Fighter.State.GUARD,
+			"took %d, state %s" % [_taken(b, 1), Fighter.State.keys()[b.fighters[0].state]])
+
+
+func _test_motion_without_diagonal() -> void:
+	var id := _move_after(_at({0: [2, ""], 1: [6, "C"]}), 3)
+	_check("down then toward + special, skipping the diagonal, is still the projectile",
+			id == &"projectile", "got %s" % id)
+
+
+func _slow_roll(b: Bout) -> StringName:
+	var script := _at({0: [2, ""], 1: [3, ""], 24: [6, "C"]}, 3)
+	var id := [&""]
+	_run(b, 26, script, null, func(x: Bout) -> void:
+		if x.fighters[0].move and id[0] == &"":
+			id[0] = x.fighters[0].move.id)
+	return id[0]
+
+
+func _test_motion_window_is_per_player() -> void:
+	var default := _slow_roll(_bout(300.0))
+	var patient := _bout(300.0)
+	patient.fighters[0].set_input_timing(InputHistory.DEFAULT_CHORD, 30)
+	var wide := _slow_roll(patient)
+	_check("a slow roll is a projectile only with a wider roll window",
+			default != &"projectile" and wide == &"projectile", "default %s, wide %s" % [default, wide])
+
+
+func _test_escape_while_holding_guard() -> void:
+	var b := _bout(70.0)
+	var grabbed := [false]
+	_run(b, 40, _at({0: [5, "AB"]}), func(n: int) -> Array:
+		return [5, "BG" if grabbed[0] else "G"], func(x: Bout) -> void:
+			if x.fighters[1].state == Fighter.State.GRABBED:
+				grabbed[0] = true)
+	_check("while holding guard, pressing heavy escapes a throw", grabbed[0] and _taken(b, 1) == 0,
+			"grabbed %s, took %d" % [grabbed[0], _taken(b, 1)])
+
+
+func _test_no_sealing_a_held_spirit() -> void:
+	var bound: Array[FighterDefinition] = [Roster.heavy()]
+	var b := Bout.new(def, Roster.heavy(), bound, [])
+	b.fighters[0].position.x = -50
+	b.fighters[1].position.x = 50
+	b.wins[0] = 1
+	b.fighters[1].health = 10
+	_run(b, 20, _at({0: [5, "A"]}))
+	_check("a spirit already held cannot be sealed again", b.phase == Bout.Phase.BOUT_OVER and not b.bound,
+			"phase %d" % b.phase)
+
+
+func _test_invincible_takes_no_damage() -> void:
+	var b := _bout()
+	b.fighters[1].invincible = true
+	var seen := {}
+	_run(b, 40, _at({0: [5, "B"]}), null, func(x: Bout) -> void: seen[x.fighters[1].state] = true)
+	_check("an invincible fighter is still hit but loses no health",
+			_taken(b, 1) == 0 and Fighter.State.HITSTUN in seen, "took %d" % _taken(b, 1))

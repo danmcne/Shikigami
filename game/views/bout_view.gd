@@ -151,7 +151,7 @@ static func move_list(f: Fighter, prefix: String) -> Array[String]:
 	var light := ControlsText.key(prefix, "light")
 	var heavy := ControlsText.key(prefix, "heavy")
 	var rows: Array[String] = [
-		"Guard: hold %s (with %s: low guard). You can shuffle while guarding." % [ControlsText.key(prefix, "guard"), down],
+		"Guard: hold %s+%s (with %s: low guard). You can shuffle while guarding." % [light, ControlsText.key(prefix, "special"), down],
 		"%s light, %s heavy. Crouching: lows. Jumping: overheads." % [light, heavy],
 	]
 	var d := f.definition

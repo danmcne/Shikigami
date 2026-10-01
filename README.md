@@ -4,7 +4,7 @@ A 2D fighting game set in a fantasy Japan, in the lineage of Street Fighter and 
 
 The guiding principle: **the fighting is the game; the campaign exists to produce unusual fights.** There are no levels, stat sheets or grinding.
 
-This repository currently contains Prototype 4: rectangle fighters with the full combat system, an easy computer opponent, and a simple run against random opponents. Everything below the "Prototype 4" heading describes that code. Everything above it describes the plan.
+This repository currently contains Prototype 5: rectangle fighters with the full combat system, a computer opponent at three difficulties, and a simple run against random opponents. Everything below the "Prototype 5" heading describes that code. Everything above it describes the plan.
 
 ## The planned game
 
@@ -30,7 +30,7 @@ Completing the campaign unlocks some of the supernatural fighters as playable ch
 
 The finisher and the progression mechanic are one feature. Each fighter's finisher is their way of sealing a beaten opponent: Musashi's cut, the monk's sutra, the miko's ofuda, the onmyōji's talisman circle. The loser plays a single shared animation of the spirit being torn loose.
 
-**Humans bind yokai spirits; yokai bind human spirits; neither binds its own kind.** So a finisher is offered only against an opponent of the other kind, after the deciding round. The opponent stands dazed for a few seconds, and if the finisher connects, their spirit is bound. Bosses end the run and yield nothing.
+**Humans bind yokai spirits; yokai bind human spirits; neither binds its own kind.** So a finisher is offered only against an opponent of the other kind, after the deciding round, and only if you do not already hold that spirit. The opponent stands dazed for a few seconds, and if the finisher connects, their spirit is bound. Bosses end the run and yield nothing.
 
 ### Spirits in combat
 
@@ -40,7 +40,7 @@ The finisher and the progression mechanic are one feature. Each fighter's finish
 
 ### Controls
 
-Directions, four attack buttons (light, heavy, special, spirit) and a held guard button. The four attack buttons form the same diamond on keyboard and gamepad, and guard sits under the thumb.
+Directions and four buttons: light, heavy, special and spirit. The buttons form the same diamond on keyboard and gamepad. There is no guard button: guard is held light+special.
 
 - **Normals** come from stance plus light or heavy: standing, crouching (lows) or jumping (overheads).
 - **Specials** are special with a direction (toward, down) or with a rolling motion.
@@ -51,16 +51,26 @@ Directions, four attack buttons (light, heavy, special, spirit) and a held guard
 
 Whether the real roster uses only direction+special or also rolling motions is an open question. The prototype has both so they can be compared by feel.
 
-**Defence.** Guard is its own held button, separate from movement:
+Up to jump and down to crouch are universal. What direction+special does is not: classic games use motions (the anti-air is usually forward, down, down-forward + punch), and modern simplified schemes map direction+special per character. Down+special for the rising anti-air is this prototype's choice, not a convention. The nearest conventions would be up+special, which needs a few frames of jump start-up so the special can win, or the classic motion.
+
+**Defence.** Guard is held light+special, separate from movement:
 
 - While guard is held you can shuffle slowly in either direction and crouch, but you cannot attack, throw, summon or jump. Release it to act.
+- The first of the two presses may start an attack. If the second arrives within your timing window, before that attack is live, the attack is cancelled into guard.
 - Guard is not directional: it protects from both sides.
 - Standing guard stops mid and overhead attacks; crouching guard stops mid and low.
-- Throws beat guard. Light+heavy within 10 frames of being grabbed escapes.
+- Throws beat guard. Light+heavy within 10 frames of being grabbed escapes. Since you can't be pressing anything else while held, a guarding player may simply press heavy while still holding light.
 
 So every attack has an active answer, and guarding costs you your offence while you hold it.
 
-**Timing.** Two presses count as "together" (a throw, or a direction with a button) if they land within a short window. Keyboards, pads and hands differ, so each player can calibrate their own window. The calibration measures how far apart their deliberate "together" presses land and how close their quick deliberate sequences come, then places the window between the two.
+**Timing.** Two presses count as "together" if they land within a short window, and a rolling motion must finish within another. Keyboards, pads and hands differ, so each player calibrates both on the game's real inputs:
+
+- the throw and guard chords (two fingers of one hand);
+- direction+button across both hands;
+- the projectile roll;
+- quick deliberate sequences that must stay separate.
+
+On a keyboard, rolling from down to toward doesn't always register the diagonal in between. A diagonal in the middle of a motion is therefore optional.
 
 ### Monster-tier bosses
 
@@ -95,14 +105,14 @@ The original plan put art second. With no art pipeline in place, art is the cost
 1. **Two rectangles.** *Done.*
 2. **Inputs and moves.** *Done.*
 3. **Spirits and defence.** *Done.*
-4. **CPU opponent and run loop.** An easy CPU, character select, random opponents with random spirits, finishers that bind, slot choice, button-timing calibration. *This repository.* Still to come in this step: tiers, save and resume, and harder CPU settings.
+4. **CPU opponent and run loop.** A CPU at three difficulties, character select, random opponents with random spirits, finishers that bind, slot choice, calibration, practice options. *This repository.* Still to come in this step: tiers, save and resume.
 5. **Art for three fighters.**
 6. **Roster, bosses, presentation.**
 
 ### Open questions
 
 - **The human tier and the kind rule.** A human player binds nothing in the human tier, so a run's progression only starts in the supernatural tier. Should the human tier reward something else, be shorter, or be interleaved with yokai?
-- Whether binding a spirit you already hold should be offered at all.
+- With three placeholder fighters, a human player can only ever hold the two yokai spirits. Binding choices only become interesting with a larger roster.
 - The unlock rule after completing the campaign.
 - Direction+special, rolling motions, or both for the real roster.
 - Whether any meter or super exists.
@@ -110,7 +120,7 @@ The original plan put art second. With no art pipeline in place, art is the cost
 
 ---
 
-## Prototype 4
+## Prototype 5
 
 ### Running
 
@@ -118,7 +128,7 @@ Open the folder in Godot 4.3+ and press Play, or run `godot --path .` from the c
 
 | Screen | Keys |
 |---|---|
-| Menu | 1 run, 2 versus, 3 calibrate button timing |
+| Menu | 1 run, 2 versus, 3 calibrate timing, 4 computer difficulty, 5 game speed, 6 player 1 invincible |
 | Fighter select | 1–3 |
 | Run | play; when a beaten opponent stands dazed, perform your finisher (shown on screen) |
 | Slots full after a binding | 1 or 2 to replace that slot, 3 to release the new spirit |
@@ -133,30 +143,47 @@ Open the folder in Godot 4.3+ and press Play, or run `godot --path .` from the c
 | Heavy | I | Num 8 | Y / Triangle |
 | Special | L | Num 6 | B / Circle |
 | Spirit | K | Num 2 | A / Cross |
-| Guard (hold) | Space | Num 0 | right shoulder |
+| Guard (hold) | J+L | Num 4 + Num 6 | Square + Circle |
 
-Each player's full move list is on screen in that player's keys, and it follows facing. The first gamepad drives player 1 and the second drives player 2. Keys are bound by physical position, so the shapes hold on non-US layouts.
+Each player's full move list is on screen in that player's keys, and it follows facing.
 
-### Calibrating button timing
+### Practice options
 
-From the menu, press 3. Press light and heavy together eight times, the way you would for a throw. Then press them one after the other eight times, as quickly as you can while still meaning two separate presses. The screen shows both measurements and the resulting window. Enter saves it for that player in `user://settings.cfg`; it then applies to throws, throw escapes and direction+button inputs. The default, before calibrating, is presses under 3 frames (50 ms) apart.
+These are on the menu and are remembered between sessions.
 
-Separately from the window, a direction may arrive slightly before or after its button. If special lands a frame before down, you still get the down special.
+- **Computer difficulty.** Practice is the default: the computer decides every three-quarters of a second, rarely attacks, guards little and slowly, and almost never escapes throws. Easy is the previous computer. Normal reacts faster and defends more.
+- **Game speed: 100%, 75% or 50%.** Everything slows together (fighters, computer, timers), so frame data and the feel of each move are unchanged, just stretched. Calibration always runs at full speed.
+- **Player 1 invincible.** Hits still land, stun and knock down, but take no health.
+
+### Calibrating timing
+
+Menu option 3. Press light to say which player you are, then follow the prompts, which name your own keys. There are six steps of five tries each:
+
+1. light+heavy together (throw);
+2. light+special together (guard);
+3. toward+special together (rush);
+4. down+spirit together (second spirit);
+5. the projectile roll (down, down-toward, toward + special);
+6. light then heavy as two separate presses, as quickly as you can.
+
+The results screen shows what was measured and the two windows chosen. Enter saves them for that player.
+
+A direction held before its button is never late, since it's still held when the button lands. So the calibration counts only buttons that arrive before their direction. The menu shows each player's current windows, and whether they are still the defaults (together under 3 frames; rolls within 18 frames).
 
 ### Player 1's moves, facing right
 
 | Keys | Move |
 |---|---|
-| hold Space (with S: low guard) | guard, shuffling slowly with A / D |
+| hold J+L (with S: low guard) | guard, shuffling slowly with A / D |
 | S + A / D | crawl |
 | J / I | light / heavy (hold S for lows, jump for overheads) |
 | J+I | throw (hold A for a back throw) |
-| J+I as you are grabbed | escape the throw |
+| J+I, or I while still holding J, when grabbed | escape the throw |
 | D, release, D / A, release, A | dash forward / back |
 | L | palm |
 | D + L | rush |
 | S + L | rising (anti-air, invulnerable at first) |
-| S, S+D, D + L | projectile |
+| S, S+D, D + L (the S+D may be skipped) | projectile |
 | K / S + K | summon first / second spirit |
 | finisher input (below) | seal a dazed opponent of the other kind |
 
@@ -170,34 +197,16 @@ Placeholders until real characters exist. All three share one move set and diffe
 | Heavy | yokai | 1200 | 1.2× | 0.72× | 1.3× | +2 frames | S, W + K | a heavy strike |
 | Swift | yokai | 850 | 0.85× | 1.35× | 0.8× | −1 frame | D, A + K | throws a projectile |
 
-A human (Balanced) carries yokai spirits and can seal yokai. A yokai carries the human spirit and can seal a human.
-
 ### The run
 
 - You pick a fighter and start with no spirits.
-- You face six random opponents in a row; mirror matches are possible. Each opponent carries zero, one or two random spirits of the kind it can bind (40% / 40% / 20%).
-- Each fight is best of three. Win the deciding round against the other kind and the opponent stands dazed for five seconds; land your finisher to bind their spirit.
+- You face six random opponents; mirror matches are possible. Each opponent carries zero, one or two random spirits of the kind it can bind (40% / 40% / 20%).
+- Each fight is best of three. Win the deciding round against the other kind, and if you don't already hold that spirit, the opponent stands dazed for five seconds; land your finisher to bind them. With both slots full, you choose what to give up.
 - Lose a fight and the run ends.
-- Tiers, save and resume come later.
 
-### The CPU
+### The computer
 
-Deliberately easy, and defined by a table of numbers (`CpuController.EASY`):
-
-- It decides every 18 frames.
-- It guards about a third of the threats it sees, with a reaction delay, and guards a low at the right height half the time.
-- It escapes a fifth of throws.
-- It summons ready spirits now and then.
-
-It knows nothing about particular characters. It chooses among the fighter's own normals and commands by whether their hitboxes can reach, and enters them as a player would, frame by frame. Any fighter it is given, it can play.
-
-### Rules added in this prototype
-
-- **Guard button** as described above; holding away from the opponent is now just walking.
-- **Crawling** at half speed; shuffling under guard at 0.4× speed. Both are per-fighter data.
-- **One "together" window per player**, used for throws, escapes, and late or early directions. A move started from a lesser input can still become a better one until its hitbox appears, within that window.
-- **An unavailable input spends itself.** A cooling-down spirit or a projectile already on screen gives nothing, rather than a different move.
-- **Kinds and finishers** as described above. Spirits can perform throws.
+The computer is defined by tables of numbers in `CpuController.LEVELS`. It knows nothing about particular characters. It chooses among the fighter's own normals and commands by whether their hitboxes can reach, and enters them as a player would, frame by frame.
 
 ### Structure
 
@@ -206,8 +215,8 @@ project.godot, main.tscn
 game/
   main.gd                  screens and flow: menu, select, run, binding choice, versus, calibration
   run.gd                   a run as pure state: fighter, spirits, random opponents
-  calibration.gd           measures a player's "together" timing
-  settings.gd              per-player settings saved in user://settings.cfg
+  calibration.gd           measures a player's chord and roll timing on the game's real inputs
+  settings.gd              timing and options saved in user://settings.cfg
   controls_text.gd         command patterns -> the keys a player presses
   input_setup.gd           all key and gamepad bindings
   views/
@@ -217,7 +226,7 @@ game/
                            invulnerability, motion, spawn
     fighter_definition.gd  kind, stats, boxes, moves, commands, summon, spirit move, finisher
     command.gd             command notation and priority
-    input_history.gd       recent input, the chord window, and the queries commands need
+    input_history.gd       recent presses and holds, timing windows, command matching
     intent.gd              one frame of what a controller wants
     fighter.gd             per-fighter state machine; spirits are fighters too
     entity.gd              projectiles
@@ -225,7 +234,7 @@ game/
   controllers/
     player_controller.gd   InputMap -> Intent
     dummy_controller.gd    training dummy
-    cpu_controller.gd      the easy computer opponent
+    cpu_controller.gd      the computer opponent, three difficulties
   fighters/
     prototype_rect.gd      the base fighter, as data
     roster.gd              Balanced, Heavy, Swift
@@ -247,8 +256,6 @@ The simulation (`combat/`) has no nodes, drawing or input devices. The view only
 
 ### Command notation (for reading the code)
 
-Fighter data writes inputs in fighting-game numpad notation. Players never see it; the screen translates it into keys.
-
 ```
 7 8 9      6 = toward the opponent, 4 = away, 2 = down, 5 = neutral
 4 5 6      A light, B heavy, C special, D spirit
@@ -262,20 +269,14 @@ godot --headless --path . --import          # once, to build the class cache
 godot --headless --path . --script res://tests/selftest.gd
 ```
 
-There are 51 checks. They cover:
+There are 57 checks. This prototype adds checks for:
 
-- **Earlier rules:** guards, trades, KO, pushboxes, commands, dashes, throws, knockdown, projectiles, invulnerability and spirits.
-- **This prototype's additions:**
-  - holding away no longer guards;
-  - guard shuffling and crawling speeds;
-  - no attacking under guard;
-  - late directions and per-player windows;
-  - no fall-through from a cooling-down spirit;
-  - the kind rule;
-  - spirit throws landing or escaped;
-  - finishers sealing, refused against one's own kind, and timing out;
-  - the CPU entering motions and landing hits;
-  - run rules;
-  - calibration.
+- the guard chord cancelling an attack's start-up;
+- motions without the diagonal;
+- per-player roll windows;
+- escaping a throw while holding guard;
+- no re-sealing a held spirit;
+- invincibility;
+- the full calibration sequence.
 
-The checks confirm the rules behave as written. They cannot tell you whether the game feels good, or whether the CPU is the right difficulty.
+The checks confirm the rules behave as written. They cannot tell you whether the game feels good, or whether any difficulty is right.

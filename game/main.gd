@@ -2,6 +2,7 @@ extends Node2D
 ## Screens and flow. Fights are drawn by BoutView; rules live in game/combat/.
 ##
 ##   MENU       1 run   2 versus   3 calibrate button timing
+##              4 difficulty   5 game speed   6 invincibility (player 1)
 ##   SELECT     1-3 pick a fighter for the run
 ##   RUN        you against the CPU; finish beaten foes you can bind
 ##   BIND       both slots full: choose what to give up
@@ -39,6 +40,8 @@ func _ready() -> void:
 
 
 func _physics_process(_delta: float) -> void:
+	var fighting := screen == Screen.RUN or screen == Screen.VERSUS
+	Engine.time_scale = Settings.SPEEDS[Settings.speed()] if fighting else 1.0
 	match screen:
 		Screen.RUN:
 			var a := bout.fighters[0]
@@ -84,6 +87,12 @@ func _unhandled_input(event: InputEvent) -> void:
 				2:
 					calibration = Calibration.new()
 					screen = Screen.CALIBRATE
+				3:
+					Settings.set_option("difficulty", (Settings.difficulty() + 1) % CpuController.LEVELS.size())
+				4:
+					Settings.set_option("speed", (Settings.speed() + 1) % Settings.SPEEDS.size())
+				5:
+					Settings.set_option("invincible", not Settings.invincible())
 		Screen.SELECT:
 			if number >= 0 and number < roster.size():
 				run = Run.new(roster[number], roster, Time.get_ticks_usec())
@@ -96,8 +105,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			if key == KEY_ENTER or key == KEY_KP_ENTER:
 				screen = Screen.MENU
 		Screen.CALIBRATE:
-			if calibration.stage() == Calibration.Stage.DONE and (key == KEY_ENTER or key == KEY_KP_ENTER):
-				Settings.set_chord_window(calibration.player, calibration.window())
+			if calibration.stage == Calibration.Stage.DONE and (key == KEY_ENTER or key == KEY_KP_ENTER):
+				Settings.set_timing(calibration.player, calibration.chord_window(), calibration.motion_window())
 				screen = Screen.MENU
 		Screen.VERSUS:
 			match key:
@@ -117,7 +126,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _start_fight() -> void:
 	bout = _make_bout(run.character, run.opponent, run.spirits, run.opponent_spirits)
-	cpu = CpuController.new(CpuController.EASY, run.rng.randi())
+	cpu = _cpu(run.rng.randi())
 	screen = Screen.RUN
 
 
@@ -152,15 +161,20 @@ func _start_versus() -> void:
 		bound.assign(roster.filter(func(o: FighterDefinition) -> bool: return d.binds(o)).slice(0, Run.SLOTS))
 		loadouts.append(bound)
 	bout = _make_bout(defs[0], defs[1], loadouts[0], loadouts[1])
-	cpu = CpuController.new(CpuController.EASY, Time.get_ticks_usec())
+	cpu = _cpu(Time.get_ticks_usec())
 	screen = Screen.VERSUS
+
+
+func _cpu(seed_value: int) -> CpuController:
+	return CpuController.new(CpuController.LEVELS[Settings.difficulty()][1], seed_value)
 
 
 func _make_bout(a: FighterDefinition, b: FighterDefinition,
 		sa: Array[FighterDefinition], sb: Array[FighterDefinition]) -> Bout:
 	var made := Bout.new(a, b, sa.duplicate(), sb.duplicate())
 	for i in 2:
-		made.fighters[i].set_chord_window(Settings.chord_window(i))
+		made.fighters[i].set_input_timing(Settings.chord_window(i), Settings.motion_window(i))
+	made.fighters[0].invincible = Settings.invincible()
 	return made
 
 
@@ -170,13 +184,23 @@ func _draw() -> void:
 	match screen:
 		Screen.MENU:
 			BoutView.message(self, "SHIKIGAMI (working title)", 200, 48)
-			BoutView.lines(self, Vector2(0, 300), [
+			var rows: Array[String] = [
 				"1   Run: you against the computer, binding the spirits you defeat",
 				"2   Versus: two players, a training dummy, or the computer",
-				"3   Calibrate button timing for your keyboard or pad",
+				"3   Calibrate button timing for your hands and keyboard or pad",
 				"",
-				"Esc returns here from anywhere.   F1 shows boxes.",
-			], 1280, HORIZONTAL_ALIGNMENT_CENTER, 20)
+				"4   Computer difficulty: %s" % CpuController.LEVELS[Settings.difficulty()][0],
+				"5   Game speed: %d%%" % roundi(Settings.SPEEDS[Settings.speed()] * 100),
+				"6   Player 1 invincible: %s" % ("on" if Settings.invincible() else "off"),
+				"",
+			]
+			for i in 2:
+				rows.append("Player %d timing: together under %d frames, rolls within %d frames%s" % [i + 1,
+						Settings.chord_window(i), Settings.motion_window(i),
+						"" if _calibrated(i) else " (defaults; calibrate with 3)"])
+			rows.append("")
+			rows.append("Esc returns here from anywhere.   F1 shows boxes.")
+			BoutView.lines(self, Vector2(0, 280), rows, 1280, HORIZONTAL_ALIGNMENT_CENTER, 20)
 		Screen.SELECT:
 			BoutView.message(self, "Choose your fighter", 160, 40)
 			var rows: Array[String] = []
@@ -233,27 +257,60 @@ func _draw_fight() -> void:
 		BoutView.lines(self, Vector2(0, 708), [help], 1280, HORIZONTAL_ALIGNMENT_CENTER, 13, Color(0.7, 0.7, 0.7))
 
 
+func _calibrated(player: int) -> bool:
+	return Settings.chord_window(player) != InputHistory.DEFAULT_CHORD \
+			or Settings.motion_window(player) != InputHistory.DEFAULT_MOTION_WINDOW
+
+
 func _draw_calibration() -> void:
-	BoutView.message(self, "Calibrate button timing", 140, 40)
-	var who := "either player" if calibration.player < 0 else "player %d" % (calibration.player + 1)
+	BoutView.message(self, "Calibrate button timing", 120, 40)
+	var c := calibration
 	var rows: Array[String] = []
-	match calibration.stage():
-		Calibration.Stage.TOGETHER:
-			rows = ["Press LIGHT and HEAVY at the same time, as you would for a throw.",
-					"(Player 1: J and I.   Player 2: Num 4 and Num 8.)",
-					"%d of %d  (%s)" % [calibration.together.size(), Calibration.TRIALS, who]]
-		Calibration.Stage.SEQUENCE:
-			rows = ["Now press LIGHT, then HEAVY, one after the other, as quickly as you can",
-					"while still meaning them as two separate presses.",
-					"%d of %d  (%s)" % [calibration.sequence.size(), Calibration.TRIALS, who]]
-		Calibration.Stage.DONE:
-			var w := calibration.window()
-			rows = ["Together: presses landed up to %d frames apart." % calibration.together.max(),
-					"Quick sequence: presses landed at least %d frames apart." % calibration.sequence.min(),
-					"Window for player %d: presses under %d frames apart (%d ms) count as together."
-							% [calibration.player + 1, w, roundi(w * 1000.0 / 60.0)]]
-			if calibration.overlapping():
-				rows.append("Your together and sequence timings overlap; the window favours together.")
-			rows.append("")
-			rows.append("Enter to save.   Esc to discard.")
-	BoutView.lines(self, Vector2(0, 260), rows, 1280, HORIZONTAL_ALIGNMENT_CENTER, 20)
+	if c.stage == Calibration.Stage.CHOOSE:
+		rows = ["Player 1: press %s to begin.    Player 2: press %s to begin." % [
+				ControlsText.key("p1_", "light"), ControlsText.key("p2_", "light")]]
+	elif c.stage == Calibration.Stage.DONE:
+		rows = [
+			"Player %d results" % (c.player + 1),
+			"Presses meant together landed up to %d frames apart." % c.chord_gaps.max(),
+			"Presses meant separately landed at least %d frames apart." % c.sequence_gaps.min(),
+			"Your longest projectile roll took %d frames." % c.motion_spans.max(),
+			"",
+			"Together window: under %d frames (%d ms).   Roll window: %d frames (%d ms)." % [
+				c.chord_window(), roundi(c.chord_window() * 1000.0 / 60.0),
+				c.motion_window(), roundi(c.motion_window() * 1000.0 / 60.0)],
+		]
+		if c.overlapping():
+			rows.append("Some 'together' presses were as far apart as your quick sequences; the window favours together.")
+		rows.append("")
+		rows.append("Enter to save.   Esc to discard.")
+	else:
+		var p := "p%d_" % (c.player + 1)
+		var k := func(verb: String) -> String: return ControlsText.key(p, verb)
+		var toward := ControlsText.direction(6, 1, p)
+		var down := ControlsText.direction(2, 1, p)
+		var prompt := ""
+		match c.stage:
+			Calibration.Stage.THROW:
+				prompt = "Press %s and %s together, as for a throw." % [k.call("light"), k.call("heavy")]
+			Calibration.Stage.GUARD:
+				prompt = "Press %s and %s together, as for guard." % [k.call("light"), k.call("special")]
+			Calibration.Stage.TOWARD_SPECIAL:
+				prompt = "Press %s and %s together, as for the rush." % [toward, k.call("special")]
+			Calibration.Stage.DOWN_SPIRIT:
+				prompt = "Press %s and %s together, as for the second spirit." % [down, k.call("spirit")]
+			Calibration.Stage.MOTION:
+				prompt = "Roll %s, %s and press %s, as for the projectile." % [down,
+						ControlsText.direction(3, 1, p) + ", " + toward, k.call("special")]
+			Calibration.Stage.SEQUENCE:
+				prompt = "Press %s, then %s: two separate presses, as quickly as you can." % [k.call("light"), k.call("heavy")]
+		rows = [
+			"Player %d, step %d of 6" % [c.player + 1, c.stage],
+			"",
+			prompt,
+			"",
+			"%d of %d" % [c.count, Calibration.REPS],
+			"",
+			"Release everything between tries.",
+		]
+	BoutView.lines(self, Vector2(0, 230), rows, 1280, HORIZONTAL_ALIGNMENT_CENTER, 22)
