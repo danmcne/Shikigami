@@ -127,21 +127,35 @@ static func _hud(ci: CanvasItem, bout: Bout, names: Array[String]) -> void:
 				message(ci, "PLAYER %d WINS" % (bout.winner() + 1))
 
 
-## Spirit slots under the name; the fill drains while on cooldown.
+## Recharging abilities under the name: the signature special, then each
+## spirit slot. The fill drains on use and refills as it recharges.
 static func _slots(ci: CanvasItem, f: Fighter, index: int, bar: Rect2, left: bool) -> void:
 	var prefix := "p%d_" % (index + 1)
+	var slots: Array = []  # [label, remaining, full]
+	var d := f.definition
+	if d.signature != &"":
+		var m: MoveDefinition = d.moves[d.signature]
+		slots.append([ControlsText.key(prefix, "special") + "  " + _name(m.id),
+				f.move_cooldowns.get(m.id, 0), maxi(m.cooldown, 1)])
 	for slot in f.spirits.size():
-		var w := 180.0
-		var x := bar.position.x + slot * (w + 10) if left else bar.end.x - (slot + 1) * (w + 10) + 10
-		var r := Rect2(x, 86, w, 18)
 		var source := f.spirits[slot]
+		slots.append([ControlsText.describe(Fighter.SUMMON_COMMANDS[slot], f.facing, prefix)
+				+ "  " + source.display_name, f.cooldowns[slot], source.spirit_cooldown])
+	var w := 180.0
+	for k in slots.size():
+		var x := bar.position.x + k * (w + 10) if left else bar.end.x - (k + 1) * (w + 10) + 10
+		var r := Rect2(x, 86, w, 18)
 		var fill := r
-		fill.size.x *= 1.0 - float(f.cooldowns[slot]) / source.spirit_cooldown
+		fill.size.x *= 1.0 - float(slots[k][1]) / slots[k][2]
 		ci.draw_rect(r, Color(0.15, 0.15, 0.15))
-		ci.draw_rect(fill, Color(0.55, 0.5, 0.8) if f.cooldowns[slot] == 0 else Color(0.35, 0.33, 0.45))
+		ci.draw_rect(fill, Color(0.55, 0.5, 0.8) if slots[k][1] == 0 else Color(0.35, 0.33, 0.45))
 		ci.draw_rect(r, Color(0.8, 0.8, 0.8), false, 1.0)
-		var label := "%s  %s" % [ControlsText.describe(Fighter.SUMMON_COMMANDS[slot], f.facing, prefix), source.display_name]
-		ci.draw_string(ThemeDB.fallback_font, r.position + Vector2(6, 14), label, HORIZONTAL_ALIGNMENT_LEFT, w - 8, 12)
+		ci.draw_string(ThemeDB.fallback_font, r.position + Vector2(6, 14), slots[k][0],
+				HORIZONTAL_ALIGNMENT_LEFT, w - 8, 12)
+
+
+static func _name(id: StringName) -> String:
+	return String(id).replace("_", " ")
 
 
 ## Every input this fighter has, in this player's keys, for the current facing.
@@ -150,16 +164,21 @@ static func move_list(f: Fighter, prefix: String) -> Array[String]:
 	var down := ControlsText.direction(2, f.facing, prefix)
 	var light := ControlsText.key(prefix, "light")
 	var heavy := ControlsText.key(prefix, "heavy")
+	var special := ControlsText.key(prefix, "special")
+	var spirit := ControlsText.key(prefix, "spirit")
 	var rows: Array[String] = [
-		"Guard: hold %s+%s (with %s: low guard). You can shuffle while guarding." % [light, ControlsText.key(prefix, "special"), down],
+		"Guard: hold %s+%s (with %s: low). Spirit guard, also stops spirits: hold %s+%s+%s." % [
+				light, special, down, light, spirit, special],
 		"%s light, %s heavy. Crouching: lows. Jumping: overheads." % [light, heavy],
 	]
 	var d := f.definition
 	for pattern in d.commands:
 		var m: MoveDefinition = d.moves[d.commands[pattern]]
-		var name := String(m.id).replace("_", " ")
+		var name := _name(m.id)
+		if m.id == d.signature:
+			name += " (signature; recharges)"
 		if m.throw:
-			name += " (hold %s: back throw)" % away
+			name += " (hold %s to throw backward)" % away
 		rows.append("%s   %s" % [ControlsText.describe(pattern, f.facing, prefix), name])
 	rows.append("Escape a throw: %s+%s as you are grabbed." % [light, heavy])
 	if d.finisher_command != "":

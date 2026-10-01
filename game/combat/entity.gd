@@ -10,6 +10,8 @@ var position: Vector2
 var facing: int
 var frame := 0
 var spent := false
+## Released by a spirit: only spirit guard stops it.
+var from_spirit := false
 
 
 func _init(m: MoveDefinition, source: Fighter, index: int) -> void:
@@ -18,6 +20,7 @@ func _init(m: MoveDefinition, source: Fighter, index: int) -> void:
 	facing = source.facing
 	var offset := source.move.spawn_offset
 	position = source.position + Vector2(facing * offset.x, offset.y)
+	from_spirit = source.summoner >= 0
 
 
 func step() -> void:

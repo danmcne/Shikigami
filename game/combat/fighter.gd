@@ -17,14 +17,11 @@ const SUMMON_COMMANDS := ["D", "2D"]
 const TECH_STUN := 14
 const TECH_PUSH := 8.0
 const FINISHER := &"finisher"
-## Guard is held with light + special together.
-const GUARD_CHORD := Intent.A | Intent.C
 
 var definition: FighterDefinition
 var input := InputHistory.new()
 ## This player's input timing (see InputHistory); survives round resets.
 var chord_window := InputHistory.DEFAULT_CHORD
-var motion_window := InputHistory.DEFAULT_MOTION_WINDOW
 ## A practice cheat: hits still land and stun, but take no health.
 var invincible := false
 var position := Vector2.ZERO
@@ -51,6 +48,7 @@ var air_move_used := false
 ## `live_spawns` lists moves whose released entity is still alive, which
 ## cannot be repeated until it is gone.
 var threatened := false
+var spirit_threatened := false
 var live_spawns: Array = []
 ## Set by the Bout when the opponent is beaten and this fighter may seal them:
 ## only walking and the finisher are possible.
@@ -59,6 +57,11 @@ var awaiting_finisher := false
 var pending_spawn: MoveDefinition = null
 ## Set by step() on the frame a summon releases a spirit: the slot index.
 var pending_summon := -1
+## Set by step() on the frame a move heals, or teleports (the distance).
+var pending_heal := 0
+var pending_teleport := 0.0
+## Recharge remaining on moves that have one, by move id.
+var move_cooldowns: Dictionary = {}
 ## Bound spirits (the fighters they came from) and their cooldowns, by slot.
 var spirits: Array[FighterDefinition] = []
 var cooldowns: Array[int] = []
@@ -98,7 +101,6 @@ func _init(def: FighterDefinition, bound: Array[FighterDefinition] = []) -> void
 func reset(x: float, face: int) -> void:
 	input = InputHistory.new()
 	input.chord = chord_window
-	input.motion_window = motion_window
 	position = Vector2(x, FLOOR_Y)
 	velocity = Vector2.ZERO
 	slide = 0.0
@@ -119,6 +121,10 @@ func reset(x: float, face: int) -> void:
 	awaiting_finisher = false
 	pending_spawn = null
 	pending_summon = -1
+	pending_heal = 0
+	pending_teleport = 0.0
+	move_cooldowns.clear()
+	spirit_threatened = false
 	cooldowns.assign(spirits.map(func(_s: FighterDefinition) -> int: return 0))
 	_summon_slot = -1
 	_intent = Intent.new()
@@ -126,15 +132,21 @@ func reset(x: float, face: int) -> void:
 	_started_rank = -1
 
 
-func set_input_timing(chord: int, motion: int) -> void:
-	chord_window = chord
-	motion_window = motion
-	input.chord = chord
-	input.motion_window = motion
+func set_chord_window(frames: int) -> void:
+	chord_window = frames
+	input.chord = frames
 
 
 func guard_held() -> bool:
-	return (_intent.held & GUARD_CHORD) == GUARD_CHORD
+	return (_intent.held & Intent.GUARD) == Intent.GUARD
+
+
+func spirit_guard_held() -> bool:
+	return (_intent.held & Intent.SPIRIT_GUARD) == Intent.SPIRIT_GUARD
+
+
+func heal(amount: int) -> void:
+	health = mini(health + amount, definition.max_health)
 
 
 func can_turn() -> bool:
@@ -166,8 +178,12 @@ func step() -> void:
 	state_frame += 1
 	pending_spawn = null
 	pending_summon = -1
+	pending_heal = 0
+	pending_teleport = 0.0
 	for slot in cooldowns.size():
 		cooldowns[slot] = maxi(cooldowns[slot] - 1, 0)
+	for id in move_cooldowns:
+		move_cooldowns[id] = maxi(move_cooldowns[id] - 1, 0)
 	holding_back = _intent.x == -facing
 	if state in [State.STAND, State.WALK, State.CROUCH, State.GUARD, State.BLOCKSTUN]:
 		crouching = _intent.down
@@ -197,11 +213,17 @@ func step() -> void:
 		if _summon_slot >= 0:
 			pending_summon = _summon_slot
 			cooldowns[_summon_slot] = spirits[_summon_slot].spirit_cooldown
+		pending_heal = move.heal
+	if state == State.MOVE and state_frame == move.teleport_frame:
+		pending_teleport = move.teleport_distance
 	_integrate()
 
 
-func receive(m: MoveDefinition, from_facing: int) -> void:
-	var guarding := not m.throw and not airborne and guard_held() \
+## `from_spirit`: the hit comes from a spirit or a spirit's projectile, and
+## only spirit guard stops it.
+func receive(m: MoveDefinition, from_facing: int, from_spirit := false) -> void:
+	var held := spirit_guard_held() if from_spirit else guard_held()
+	var guarding := not m.throw and not airborne and held \
 			and state in [State.GUARD, State.BLOCKSTUN]
 	var unguardable := MoveDefinition.Height.HIGH if crouching else MoveDefinition.Height.LOW
 	move = null
@@ -398,6 +420,8 @@ func _available(cmd: Command) -> bool:
 	var m: MoveDefinition = _moves[cmd.move]
 	if m.spawn and m.spawn in live_spawns:
 		return false
+	if move_cooldowns.get(m.id, 0) > 0:
+		return false
 	var slot := _summon_ids().find(cmd.move)
 	return slot < 0 or cooldowns[slot] == 0
 
@@ -427,6 +451,8 @@ func _start(id: StringName) -> void:
 	_started_rank = -1
 	move_connected = false
 	move_reversed = holding_back
+	if move.cooldown > 0:
+		move_cooldowns[move.id] = move.cooldown
 	if move.motion.y < 0.0:
 		airborne = true
 		air_move_used = true

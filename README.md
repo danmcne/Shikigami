@@ -4,7 +4,7 @@ A 2D fighting game set in a fantasy Japan, in the lineage of Street Fighter and 
 
 The guiding principle: **the fighting is the game; the campaign exists to produce unusual fights.** There are no levels, stat sheets or grinding.
 
-This repository currently contains Prototype 5: rectangle fighters with the full combat system, a computer opponent at three difficulties, and a simple run against random opponents. Everything below the "Prototype 5" heading describes that code. Everything above it describes the plan.
+This repository currently contains Prototype 6: three rectangle fighters, each with a signature special, the full combat system, a computer opponent at three difficulties, and a tiered run that saves before every fight. Everything below the "Prototype 6" heading describes that code. Everything above it describes the plan.
 
 ## The planned game
 
@@ -12,11 +12,11 @@ This repository currently contains Prototype 5: rectangle fighters with the full
 
 A run is a single climb through three tiers. Opponents are shuffled within each tier, and you don't fight every member.
 
-1. **Human tier (about 4 fights).** You choose a human fighter and face other humans.
-2. **Supernatural tier (about 4 fights).** Yokai and oni at roughly human scale.
+1. **Own-kind tier (short, about 2 fights).** For a human, other humans. Their spirits can't be bound, so this tier is a warm-up and is kept short.
+2. **Other-kind tier (about 4 fights).** For a human, yokai and oni at roughly human scale. This is where spirits are bound.
 3. **Monster tier (about 2 fights).** Huge bosses under modified rules.
 
-About ten fights make a run: long enough to feel like a campaign, short enough that a loss doesn't cost an evening. The run is saved after every fight as a small JSON file, including the RNG seed, so it can be resumed.
+Defining the tiers by kind rather than as "humans, then yokai" means a yokai player gets the same shape of run. About eight fights make a run: long enough to feel like a campaign, short enough that a loss doesn't cost an evening. The run is saved before every fight, including the random generator's state, so it resumes exactly.
 
 Completing the campaign unlocks some of the supernatural fighters as playable characters. Which ones, and on what rule, is still open. The monster-tier bosses remain boss-only.
 
@@ -26,6 +26,28 @@ Completing the campaign unlocks some of the supernatural fighters as playable ch
 - **Supernatural:** Shuten-dōji (an oni; "oni" is a class of being, not a roster slot), kitsune, tengu, kappa, yuki-onna, jorōgumo, nekomata, tanuki.
 - **Monsters:** ushi-oni, nue, gashadokuro.
 
+### Signature specials
+
+Every fighter has one signature special on the special button. It is drawn from their legend, and it recharges after use so it can't be spammed. The same move is what their spirit does when bound and summoned. Fighters may also have a second special; only some have projectiles.
+
+| Fighter | Signature (and as a spirit) | Idea from |
+|---|---|---|
+| Miyamoto Musashi | Two Heavens: a spinning double cut, in front and behind at once | Niten Ichi-ryū, the two-sword school |
+| Sasaki Kojirō | Swallow Reversal: one cut down and back up, striking high and low together, so no single guard height stops it | Tsubame Gaeshi |
+| Benkei | Standing Death: a stance that shrugs off hits (super armour) while he advances | his death on the bridge at Koromogawa, standing |
+| Hattori Hanzō | Smoke: vanish and reappear elsewhere | the ninja legend |
+| Buddhist monk | Meditation: a still, exposed prayer that restores health | after Yoshimitsu's meditation in Tekken |
+| Shinto miko | Ofuda: a thrown paper talisman (projectile) | |
+| Onmyōji | Paper shikigami: a flight of paper birds (projectile) | |
+| Shuten-dōji | Sake: a long, exposed drink that restores health | the "sake-drinking boy" |
+| Kitsune | Fox Step: vanish and reappear behind the foe; second special Foxfire (projectile) | kitsune-bi, fox illusions |
+| Tengu | Flight: a gliding air dash with a strike | mountain tengu |
+| Yuki-onna | Frost Breath: slows whoever it touches | the snow woman |
+| Jorōgumo | Web: pulls the opponent in | the spider woman |
+| Tanuki | Transformation: takes the shape of the last move used against it | tanuki shapeshifting |
+
+The prototype implements the Musashi, Shuten-dōji and kitsune signatures on its three placeholders.
+
 ### Finishers bind spirits
 
 The finisher and the progression mechanic are one feature. Each fighter's finisher is their way of sealing a beaten opponent: Musashi's cut, the monk's sutra, the miko's ofuda, the onmyōji's talisman circle. The loser plays a single shared animation of the spirit being torn loose.
@@ -34,7 +56,8 @@ The finisher and the progression mechanic are one feature. Each fighter's finish
 
 ### Spirits in combat
 
-- **One move each.** Every fighter definition names one of its own existing moves as its spirit move. Summoning makes a translucent copy of that fighter, which performs the move and vanishes. The copy has no hurtbox or pushbox, but otherwise behaves exactly as the fighter would. A rushing spirit slides, a spirit whose move fires a projectile releases it on the summoner's behalf, and a spirit whose move is a throw grabs, and can be escaped like any throw. No new animation is needed for any pairing, so art cost grows linearly with the roster rather than as roster × moves.
+- **The spirit's signature.** Summoning makes a translucent copy of the bound fighter, which performs that fighter's signature special and vanishes. The copy has no hurtbox or pushbox, but otherwise behaves exactly as the fighter would. A kitsune spirit steps behind your opponent and strikes, and an oni spirit drinks its sake and heals you. A spirit whose signature is a projectile releases it on your behalf, and one whose signature is a throw grabs. No new animation is needed for any pairing, so art cost grows linearly with the roster rather than as roster × moves.
+- **Spirit guard.** Plain guard doesn't stop a spirit's attacks. Spirit guard, which is light+spirit+special held together, stops everything plain guard does and spirits as well.
 - **Two slots.** You carry two spirits: spirit summons the first, down+spirit the second. When a new binding finds both slots full, you choose which to give up. If a slot's spirit is cooling down, its input does nothing; it never falls through to the other slot.
 - **A cooldown per spirit** rather than a shared meter. Slow, powerful spirits balance themselves through long cooldowns; Shuten-dōji hits hard and rarely.
 
@@ -43,15 +66,13 @@ The finisher and the progression mechanic are one feature. Each fighter's finish
 Directions and four buttons: light, heavy, special and spirit. The buttons form the same diamond on keyboard and gamepad. There is no guard button: guard is held light+special.
 
 - **Normals** come from stance plus light or heavy: standing, crouching (lows) or jumping (overheads).
-- **Specials** are special with a direction (toward, down) or with a rolling motion.
+- **Specials** are special alone (the signature), or with a direction: toward for the shared rush, down for the shared anti-air, away for a fighter's second special if it has one. There are no rolling motions.
 - **Throws** are light+heavy together.
 - **Dashes** are a double tap toward or away.
 - **Spirits** are spirit, or down+spirit.
 - **Crouching** fighters can crawl.
 
-Whether the real roster uses only direction+special or also rolling motions is an open question. The prototype has both so they can be compared by feel.
-
-Up to jump and down to crouch are universal. What direction+special does is not: classic games use motions (the anti-air is usually forward, down, down-forward + punch), and modern simplified schemes map direction+special per character. Down+special for the rising anti-air is this prototype's choice, not a convention. The nearest conventions would be up+special, which needs a few frames of jump start-up so the special can win, or the classic motion.
+Rolling motions (down, down-toward, toward + button) were tried and dropped. On a keyboard the button tends to arrive before the roll finishes, where it matches the shorter down+special instead, and nothing can recover it. This follows modern simplified schemes, which use direction+special throughout. Down+special for the anti-air is this game's choice; up+special, the other common convention, would collide with jump.
 
 **Defence.** Guard is held light+special, separate from movement:
 
@@ -60,17 +81,15 @@ Up to jump and down to crouch are universal. What direction+special does is not:
 - Guard is not directional: it protects from both sides.
 - Standing guard stops mid and overhead attacks; crouching guard stops mid and low.
 - Throws beat guard. Light+heavy within 10 frames of being grabbed escapes. Since you can't be pressing anything else while held, a guarding player may simply press heavy while still holding light.
+- Spirit guard (light+spirit+special) is needed against spirits.
 
 So every attack has an active answer, and guarding costs you your offence while you hold it.
 
-**Timing.** Two presses count as "together" if they land within a short window, and a rolling motion must finish within another. Keyboards, pads and hands differ, so each player calibrates both on the game's real inputs:
+**Timing.** Two presses count as "together" if they land within a short window. Keyboards, pads and hands differ, so each player calibrates it on the game's real inputs:
 
-- the throw and guard chords (two fingers of one hand);
+- the throw, guard and spirit-guard chords (one hand);
 - direction+button across both hands;
-- the projectile roll;
 - quick deliberate sequences that must stay separate.
-
-On a keyboard, rolling from down to toward doesn't always register the diagonal in between. A diagonal in the middle of a motion is therefore optional.
 
 ### Monster-tier bosses
 
@@ -105,22 +124,23 @@ The original plan put art second. With no art pipeline in place, art is the cost
 1. **Two rectangles.** *Done.*
 2. **Inputs and moves.** *Done.*
 3. **Spirits and defence.** *Done.*
-4. **CPU opponent and run loop.** A CPU at three difficulties, character select, random opponents with random spirits, finishers that bind, slot choice, calibration, practice options. *This repository.* Still to come in this step: tiers, save and resume.
-5. **Art for three fighters.**
-6. **Roster, bosses, presentation.**
+4. **CPU opponent and run loop.** A CPU at three difficulties, character select, tiered random opponents with random spirits, finishers that bind, slot choice, calibration, practice options, save and resume. *Done.*
+5. **Character.** A signature special per fighter, recharge, spirits performing signatures, spirit guard. *Begun in this repository with three signatures.*
+6. **Art for three fighters.**
+7. **Roster, bosses, presentation.**
 
 ### Open questions
 
-- **The human tier and the kind rule.** A human player binds nothing in the human tier, so a run's progression only starts in the supernatural tier. Should the human tier reward something else, be shorter, or be interleaved with yokai?
-- With three placeholder fighters, a human player can only ever hold the two yokai spirits. Binding choices only become interesting with a larger roster.
-- The unlock rule after completing the campaign.
-- Direction+special, rolling motions, or both for the real roster.
+- **The own-kind tier.** It is now short. Should it also reward something, since it can't yield spirits?
+- **Spirit choice.** With three placeholder fighters, a human player can only ever hold the two yokai spirits. Binding choices only become interesting with a larger roster.
+- **Unlocks.** The rule for what completing the campaign unlocks.
+- **Spirit attacks.** Should a summoned spirit ever do more than its signature, for example take your next attack inputs for a moment? The signature alone is simpler and is what the prototype does.
 - Whether any meter or super exists.
 - How the story is presented between fights.
 
 ---
 
-## Prototype 5
+## Prototype 6
 
 ### Running
 
@@ -128,7 +148,7 @@ Open the folder in Godot 4.3+ and press Play, or run `godot --path .` from the c
 
 | Screen | Keys |
 |---|---|
-| Menu | 1 run, 2 versus, 3 calibrate timing, 4 computer difficulty, 5 game speed, 6 player 1 invincible |
+| Menu | 1 new run, 2 continue run, 3 versus, 4 calibrate timing, 5 computer difficulty, 6 game speed, 7 player 1 invincible |
 | Fighter select | 1–3 |
 | Run | play; when a beaten opponent stands dazed, perform your finisher (shown on screen) |
 | Slots full after a binding | 1 or 2 to replace that slot, 3 to release the new spirit |
@@ -144,69 +164,50 @@ Open the folder in Godot 4.3+ and press Play, or run `godot --path .` from the c
 | Special | L | Num 6 | B / Circle |
 | Spirit | K | Num 2 | A / Cross |
 | Guard (hold) | J+L | Num 4 + Num 6 | Square + Circle |
+| Spirit guard (hold) | J+K+L | Num 4 + Num 2 + Num 6 | Square + Cross + Circle |
 
-Each player's full move list is on screen in that player's keys, and it follows facing.
+Each player's full move list is on screen in that player's keys, and it follows facing. Under each health bar, the first box is your signature's recharge and the others are your spirits.
 
-### Practice options
+### The three fighters
 
-These are on the menu and are remembered between sessions.
+Placeholders until real characters exist. They share a base kit, scaled to their proportions: normals, throw, dashes, a toward+special rush, and a down+special anti-air. Each adds its own signature, and two add a second special. Everything is data in `fighters/roster.gd`, and nothing else refers to them by name.
 
-- **Computer difficulty.** Practice is the default: the computer decides every three-quarters of a second, rarely attacks, guards little and slowly, and almost never escapes throws. Easy is the previous computer. Normal reacts faster and defends more.
-- **Game speed: 100%, 75% or 50%.** Everything slows together (fighters, computer, timers), so frame data and the feel of each move are unchanged, just stretched. Calibration always runs at full speed.
-- **Player 1 invincible.** Hits still land, stun and knock down, but take no health.
+| | Kind | Health | Size, speed, damage | Signature (special) | Second special (away + special) | As a spirit | Finisher (facing right) |
+|---|---|---|---|---|---|---|---|
+| Balanced | human | 1000 | 1, 1, 1 | Two Heavens: spinning cut, front and back; recharges in 1.5 s | — | spins where you stand | A, D + K |
+| Heavy | yokai | 1200 | 1.2×, 0.72×, 1.3× | Sake: two-thirds of a second exposed, then +150 health; 8 s | Oni Grab: a throw with half again the reach | heals you | S, W + K |
+| Swift | yokai | 850 | 0.85×, 1.35×, 0.8× | Fox Step: vanish, reappear behind, strike; 2 s | Foxfire: projectile | steps behind your opponent and strikes | D, A + K |
+
+Fox Step leaves about a tenth of a second between reappearing and striking. Guard isn't directional, so that's enough to guard it if you're watching.
+
+### Spirit guard
+
+Spirit attacks pass through plain guard. Hold J+K+L to stop them; spirit guard stops ordinary attacks too.
+
+If you press K first, a summon starts. It is cancelled into guard if J and L follow within your timing window, before the spirit appears. Nothing is spent, because a spirit's recharge starts only when it actually appears. The dummy's full-guard mode uses spirit guard. The computer uses it only sometimes, depending on difficulty.
+
+### Tiers and saving
+
+A run is two own-kind fights, then four other-kind fights; the monster tier will follow when bosses exist. The run saves before every fight. Menu option 2 continues it, restarting the fight you were in, against the same opponent and spirits. The save is cleared when the run ends.
 
 ### Calibrating timing
 
-Menu option 3. Press light to say which player you are, then follow the prompts, which name your own keys. There are six steps of five tries each:
+Menu option 4. Press light to say which player you are, then follow the prompts, which name your own keys. There are six steps of five tries:
 
-1. light+heavy together (throw);
-2. light+special together (guard);
-3. toward+special together (rush);
-4. down+spirit together (second spirit);
-5. the projectile roll (down, down-toward, toward + special);
-6. light then heavy as two separate presses, as quickly as you can.
+1. throw (J+I);
+2. guard (J+L);
+3. spirit guard (J+K+L);
+4. toward+special;
+5. down+spirit;
+6. light then heavy as two separate presses.
 
-The results screen shows what was measured and the two windows chosen. Enter saves them for that player.
+Enter saves the result. Calibrations from before this version measured the rolling motion, which inflated the window, so they are ignored. The menu shows each player's window and whether it is still the default.
 
-A direction held before its button is never late, since it's still held when the button lands. So the calibration counts only buttons that arrive before their direction. The menu shows each player's current windows, and whether they are still the defaults (together under 3 frames; rolls within 18 frames).
+### Practice options
 
-### Player 1's moves, facing right
-
-| Keys | Move |
-|---|---|
-| hold J+L (with S: low guard) | guard, shuffling slowly with A / D |
-| S + A / D | crawl |
-| J / I | light / heavy (hold S for lows, jump for overheads) |
-| J+I | throw (hold A for a back throw) |
-| J+I, or I while still holding J, when grabbed | escape the throw |
-| D, release, D / A, release, A | dash forward / back |
-| L | palm |
-| D + L | rush |
-| S + L | rising (anti-air, invulnerable at first) |
-| S, S+D, D + L (the S+D may be skipped) | projectile |
-| K / S + K | summon first / second spirit |
-| finisher input (below) | seal a dazed opponent of the other kind |
-
-### Archetypes
-
-Placeholders until real characters exist. All three share one move set and differ only in data. The names, kinds and inputs live in `fighters/roster.gd`, and nothing else refers to them.
-
-| | Kind | Health | Size | Speed | Damage | Timing | Finisher (facing right) | As a spirit |
-|---|---|---|---|---|---|---|---|---|
-| Balanced | human | 1000 | 1 | 1 | 1 | — | A, D + K | rushes forward |
-| Heavy | yokai | 1200 | 1.2× | 0.72× | 1.3× | +2 frames | S, W + K | a heavy strike |
-| Swift | yokai | 850 | 0.85× | 1.35× | 0.8× | −1 frame | D, A + K | throws a projectile |
-
-### The run
-
-- You pick a fighter and start with no spirits.
-- You face six random opponents; mirror matches are possible. Each opponent carries zero, one or two random spirits of the kind it can bind (40% / 40% / 20%).
-- Each fight is best of three. Win the deciding round against the other kind, and if you don't already hold that spirit, the opponent stands dazed for five seconds; land your finisher to bind them. With both slots full, you choose what to give up.
-- Lose a fight and the run ends.
-
-### The computer
-
-The computer is defined by tables of numbers in `CpuController.LEVELS`. It knows nothing about particular characters. It chooses among the fighter's own normals and commands by whether their hitboxes can reach, and enters them as a player would, frame by frame.
+- **Computer difficulty.** Practice (default), Easy or Normal.
+- **Game speed.** 100%, 75% or 50%; everything slows together.
+- **Player 1 invincible.** Hits land but take no health.
 
 ### Structure
 
@@ -214,53 +215,43 @@ The computer is defined by tables of numbers in `CpuController.LEVELS`. It knows
 project.godot, main.tscn
 game/
   main.gd                  screens and flow: menu, select, run, binding choice, versus, calibration
-  run.gd                   a run as pure state: fighter, spirits, random opponents
-  calibration.gd           measures a player's chord and roll timing on the game's real inputs
-  settings.gd              timing and options saved in user://settings.cfg
+  run.gd                   a run as pure state: tiers, spirits, opponents; save and restore
+  calibration.gd           measures a player's chord window on the game's real inputs
+  settings.gd              timing, options and the saved run, in user://settings.cfg
   controls_text.gd         command patterns -> the keys a player presses
   input_setup.gd           all key and gamepad bindings
   views/
     bout_view.gd           draws a bout: stage, fighters, spirits, projectiles, HUD, move lists
   combat/
     move_definition.gd     frame data, damage, height, hitboxes, throw, knockdown,
-                           invulnerability, motion, spawn
-    fighter_definition.gd  kind, stats, boxes, moves, commands, summon, spirit move, finisher
+                           invulnerability, motion, spawn, heal, teleport, recharge
+    fighter_definition.gd  kind, stats, boxes, moves, commands, signature, summon, finisher
     command.gd             command notation and priority
-    input_history.gd       recent presses and holds, timing windows, command matching
-    intent.gd              one frame of what a controller wants
+    input_history.gd       recent presses and holds, the chord window, command matching
+    intent.gd              one frame of what a controller wants; guard chords
     fighter.gd             per-fighter state machine; spirits are fighters too
     entity.gd              projectiles
-    bout.gd                frame order, hits, throws and escapes, spirits, rounds, finish
+    bout.gd                frame order, hits, guards, throws and escapes, spirits, rounds, finish
   controllers/
     player_controller.gd   InputMap -> Intent
     dummy_controller.gd    training dummy
     cpu_controller.gd      the computer opponent, three difficulties
   fighters/
-    prototype_rect.gd      the base fighter, as data
-    roster.gd              Balanced, Heavy, Swift
+    prototype_rect.gd      the shared kit, as data
+    roster.gd              Balanced, Heavy, Swift and their signatures
 tests/
   selftest.gd              mechanics checks, run only on request
 ```
-
-The simulation (`combat/`) has no nodes, drawing or input devices. The view only reads it. Each frame runs in a fixed order:
-
-1. Record input.
-2. If a throw is holding its victim, check for an escape and stop here.
-3. If in hitstop, stop here.
-4. Face the opponent and flag threats.
-5. Step fighters, spirits and projectiles.
-6. Release spawns and summons.
-7. Push the fighters apart and clamp them to the stage.
-8. Resolve hits: strikes, then throws.
-9. Check for KO; a deciding KO against the other kind enters the finish.
 
 ### Command notation (for reading the code)
 
 ```
 7 8 9      6 = toward the opponent, 4 = away, 2 = down, 5 = neutral
 4 5 6      A light, B heavy, C special, D spirit
-1 2 3      "236C" = down, down-toward, toward, then special
+1 2 3      "4C" = away + special
 ```
+
+The grammar still supports multi-direction motions, with an optional middle diagonal. No fighter uses them.
 
 ### Self-test
 
@@ -269,14 +260,15 @@ godot --headless --path . --import          # once, to build the class cache
 godot --headless --path . --script res://tests/selftest.gd
 ```
 
-There are 57 checks. This prototype adds checks for:
+There are 62 checks. This prototype adds checks for:
 
-- the guard chord cancelling an attack's start-up;
-- motions without the diagonal;
-- per-player roll windows;
-- escaping a throw while holding guard;
-- no re-sealing a held spirit;
-- invincibility;
-- the full calibration sequence.
+- Two Heavens striking behind;
+- Fox Step crossing over;
+- Sake healing once and then recharging;
+- an oni spirit healing its summoner, and a fox spirit striking from behind;
+- spirits passing plain guard but not spirit guard;
+- the oni grab's reach;
+- tiers;
+- a saved run resuming identically.
 
-The checks confirm the rules behave as written. They cannot tell you whether the game feels good, or whether any difficulty is right.
+The checks confirm the rules behave as written. They cannot tell you whether the game feels good.

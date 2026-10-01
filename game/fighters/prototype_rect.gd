@@ -1,11 +1,9 @@
 extends RefCounted
-## The base prototype fighter: a rectangle with six normals, a throw, two
-## dashes, four specials and a summon. roster.gd derives the other archetypes
-## from it. Its numbers are starting points for tuning feel, not
-## balance claims.
-##
-## The specials deliberately mix two input styles, direction + C and motion + C,
-## so both can be tried before the real roster commits to one.
+## The kit every prototype fighter shares: six normals, a throw, two dashes,
+## two shared specials (toward + special, down + special), the summon gesture
+## and a finisher. roster.gd gives each archetype its proportions, its
+## signature special (neutral special) and sometimes a second special. The
+## numbers are starting points for tuning feel, not balance claims.
 
 const H := MoveDefinition.Height
 
@@ -53,10 +51,7 @@ static func definition() -> FighterDefinition:
 		_move({id = &"dash_back", startup = 0, active = 0, recovery = 18,
 			motion = Vector2(-8, 0)}),
 
-		# Specials.
-		_move({id = &"palm", startup = 7, active = 3, recovery = 16,
-			damage = 70, hitstun = 18, blockstun = 14, knockback = 14.0, hitstop = 9,
-			height = H.MID, hitboxes = [Rect2(25, -120, 60, 50)]}),
+		# Shared specials: every fighter has an approach and an anti-air.
 		_move({id = &"rush", startup = 10, active = 5, recovery = 20, motion = Vector2(12, 0),
 			damage = 100, knockdown = 45, blockstun = 16, knockback = 10.0, hitstop = 10,
 			height = H.MID, hitboxes = [Rect2(20, -130, 60, 80)]}),
@@ -65,18 +60,11 @@ static func definition() -> FighterDefinition:
 			motion = Vector2(2, -15), damage = 110, knockdown = 50, blockstun = 14,
 			knockback = 6.0, hitstop = 10, height = H.MID,
 			hitboxes = [Rect2(-10, -200, 75, 130)]}),
-		_move({id = &"projectile", startup = 12, active = 2, recovery = 24,
-			spawn_offset = Vector2(50, -110),
-			spawn = _move({id = &"projectile_shot", startup = 0, active = 100, recovery = 0,
-				motion = Vector2(7, 0), damage = 60, hitstun = 16, blockstun = 12,
-				knockback = 5.0, hitstop = 5, height = H.MID,
-				hitboxes = [Rect2(-15, -15, 30, 30)]})}),
 	]
 	for m in moves:
 		d.moves[m.id] = m
 
 	d.summon_move = _move({id = &"summon", startup = 6, active = 1, recovery = 14})
-	d.spirit_move = &"rush"
 	d.spirit_cooldown = 360
 
 	# Away, toward, spirit. Wide reach: sealing is not a test of spacing.
@@ -88,10 +76,8 @@ static func definition() -> FighterDefinition:
 		"AB": &"throw",        # hold back for a back throw
 		"656": &"dash_forward",
 		"454": &"dash_back",
-		"C": &"palm",
 		"6C": &"rush",
 		"2C": &"rising",
-		"236C": &"projectile",
 	}
 	return d
 

@@ -65,10 +65,16 @@ func _init() -> void:
 	print("guard chord, motions, cheats")
 	_test_guard_chord_cancels_a_starting_attack()
 	_test_motion_without_diagonal()
-	_test_motion_window_is_per_player()
 	_test_escape_while_holding_guard()
 	_test_no_sealing_a_held_spirit()
 	_test_invincible_takes_no_damage()
+	print("signatures, spirit guard, tiers, saving")
+	_test_two_heavens_strikes_behind()
+	_test_fox_step_crosses_over()
+	_test_sake_heals_and_recharges()
+	_test_spirits_need_spirit_guard()
+	_test_oni_grab_reaches_further()
+	_test_run_tiers_and_saving()
 	print("CPU, run, calibration")
 	_test_cpu_enters_motions()
 	_test_cpu_attacks()
@@ -257,15 +263,23 @@ func _move_after(script: Callable, frames := 3) -> StringName:
 
 func _test_direction_selects_special() -> void:
 	var forward := _move_after(_at({0: [6, "C"]}))
-	var neutral := _move_after(_at({0: [5, "C"]}))
 	var down := _move_after(_at({0: [2, "C"]}))
-	_check("6C rush, C palm, 2C rising", forward == &"rush" and neutral == &"palm" and down == &"rising",
-			"%s / %s / %s" % [forward, neutral, down])
+	_check("toward + special is the rush, down + special the rising", forward == &"rush" and down == &"rising",
+			"%s / %s" % [forward, down])
 
 
 func _test_motion_beats_direction() -> void:
-	var id := _move_after(_at({0: [2, ""], 1: [3, ""], 2: [6, "C"]}), 4)
-	_check("236C is a projectile, not a rush", id == &"projectile", "got %s" % id)
+	var h := InputHistory.new()
+	for step in [[0, true, false], [1, true, false], [1, false, true]]:
+		var i := Intent.new()
+		i.x = step[0]
+		i.down = step[1]
+		i.special = step[2]
+		h.push(i)
+	var motion := Command.parse("236C", &"m")
+	var direction := Command.parse("6C", &"d")
+	_check("the grammar still ranks a motion above its last direction",
+			h.matches(motion, 1, -1) and h.matches(direction, 1, -1) and motion.rank() > direction.rank())
 
 
 func _test_dash_needs_a_tap() -> void:
@@ -328,17 +342,24 @@ func _test_knockdown_is_invulnerable() -> void:
 	_check("a knocked-down fighter cannot be hit", _taken(b, 1) == 0, "took %d" % _taken(b, 1))
 
 
+func _swift_bout(distance: float) -> Bout:
+	var b := Bout.new(Roster.swift(), def)
+	b.fighters[0].position.x = -distance / 2.0
+	b.fighters[1].position.x = distance / 2.0
+	return b
+
+
 func _test_projectile_travels_and_hits() -> void:
-	var b := _bout(400.0)
-	_run(b, 90, _at({0: [2, ""], 1: [3, ""], 2: [6, "C"]}))
-	_check("projectile crosses the stage and hits",
-			_taken(b, 1) == def.moves[&"projectile"].spawn.damage, "took %d" % _taken(b, 1))
+	var b := _swift_bout(400.0)
+	_run(b, 90, _at({0: [4, "C"]}))
+	_check("Swift's foxfire crosses the stage and hits",
+			_taken(b, 1) == Roster.swift().moves[&"foxfire"].spawn.damage, "took %d" % _taken(b, 1))
 
 
 func _test_one_projectile_at_a_time() -> void:
-	var b := _bout(900.0)
+	var b := _swift_bout(900.0)
 	var most := [0]
-	var twice := _at({0: [2, ""], 1: [3, ""], 2: [6, "C"], 40: [2, ""], 41: [3, ""], 42: [6, "C"]})
+	var twice := _at({0: [4, "C"], 40: [4, "C"]})
 	_run(b, 80, twice, null, func(x: Bout) -> void: most[0] = maxi(most[0], x.entities.size()))
 	_check("only one projectile at a time", most[0] == 1, "saw %d" % most[0])
 
@@ -399,10 +420,11 @@ func _spirit_bout(spirit: FighterDefinition, distance: float, summoner: FighterD
 
 func _test_spirit_strikes() -> void:
 	var heavy := Roster.heavy()
-	var b := _spirit_bout(heavy, 150.0)
-	_run(b, 50, _at({0: [5, "D"]}))
-	_check("a summoned spirit strikes with its own move",
-			_taken(b, 1) == heavy.moves[heavy.spirit_move].damage, "took %d" % _taken(b, 1))
+	var b := _spirit_bout(heavy, 600.0)
+	b.fighters[0].health = 500
+	_run(b, 80, _at({0: [5, "D"]}))
+	_check("an oni spirit performs its signature, Sake, and heals its summoner",
+			b.fighters[0].health == 500 + heavy.moves[&"sake"].heal, "health %d" % b.fighters[0].health)
 
 
 func _test_spirit_cooldown() -> void:
@@ -417,22 +439,30 @@ func _test_spirit_cooldown() -> void:
 
 
 func _test_spirit_with_motion() -> void:
-	var balanced := Roster.balanced()
-	var b := _spirit_bout(balanced, 200.0, Roster.swift())
-	_run(b, 60, _at({0: [5, "D"]}))
-	_check("a spirit performing a moving move travels like a fighter",
-			_taken(b, 1) == balanced.moves[balanced.spirit_move].damage, "took %d" % _taken(b, 1))
+	var swift := Roster.swift()
+	var bound: Array[FighterDefinition] = [swift]
+	var b := Bout.new(def, def, bound, [])
+	b.fighters[0].position.x = -150
+	b.fighters[1].position.x = 150
+	var crossed := [false]
+	_run(b, 60, _at({0: [5, "D"]}), null, func(x: Bout) -> void:
+		for s in x.spirits:
+			if s.position.x > x.fighters[1].position.x:
+				crossed[0] = true)
+	_check("a fox spirit steps behind the opponent and strikes",
+			crossed[0] and _taken(b, 1) == swift.moves[&"fox_step"].damage, "took %d" % _taken(b, 1))
 
 
 func _test_spirit_releases_projectile_for_summoner() -> void:
 	var swift := Roster.swift()
+	swift.signature = &"foxfire"
 	var b := _spirit_bout(swift, 500.0)
 	var owners := {}
 	_run(b, 120, _at({0: [5, "D"]}), null, func(x: Bout) -> void:
 		for e in x.entities:
 			owners[e.owner_index] = true)
 	_check("a spirit's projectile belongs to the summoner and hits",
-			owners.keys() == [0] and _taken(b, 1) == swift.moves[&"projectile"].spawn.damage,
+			owners.keys() == [0] and _taken(b, 1) == swift.moves[&"foxfire"].spawn.damage,
 			"owners %s, took %d" % [owners.keys(), _taken(b, 1)])
 
 
@@ -491,7 +521,7 @@ func _test_chord_window_is_per_player() -> void:
 	var narrow := _bout(70.0)
 	_run(narrow, 40, _at({0: [5, "A"], 4: [5, "B"]}))
 	var wide := _bout(70.0)
-	wide.fighters[0].set_input_timing(6, InputHistory.DEFAULT_MOTION_WINDOW)
+	wide.fighters[0].set_chord_window(6)
 	_run(wide, 40, _at({0: [5, "A"], 4: [5, "B"]}))
 	_check("presses 4 frames apart: separate by default, together with a wider window",
 			_taken(narrow, 1) != _dmg(&"throw") and _taken(wide, 1) == _dmg(&"throw"),
@@ -523,7 +553,7 @@ func _test_kinds_bind_the_other_kind() -> void:
 
 func _throwing_spirit() -> FighterDefinition:
 	var d := Roster.balanced()
-	d.spirit_move = &"throw"
+	d.signature = &"throw"
 	return d
 
 
@@ -577,7 +607,7 @@ func _test_finisher_times_out() -> void:
 # --- CPU, run, calibration ---------------------------------------------------
 
 func _test_cpu_enters_motions() -> void:
-	var queue := CpuController.inputs_for("236C", 1)
+	var queue := CpuController.inputs_for("2C", 1)
 	var b := _bout(300.0)
 	var found := [&""]
 	for n in 6:
@@ -586,7 +616,7 @@ func _test_cpu_enters_motions() -> void:
 		b.step(intents)
 		if b.fighters[0].move and found[0] == &"":
 			found[0] = b.fighters[0].move.id
-	_check("the CPU enters command patterns frame by frame", found[0] == &"projectile",
+	_check("the CPU enters command patterns frame by frame", found[0] == &"rising",
 			"got %s" % found[0])
 
 
@@ -621,7 +651,7 @@ func _test_run_rules() -> void:
 	_check("opponent spirits follow the kind rule, at most two",
 			kinds_ok and counts_ok)
 	_check("binding fills free slots, then asks; a run lasts its length",
-			not first and not second and third and r.spirits[0] == all[1] and fights == Run.LENGTH - 1,
+			not first and not second and third and r.spirits[0] == all[1] and fights == Run.length() - 1,
 			"%s %s %s fights %d" % [first, second, third, fights])
 
 
@@ -639,18 +669,18 @@ func _test_calibration() -> void:
 	for rep in Calibration.REPS:
 		_feed(c, [{light = true, special = true}])                 # guard, same frame
 	for rep in Calibration.REPS:
+		_feed(c, [{light = true, spirit = true}, {special = true}])  # spirit guard, 1 frame
+	for rep in Calibration.REPS:
 		_feed(c, [{x = 1}, {x = 1}, {x = 1, special = true}])       # toward held first: never late
 	for rep in Calibration.REPS:
 		_feed(c, [{spirit = true}, {down = true}])                  # spirit 1 frame before down
-	for rep in Calibration.REPS:
-		_feed(c, [{down = true}, {down = true, x = 1}] + _repeat({x = 1}, 8) + [{x = 1, special = true}])
 	for rep in Calibration.REPS:
 		_feed(c, [{light = true}] + _repeat({}, 6) + [{heavy = true}])  # 7 frames apart
 	_check("calibration: window maths, and the whole sequence of trials",
 			math_ok and c.stage == Calibration.Stage.DONE and c.player == 0
 			and c.chord_gaps.max() == 1 and c.sequence_gaps.min() == 7
-			and c.chord_window() == 4 and c.motion_window() == 10 + Calibration.MOTION_MARGIN,
-			"stage %d gaps %s seq %s spans %s" % [c.stage, c.chord_gaps, c.sequence_gaps, c.motion_spans])
+			and c.chord_window() == 4,
+			"stage %d gaps %s seq %s" % [c.stage, c.chord_gaps, c.sequence_gaps])
 
 
 func _repeat(frame: Dictionary, n: int) -> Array:
@@ -683,27 +713,14 @@ func _test_guard_chord_cancels_a_starting_attack() -> void:
 
 
 func _test_motion_without_diagonal() -> void:
-	var id := _move_after(_at({0: [2, ""], 1: [6, "C"]}), 3)
-	_check("down then toward + special, skipping the diagonal, is still the projectile",
-			id == &"projectile", "got %s" % id)
-
-
-func _slow_roll(b: Bout) -> StringName:
-	var script := _at({0: [2, ""], 1: [3, ""], 24: [6, "C"]}, 3)
-	var id := [&""]
-	_run(b, 26, script, null, func(x: Bout) -> void:
-		if x.fighters[0].move and id[0] == &"":
-			id[0] = x.fighters[0].move.id)
-	return id[0]
-
-
-func _test_motion_window_is_per_player() -> void:
-	var default := _slow_roll(_bout(300.0))
-	var patient := _bout(300.0)
-	patient.fighters[0].set_input_timing(InputHistory.DEFAULT_CHORD, 30)
-	var wide := _slow_roll(patient)
-	_check("a slow roll is a projectile only with a wider roll window",
-			default != &"projectile" and wide == &"projectile", "default %s, wide %s" % [default, wide])
+	var h := InputHistory.new()
+	for step in [[0, true, false], [1, false, true]]:
+		var i := Intent.new()
+		i.x = step[0]
+		i.down = step[1]
+		i.special = step[2]
+		h.push(i)
+	_check("a motion may skip its middle diagonal", h.matches(Command.parse("236C", &"m"), 1, -1))
 
 
 func _test_escape_while_holding_guard() -> void:
@@ -736,3 +753,99 @@ func _test_invincible_takes_no_damage() -> void:
 	_run(b, 40, _at({0: [5, "B"]}), null, func(x: Bout) -> void: seen[x.fighters[1].state] = true)
 	_check("an invincible fighter is still hit but loses no health",
 			_taken(b, 1) == 0 and Fighter.State.HITSTUN in seen, "took %d" % _taken(b, 1))
+
+
+# --- signatures, spirit guard, tiers, saving ---------------------------------
+
+func _test_two_heavens_strikes_behind() -> void:
+	var balanced := Roster.balanced()
+	var b := Bout.new(balanced, def)
+	var a := b.fighters[0]
+	a.position.x = 0
+	b.fighters[1].position.x = 70
+	a.facing = -1
+	a.perform(&"two_heavens")
+	_run(b, 30, _at({}))
+	_check("Two Heavens strikes behind as well as in front",
+			_taken(b, 1) == balanced.moves[&"two_heavens"].damage, "took %d" % _taken(b, 1))
+
+
+func _test_fox_step_crosses_over() -> void:
+	var swift := Roster.swift()
+	var b := Bout.new(swift, def)
+	b.fighters[0].position.x = -100
+	b.fighters[1].position.x = 100
+	_run(b, 40, _at({0: [5, "C"]}))
+	_check("Fox Step reappears behind the opponent and strikes",
+			b.fighters[0].position.x > b.fighters[1].position.x
+			and _taken(b, 1) == swift.moves[&"fox_step"].damage,
+			"at %.0f vs %.0f, took %d" % [b.fighters[0].position.x, b.fighters[1].position.x, _taken(b, 1)])
+
+
+func _test_sake_heals_and_recharges() -> void:
+	var heavy := Roster.heavy()
+	var b := Bout.new(heavy, def)
+	b.fighters[0].position.x = -400
+	b.fighters[1].position.x = 400
+	b.fighters[0].health = 500
+	_run(b, 140, _at({0: [5, "C"], 80: [5, "C"]}))
+	_check("Sake heals once, then must recharge",
+			b.fighters[0].health == 500 + heavy.moves[&"sake"].heal, "health %d" % b.fighters[0].health)
+
+
+func _spirit_guard_case(guard: String) -> int:
+	var bound: Array[FighterDefinition] = [Roster.balanced()]
+	var b := Bout.new(Roster.swift(), def, bound, [])
+	b.fighters[0].position.x = -50
+	b.fighters[1].position.x = 50
+	_run(b, 40, _at({0: [5, "D"]}), _at({}, 5, guard))
+	return _taken(b, 1)
+
+
+func _test_spirits_need_spirit_guard() -> void:
+	var plain := _spirit_guard_case("G")
+	var spirit := _spirit_guard_case("P")
+	_check("plain guard does not stop a spirit; spirit guard does", plain > 0 and spirit == 0,
+			"plain took %d, spirit guard took %d" % [plain, spirit])
+
+
+func _test_oni_grab_reaches_further() -> void:
+	var heavy := Roster.heavy()
+	var grabbed := Bout.new(heavy, def)
+	grabbed.fighters[0].position.x = -55
+	grabbed.fighters[1].position.x = 55
+	_run(grabbed, 40, _at({0: [4, "C"]}, 4))
+	var thrown := Bout.new(heavy, def)
+	thrown.fighters[0].position.x = -55
+	thrown.fighters[1].position.x = 55
+	_run(thrown, 40, _at({0: [5, "AB"]}))
+	_check("the oni grab reaches where a normal throw does not",
+			_taken(grabbed, 1) == heavy.moves[&"oni_grab"].damage and _taken(thrown, 1) == 0,
+			"grab %d, throw %d" % [_taken(grabbed, 1), _taken(thrown, 1)])
+
+
+func _test_run_tiers_and_saving() -> void:
+	var all := Roster.all()
+	var r := Run.new(all[0], all, 5)
+	var kinds_ok := true
+	var opponents: Array = []
+	while true:
+		var own := r.opponent.kind == r.character.kind
+		kinds_ok = kinds_ok and own == (r.tier() == 0)
+		opponents.append(r.opponent.id)
+		if r.fight == 2:
+			r.spirits.append(all[1])
+			var saved := r.to_dict()
+			var resumed := Run.restore(saved, all)
+			var later: Array = []
+			var original: Array = []
+			while resumed.advance():
+				later.append(resumed.opponent.id)
+			var copy := Run.restore(saved, all)
+			while copy.advance():
+				original.append(copy.opponent.id)
+			kinds_ok = kinds_ok and later == original and resumed.spirits[0] == all[1]
+		if not r.advance():
+			break
+	_check("the first tier is your own kind, the rest the other; a saved run resumes identically",
+			kinds_ok and opponents.size() == Run.length(), "opponents %s" % [opponents])

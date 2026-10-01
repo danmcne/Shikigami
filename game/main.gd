@@ -1,8 +1,8 @@
 extends Node2D
 ## Screens and flow. Fights are drawn by BoutView; rules live in game/combat/.
 ##
-##   MENU       1 run   2 versus   3 calibrate button timing
-##              4 difficulty   5 game speed   6 invincibility (player 1)
+##   MENU       1 new run   2 continue run   3 versus   4 calibrate timing
+##              5 difficulty   6 game speed   7 invincibility (player 1)
 ##   SELECT     1-3 pick a fighter for the run
 ##   RUN        you against the CPU; finish beaten foes you can bind
 ##   BIND       both slots full: choose what to give up
@@ -83,15 +83,20 @@ func _unhandled_input(event: InputEvent) -> void:
 		Screen.MENU:
 			match number:
 				0: screen = Screen.SELECT
-				1: _start_versus()
-				2:
+				1:
+					var saved := Run.restore(Settings.saved_run(), roster)
+					if saved:
+						run = saved
+						_start_fight()
+				2: _start_versus()
+				3:
 					calibration = Calibration.new()
 					screen = Screen.CALIBRATE
-				3:
-					Settings.set_option("difficulty", (Settings.difficulty() + 1) % CpuController.LEVELS.size())
 				4:
-					Settings.set_option("speed", (Settings.speed() + 1) % Settings.SPEEDS.size())
+					Settings.set_option("difficulty", (Settings.difficulty() + 1) % CpuController.LEVELS.size())
 				5:
+					Settings.set_option("speed", (Settings.speed() + 1) % Settings.SPEEDS.size())
+				6:
 					Settings.set_option("invincible", not Settings.invincible())
 		Screen.SELECT:
 			if number >= 0 and number < roster.size():
@@ -106,7 +111,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				screen = Screen.MENU
 		Screen.CALIBRATE:
 			if calibration.stage == Calibration.Stage.DONE and (key == KEY_ENTER or key == KEY_KP_ENTER):
-				Settings.set_timing(calibration.player, calibration.chord_window(), calibration.motion_window())
+				Settings.set_chord_window(calibration.player, calibration.chord_window())
 				screen = Screen.MENU
 		Screen.VERSUS:
 			match key:
@@ -124,7 +129,9 @@ func _unhandled_input(event: InputEvent) -> void:
 
 # --- flow ------------------------------------------------------------------
 
+## Saves the run before every fight, so quitting mid-fight resumes at its start.
 func _start_fight() -> void:
+	Settings.save_run(run.to_dict())
 	bout = _make_bout(run.character, run.opponent, run.spirits, run.opponent_spirits)
 	cpu = _cpu(run.rng.randi())
 	screen = Screen.RUN
@@ -132,8 +139,8 @@ func _start_fight() -> void:
 
 func _after_fight() -> void:
 	if bout.winner() != 0:
-		end_text = ["Defeated in fight %d of %d." % [run.fight + 1, Run.LENGTH]]
-		screen = Screen.RUN_END
+		end_text = ["Defeated in fight %d of %d." % [run.fight + 1, Run.length()]]
+		_end_run()
 		return
 	var bound := run.opponent if bout.bound else null
 	if run.win(bound):
@@ -146,11 +153,15 @@ func _next_fight() -> void:
 	if run.advance():
 		_start_fight()
 	else:
-		end_text = ["Run complete: %d fights won." % Run.LENGTH]
-		screen = Screen.RUN_END
-	if screen == Screen.RUN_END:
-		var names := run.spirits.map(func(d: FighterDefinition) -> String: return d.display_name)
-		end_text.append("Spirits bound: %s" % (", ".join(names) if not names.is_empty() else "none"))
+		end_text = ["Run complete: %d fights won." % Run.length()]
+		_end_run()
+
+
+func _end_run() -> void:
+	var names := run.spirits.map(func(d: FighterDefinition) -> String: return d.display_name)
+	end_text.append("Spirits bound: %s" % (", ".join(names) if not names.is_empty() else "none"))
+	Settings.save_run({})
+	screen = Screen.RUN_END
 
 
 func _start_versus() -> void:
@@ -173,7 +184,7 @@ func _make_bout(a: FighterDefinition, b: FighterDefinition,
 		sa: Array[FighterDefinition], sb: Array[FighterDefinition]) -> Bout:
 	var made := Bout.new(a, b, sa.duplicate(), sb.duplicate())
 	for i in 2:
-		made.fighters[i].set_input_timing(Settings.chord_window(i), Settings.motion_window(i))
+		made.fighters[i].set_chord_window(Settings.chord_window(i))
 	made.fighters[0].invincible = Settings.invincible()
 	return made
 
@@ -184,20 +195,25 @@ func _draw() -> void:
 	match screen:
 		Screen.MENU:
 			BoutView.message(self, "SHIKIGAMI (working title)", 200, 48)
+			var saved := Run.restore(Settings.saved_run(), roster)
+			var resume := "2   (no run in progress)"
+			if saved:
+				resume = "2   Continue run: %s, fight %d of %d" % [saved.character.display_name,
+						saved.fight + 1, Run.length()]
 			var rows: Array[String] = [
-				"1   Run: you against the computer, binding the spirits you defeat",
-				"2   Versus: two players, a training dummy, or the computer",
-				"3   Calibrate button timing for your hands and keyboard or pad",
+				"1   New run: you against the computer, binding the spirits you defeat",
+				resume,
+				"3   Versus: two players, a training dummy, or the computer",
+				"4   Calibrate button timing for your hands and keyboard or pad",
 				"",
-				"4   Computer difficulty: %s" % CpuController.LEVELS[Settings.difficulty()][0],
-				"5   Game speed: %d%%" % roundi(Settings.SPEEDS[Settings.speed()] * 100),
-				"6   Player 1 invincible: %s" % ("on" if Settings.invincible() else "off"),
+				"5   Computer difficulty: %s" % CpuController.LEVELS[Settings.difficulty()][0],
+				"6   Game speed: %d%%" % roundi(Settings.SPEEDS[Settings.speed()] * 100),
+				"7   Player 1 invincible: %s" % ("on" if Settings.invincible() else "off"),
 				"",
 			]
 			for i in 2:
-				rows.append("Player %d timing: together under %d frames, rolls within %d frames%s" % [i + 1,
-						Settings.chord_window(i), Settings.motion_window(i),
-						"" if _calibrated(i) else " (defaults; calibrate with 3)"])
+				rows.append("Player %d: presses under %d frames apart count as together%s" % [i + 1,
+						Settings.chord_window(i), "" if Settings.calibrated(i) else " (default; calibrate with 4)"])
 			rows.append("")
 			rows.append("Esc returns here from anywhere.   F1 shows boxes.")
 			BoutView.lines(self, Vector2(0, 280), rows, 1280, HORIZONTAL_ALIGNMENT_CENTER, 20)
@@ -236,7 +252,8 @@ func _draw_fight() -> void:
 		var d := bout.fighters[i].definition
 		names.append("%s (%s)" % [d.display_name, KIND_NAMES[d.kind]])
 	if screen == Screen.RUN:
-		names[1] += "  CPU · fight %d of %d" % [run.fight + 1, Run.LENGTH]
+		var tier := "own kind" if run.tier() == 0 else "other kind"
+		names[1] += "  CPU · fight %d of %d (%s)" % [run.fight + 1, Run.length(), tier]
 	else:
 		names[1] += "  " + ["human", "dummy: " + dummy.mode_name(), "CPU"][versus_driver]
 	BoutView.draw(self, bout, names, show_boxes)
@@ -257,11 +274,6 @@ func _draw_fight() -> void:
 		BoutView.lines(self, Vector2(0, 708), [help], 1280, HORIZONTAL_ALIGNMENT_CENTER, 13, Color(0.7, 0.7, 0.7))
 
 
-func _calibrated(player: int) -> bool:
-	return Settings.chord_window(player) != InputHistory.DEFAULT_CHORD \
-			or Settings.motion_window(player) != InputHistory.DEFAULT_MOTION_WINDOW
-
-
 func _draw_calibration() -> void:
 	BoutView.message(self, "Calibrate button timing", 120, 40)
 	var c := calibration
@@ -274,11 +286,8 @@ func _draw_calibration() -> void:
 			"Player %d results" % (c.player + 1),
 			"Presses meant together landed up to %d frames apart." % c.chord_gaps.max(),
 			"Presses meant separately landed at least %d frames apart." % c.sequence_gaps.min(),
-			"Your longest projectile roll took %d frames." % c.motion_spans.max(),
 			"",
-			"Together window: under %d frames (%d ms).   Roll window: %d frames (%d ms)." % [
-				c.chord_window(), roundi(c.chord_window() * 1000.0 / 60.0),
-				c.motion_window(), roundi(c.motion_window() * 1000.0 / 60.0)],
+			"Together window: under %d frames (%d ms)." % [c.chord_window(), roundi(c.chord_window() * 1000.0 / 60.0)],
 		]
 		if c.overlapping():
 			rows.append("Some 'together' presses were as far apart as your quick sequences; the window favours together.")
@@ -287,25 +296,23 @@ func _draw_calibration() -> void:
 	else:
 		var p := "p%d_" % (c.player + 1)
 		var k := func(verb: String) -> String: return ControlsText.key(p, verb)
-		var toward := ControlsText.direction(6, 1, p)
-		var down := ControlsText.direction(2, 1, p)
 		var prompt := ""
 		match c.stage:
 			Calibration.Stage.THROW:
 				prompt = "Press %s and %s together, as for a throw." % [k.call("light"), k.call("heavy")]
 			Calibration.Stage.GUARD:
 				prompt = "Press %s and %s together, as for guard." % [k.call("light"), k.call("special")]
+			Calibration.Stage.SPIRIT_GUARD:
+				prompt = "Press %s, %s and %s together, as for spirit guard." % [k.call("light"),
+						k.call("spirit"), k.call("special")]
 			Calibration.Stage.TOWARD_SPECIAL:
-				prompt = "Press %s and %s together, as for the rush." % [toward, k.call("special")]
+				prompt = "Press %s and %s together, as for the rush." % [ControlsText.direction(6, 1, p), k.call("special")]
 			Calibration.Stage.DOWN_SPIRIT:
-				prompt = "Press %s and %s together, as for the second spirit." % [down, k.call("spirit")]
-			Calibration.Stage.MOTION:
-				prompt = "Roll %s, %s and press %s, as for the projectile." % [down,
-						ControlsText.direction(3, 1, p) + ", " + toward, k.call("special")]
+				prompt = "Press %s and %s together, as for the second spirit." % [ControlsText.direction(2, 1, p), k.call("spirit")]
 			Calibration.Stage.SEQUENCE:
 				prompt = "Press %s, then %s: two separate presses, as quickly as you can." % [k.call("light"), k.call("heavy")]
 		rows = [
-			"Player %d, step %d of 6" % [c.player + 1, c.stage],
+			"Player %d, step %d of %d" % [c.player + 1, c.stage, Calibration.STEPS],
 			"",
 			prompt,
 			"",

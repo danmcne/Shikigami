@@ -13,16 +13,17 @@ const PRACTICE := {
 	guard_chance = 0.1,   # chance to guard a threat it sees
 	guard_delay = 20,     # reaction time before that guard goes up
 	low_read = 0.3,       # chance of guarding a low attack at the right height
+	spirit_read = 0.2,    # chance of using spirit guard against a spirit
 	escape_chance = 0.05, # chance to escape a throw
 	summon_chance = 0.05, # chance per decision to summon a ready spirit
 	jump_chance = 0.02,
 }
 const EASY := {
-	think = 18, aggression = 0.4, guard_chance = 0.3, guard_delay = 8, low_read = 0.5,
+	think = 18, aggression = 0.4, guard_chance = 0.3, guard_delay = 8, low_read = 0.5, spirit_read = 0.5,
 	escape_chance = 0.2, summon_chance = 0.15, jump_chance = 0.05,
 }
 const NORMAL := {
-	think = 10, aggression = 0.6, guard_chance = 0.55, guard_delay = 5, low_read = 0.8,
+	think = 10, aggression = 0.6, guard_chance = 0.55, guard_delay = 5, low_read = 0.8, spirit_read = 0.8,
 	escape_chance = 0.4, summon_chance = 0.25, jump_chance = 0.05,
 }
 const LEVELS := [["Practice", PRACTICE], ["Easy", EASY], ["Normal", NORMAL]]
@@ -37,6 +38,7 @@ var _think := 0
 var _guard_wait := -1
 var _guard_frames := 0
 var _guard_low := false
+var _guard_chord := "G"
 var _was_threatened := false
 var _was_grabbed := false
 
@@ -56,6 +58,7 @@ func read(me: Fighter, them: Fighter) -> Intent:
 		_guard_wait = p.guard_delay
 		var low := them.state == Fighter.State.MOVE and them.move.height == MoveDefinition.Height.LOW
 		_guard_low = low if rng.randf() < p.low_read else not low
+		_guard_chord = "P" if me.spirit_threatened and rng.randf() < p.spirit_read else "G"
 	_was_threatened = me.threatened
 	if _guard_wait >= 0:
 		_guard_wait -= 1
@@ -63,7 +66,7 @@ func read(me: Fighter, them: Fighter) -> Intent:
 			_guard_frames = 24
 	if _guard_frames > 0 and _queue.is_empty():
 		_guard_frames -= 1
-		return Intent.from_numpad(2 if _guard_low else 5, me.facing, "G")
+		return Intent.from_numpad(2 if _guard_low else 5, me.facing, _guard_chord)
 
 	if _queue.is_empty():
 		_think -= 1

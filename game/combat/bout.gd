@@ -116,6 +116,7 @@ func _fight_step(intents: Array[Intent]) -> void:
 		var them := fighters[1 - i]
 		me.face_toward(them.position.x)
 		me.threatened = _threatens(1 - i)
+		me.spirit_threatened = _spirit_threatens(1 - i)
 		me.live_spawns = entities.filter(func(e: Entity) -> bool: return e.owner_index == i) \
 				.map(func(e: Entity) -> MoveDefinition: return e.move)
 	for f in fighters:
@@ -133,6 +134,16 @@ func _fight_step(intents: Array[Intent]) -> void:
 	_check_ko()
 
 
+func _spirit_threatens(index: int) -> bool:
+	for e in entities:
+		if e.owner_index == index and e.from_spirit and not e.spent:
+			return true
+	for s in spirits:
+		if s.summoner == index and s.threatening():
+			return true
+	return false
+
+
 func _threatens(index: int) -> bool:
 	if fighters[index].threatening():
 		return true
@@ -145,23 +156,33 @@ func _threatens(index: int) -> bool:
 	return false
 
 
-## Releases what moves asked for this frame: projectiles from fighters and
-## spirits, and spirits from summons.
+## Carries out what moves asked for this frame: projectiles, summons, heals
+## and teleports, from fighters and spirits alike. A spirit acts for its
+## summoner: its projectiles are the summoner's and its heals heal them.
 func _spawn() -> void:
-	for i in 2:
-		var f := fighters[i]
+	var performers: Array[Fighter] = []
+	performers.assign(fighters + spirits)
+	for f in performers:
+		var side := f.summoner if f.summoner >= 0 else fighters.find(f)
 		if f.pending_spawn:
-			entities.append(Entity.new(f.pending_spawn, f, i))
+			entities.append(Entity.new(f.pending_spawn, f, side))
+		if f.pending_heal > 0:
+			fighters[side].heal(f.pending_heal)
+		if f.pending_teleport > 0.0:
+			var target := fighters[1 - side]
+			var across := signf(target.position.x - f.position.x)
+			if across == 0.0:
+				across = f.facing
+			f.position = Vector2(target.position.x + across * f.pending_teleport, Fighter.FLOOR_Y)
+			f.facing = -int(across)
+			_clamp(f)
 		if f.pending_summon >= 0:
 			var source := f.spirits[f.pending_summon]
 			var s := Fighter.new(source)
 			s.reset(f.position.x + f.facing * source.spirit_offset.x, f.facing)
-			s.summoner = i
-			s.perform(source.spirit_move)
+			s.summoner = side
+			s.perform(source.signature)
 			spirits.append(s)
-	for s in spirits:
-		if s.pending_spawn:
-			entities.append(Entity.new(s.pending_spawn, s, s.summoner))
 
 
 ## The fight is frozen while a throw holds its victim. The victim escapes by
@@ -234,24 +255,24 @@ func _resolve_hits() -> void:
 			if f.move.throw:
 				throwers.append(f)
 			else:
-				strikes.append([i, f.move, f.facing, f])
+				strikes.append([i, f.move, f.facing, f, false])
 		for e in entities:
 			if e.owner_index == i and _any_hit(e.active_hitboxes(), hurt):
-				strikes.append([i, e.move, e.facing, null])
+				strikes.append([i, e.move, e.facing, null, e.from_spirit])
 				e.spent = true
 		for s in spirits:
 			if s.summoner == i and s.state == Fighter.State.MOVE and _any_hit(s.active_hitboxes(), hurt):
 				if s.move.throw:
 					throwers.append(s)
 				else:
-					strikes.append([i, s.move, s.facing, null])
+					strikes.append([i, s.move, s.facing, null, true])
 					s.move_connected = true
 
 	var struck := [false, false]
 	for s in strikes:
 		var m: MoveDefinition = s[1]
 		var target := fighters[1 - s[0]]
-		target.receive(m, s[2])
+		target.receive(m, s[2], s[4])
 		struck[1 - s[0]] = true
 		hitstop = maxi(hitstop, m.hitstop)
 		var attacker: Fighter = s[3]

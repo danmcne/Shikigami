@@ -36,9 +36,9 @@ enum Kind { HUMAN, YOKAI }
 ## The gesture this fighter makes to summon a bound spirit. The spirit appears
 ## on its first active frame.
 @export var summon_move: MoveDefinition
-## What this fighter does when bound as someone else's spirit: one of its own
-## moves, performed by a body-less copy of it.
-@export var spirit_move: StringName
+## This fighter's signature special: its own move on the special button, and
+## what its body-less copy performs when bound and summoned as a spirit.
+@export var signature: StringName
 @export var spirit_cooldown: int = 300
 ## Where the copy appears, relative to the summoner (+x toward the opponent).
 @export var spirit_offset: Vector2 = Vector2.ZERO

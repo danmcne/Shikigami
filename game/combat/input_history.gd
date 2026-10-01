@@ -13,14 +13,14 @@ const A := Intent.A
 const B := Intent.B
 const C := Intent.C
 const D := Intent.D
-const DEFAULT_MOTION_WINDOW := 18
+## Frames a multi-direction pattern may span. The game's fighters use only
+## single directions and double taps; the grammar keeps general support.
+const MOTION_WINDOW := 18
 
 ## Presses fewer than this many frames apart count as together, and a
 ## direction this close to a button press counts as held with it. Set per
 ## player by calibration.
 var chord := DEFAULT_CHORD
-## Frames a motion such as down, down-toward, toward may span. Set per player.
-var motion_window := DEFAULT_MOTION_WINDOW
 var frame := -1
 var _dirs := PackedInt32Array()
 var _presses := PackedInt32Array()
@@ -59,7 +59,7 @@ func matches(cmd: Command, facing: int, after: int) -> bool:
 			held_at = f
 	if held_at < 0:
 		return false
-	var window := cmd.window if cmd.buttons == 0 else motion_window
+	var window := cmd.window if cmd.buttons == 0 else MOTION_WINDOW
 	var runs: Array[int] = []
 	for f in range(maxi(held_at - window, _first(after)), held_at + 1):
 		var d := direction(f, facing)
