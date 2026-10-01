@@ -3,7 +3,7 @@ extends RefCounted
 ## One fighter's simulation state. Pure logic: no nodes, no drawing, no input
 ## devices. The Bout records each frame's Intent, then steps the fighter.
 
-enum State { STAND, WALK, CROUCH, JUMP, MOVE, HITSTUN, BLOCKSTUN, KNOCKDOWN, KO }
+enum State { STAND, WALK, CROUCH, JUMP, MOVE, HITSTUN, BLOCKSTUN, KNOCKDOWN, GRABBED, KO }
 
 const FLOOR_Y := 0.0
 ## Deceleration of ground slide (knockback, blockback, dashes), in px/frame².
@@ -11,6 +11,12 @@ const SLIDE_DECEL := 0.5
 ## For this many frames after a normal starts, a throw or special that now
 ## matches replaces it. Buttons meant together need not land on one frame.
 const LENIENCY := 2
+## Summoning is the same for everyone: D for the first bound spirit, 2D for
+## the second.
+const SUMMON_COMMANDS := ["D", "2D"]
+## Frames of blockstun both fighters take when a throw is escaped.
+const TECH_STUN := 14
+const TECH_PUSH := 8.0
 
 var definition: FighterDefinition
 var input := InputHistory.new()
@@ -34,23 +40,39 @@ var airborne := false
 var crouching := false
 var holding_back := false
 var air_move_used := false
-## Set by the Bout each frame.
+## Set by the Bout each frame: moves whose released entity is still alive.
+## Such a move cannot be repeated until its entity is gone.
 var threatened := false
-var has_projectile := false
+var live_spawns: Array = []
 ## Set by step() on the frame a move releases something for the Bout to spawn.
 var pending_spawn: MoveDefinition = null
+## Set by step() on the frame a summon releases a spirit: the slot index.
+var pending_summon := -1
+## Bound spirits (the fighters they came from) and their cooldowns, by slot.
+var spirits: Array[FighterDefinition] = []
+var cooldowns: Array[int] = []
+## For a spirit: the index of the fighter who summoned it; -1 for a fighter.
+var summoner := -1
 
 var _commands: Array[Command] = []
+var _moves: Dictionary = {}
+var _summon_slot := -1
 var _intent := Intent.new()
 var _consumed := -1
 var _from_normal := false
 var _consumed_before_normal := -1
 
 
-func _init(def: FighterDefinition) -> void:
+func _init(def: FighterDefinition, bound: Array[FighterDefinition] = []) -> void:
 	definition = def
+	spirits = bound
+	_moves = def.moves.duplicate()
 	for pattern in def.commands:
 		_commands.append(Command.parse(pattern, def.commands[pattern]))
+	for slot in mini(spirits.size(), SUMMON_COMMANDS.size()):
+		var id := StringName("summon_%d" % slot)
+		_moves[id] = def.summon_move
+		_commands.append(Command.parse(SUMMON_COMMANDS[slot], id))
 	_commands.sort_custom(func(a: Command, b: Command) -> bool: return a.rank() > b.rank())
 
 
@@ -72,8 +94,11 @@ func reset(x: float, face: int) -> void:
 	holding_back = false
 	air_move_used = false
 	threatened = false
-	has_projectile = false
+	live_spawns = []
 	pending_spawn = null
+	pending_summon = -1
+	cooldowns.assign(spirits.map(func(_s: FighterDefinition) -> int: return 0))
+	_summon_slot = -1
 	_intent = Intent.new()
 	_consumed = -1
 	_from_normal = false
@@ -95,9 +120,17 @@ func record(intent: Intent) -> void:
 	input.push(intent)
 
 
+## Starts a move directly, as a spirit does when summoned.
+func perform(id: StringName) -> void:
+	_start(id)
+
+
 func step() -> void:
 	state_frame += 1
 	pending_spawn = null
+	pending_summon = -1
+	for slot in cooldowns.size():
+		cooldowns[slot] = maxi(cooldowns[slot] - 1, 0)
 	holding_back = _intent.x == -facing
 	if state in [State.STAND, State.WALK, State.CROUCH, State.BLOCKSTUN]:
 		crouching = _intent.down
@@ -118,11 +151,15 @@ func step() -> void:
 				stun -= 1
 				if stun <= 0:
 					_set_state(State.STAND)
-		State.KO:
+		State.GRABBED, State.KO:
 			pass
 
-	if state == State.MOVE and move.spawn and state_frame == move.startup:
-		pending_spawn = move.spawn
+	if state == State.MOVE and state_frame == move.startup:
+		if move.spawn:
+			pending_spawn = move.spawn
+		if _summon_slot >= 0:
+			pending_summon = _summon_slot
+			cooldowns[_summon_slot] = spirits[_summon_slot].spirit_cooldown
 	_integrate()
 
 
@@ -151,6 +188,23 @@ func receive(m: MoveDefinition, from_facing: int) -> void:
 	else:
 		stun = m.hitstun
 		_set_state(State.HITSTUN, true)
+
+
+## Held by a throw while the thrower's opponent may still escape it.
+func grabbed() -> void:
+	move = null
+	_from_normal = false
+	slide = 0.0
+	_set_state(State.GRABBED, true)
+
+
+## Both fighters separate after an escaped throw.
+func release_from_throw(away: int) -> void:
+	move = null
+	_from_normal = false
+	stun = TECH_STUN
+	slide = away * TECH_PUSH
+	_set_state(State.BLOCKSTUN, true)
 
 
 func invulnerable() -> bool:
@@ -243,8 +297,10 @@ func _matching_command(buttons_only: bool, after: int) -> Command:
 	for cmd in _commands:
 		if buttons_only and cmd.buttons == 0:
 			continue
-		var m: MoveDefinition = definition.moves[cmd.move]
-		if m.spawn and has_projectile:
+		var m: MoveDefinition = _moves[cmd.move]
+		if m.spawn and m.spawn in live_spawns:
+			continue
+		if cmd.move in _summon_ids() and cooldowns[_summon_ids().find(cmd.move)] > 0:
 			continue
 		if input.matches(cmd, facing, after):
 			return cmd
@@ -259,8 +315,13 @@ func _pressed_normal() -> String:
 	return ""
 
 
+func _summon_ids() -> Array:
+	return range(cooldowns.size()).map(func(slot: int) -> StringName: return StringName("summon_%d" % slot))
+
+
 func _start(id: StringName) -> void:
-	move = definition.moves[id]
+	move = _moves[id]
+	_summon_slot = _summon_ids().find(id)
 	_consumed = input.frame
 	_from_normal = false
 	move_connected = false

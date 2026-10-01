@@ -5,6 +5,7 @@ extends SceneTree
 ## the game feels good.
 
 const PrototypeRect := preload("res://game/fighters/prototype_rect.gd")
+const Roster := preload("res://game/fighters/roster.gd")
 
 var failures := 0
 var def := PrototypeRect.definition()
@@ -37,6 +38,17 @@ func _init() -> void:
 	_test_projectile_travels_and_hits()
 	_test_one_projectile_at_a_time()
 	_test_rising_is_invulnerable_at_start()
+	print("throw escape and full guard")
+	_test_throw_escape()
+	_test_late_escape_fails()
+	_test_full_guard_stops_everything()
+	print("spirits")
+	_test_spirit_strikes()
+	_test_spirit_cooldown()
+	_test_spirit_with_motion()
+	_test_spirit_releases_projectile_for_summoner()
+	print("controls text")
+	_test_controls_text()
 	print("selftest: %s" % ("all passed" if failures == 0 else "%d failed" % failures))
 	quit(1 if failures > 0 else 0)
 
@@ -121,7 +133,7 @@ func _test_light_whiffs_over_crouch() -> void:
 func _test_standing_guard_stops_mid() -> void:
 	var b := _bout()
 	var seen := {}
-	_run(b, 40, _at({0: [5, "B"]}), DummyController.new(DummyController.Mode.GUARD),
+	_run(b, 40, _at({0: [5, "B"]}), DummyController.new(DummyController.Mode.STAND_GUARD),
 			func(x: Bout) -> void: seen[x.fighters[1].state] = true)
 	_check("standing guard stops a mid attack",
 			_taken(b, 1) == 0 and Fighter.State.BLOCKSTUN in seen, "took %d" % _taken(b, 1))
@@ -129,7 +141,7 @@ func _test_standing_guard_stops_mid() -> void:
 
 func _test_low_beats_standing_guard() -> void:
 	var b := _bout()
-	_run(b, 40, _at({0: [2, "A"]}, 2), DummyController.new(DummyController.Mode.GUARD))
+	_run(b, 40, _at({0: [2, "A"]}, 2), DummyController.new(DummyController.Mode.STAND_GUARD))
 	_check("low attack beats a standing guard",
 			_taken(b, 1) == _dmg(&"crouch_light"), "took %d" % _taken(b, 1))
 
@@ -158,7 +170,7 @@ func _test_high_beats_crouching_guard() -> void:
 func _test_standing_guard_stops_high() -> void:
 	var b := _bout()
 	_airborne(b.fighters[0], Vector2(-40, -60))
-	_run(b, 40, _at({0: [5, "A"]}), DummyController.new(DummyController.Mode.GUARD))
+	_run(b, 40, _at({0: [5, "A"]}), DummyController.new(DummyController.Mode.STAND_GUARD))
 	_check("standing guard stops a jumping attack", _taken(b, 1) == 0, "took %d" % _taken(b, 1))
 
 
@@ -256,7 +268,7 @@ func _test_chord_lenient_across_frames() -> void:
 func _test_throw_beats_guard() -> void:
 	var b := _bout(70.0)
 	var seen := {}
-	_run(b, 30, _at({0: [5, "AB"]}), DummyController.new(DummyController.Mode.GUARD),
+	_run(b, 30, _at({0: [5, "AB"]}), _at({}, 4),
 			func(x: Bout) -> void: seen[x.fighters[1].state] = true)
 	_check("throw beats a standing guard",
 			_taken(b, 1) == _dmg(&"throw") and Fighter.State.KNOCKDOWN in seen,
@@ -265,7 +277,7 @@ func _test_throw_beats_guard() -> void:
 
 func _test_back_throw_swaps_sides() -> void:
 	var b := _bout(70.0)
-	_run(b, 12, _at({0: [4, "AB"]}, 4))
+	_run(b, 30, _at({0: [4, "AB"]}, 4))
 	var a := b.fighters[0]
 	var d := b.fighters[1]
 	_check("back throw lands the victim behind",
@@ -324,3 +336,93 @@ func _test_rising_is_invulnerable_at_start() -> void:
 	_check("rising is invulnerable through a light that overlaps it",
 			would_have_hit[0] and _taken(b, 1) == 0,
 			"overlapped %s, took %d" % [would_have_hit[0], _taken(b, 1)])
+
+
+# --- throw escape and full guard --------------------------------------------
+
+func _test_throw_escape() -> void:
+	var b := _bout(70.0)
+	# The throw connects on frame 4; the victim answers 5 frames later.
+	_run(b, 40, _at({0: [5, "AB"]}), _at({9: [5, "AB"]}))
+	_check("A+B while held escapes the throw", _taken(b, 0) == 0 and _taken(b, 1) == 0,
+			"took %d / %d" % [_taken(b, 0), _taken(b, 1)])
+
+
+func _test_late_escape_fails() -> void:
+	var b := _bout(70.0)
+	_run(b, 40, _at({0: [5, "AB"]}), _at({4 + Bout.TECH_WINDOW + 2: [5, "AB"]}))
+	_check("escaping after the window is too late", _taken(b, 1) == _dmg(&"throw"),
+			"took %d" % _taken(b, 1))
+
+
+func _test_full_guard_stops_everything() -> void:
+	var results := []
+	for attempt in [[[5, "B"], false], [[2, "A"], false], [[5, "A"], true], [[5, "AB"], false]]:
+		var b := _bout(70.0)
+		if attempt[1]:
+			_airborne(b.fighters[0], Vector2(-40, -60))
+		var script := _at({0: attempt[0]}, attempt[0][0] if attempt[0][0] == 2 else 5)
+		_run(b, 40, script, DummyController.new(DummyController.Mode.FULL_GUARD))
+		results.append(_taken(b, 1))
+	_check("full guard stops mid, low, overhead and throw", results == [0, 0, 0, 0],
+			"took %s" % [results])
+
+
+# --- spirits -----------------------------------------------------------------
+
+func _spirit_bout(spirit: FighterDefinition, distance: float) -> Bout:
+	var bound: Array[FighterDefinition] = [spirit]
+	var b := Bout.new(def, def, bound, [])
+	b.fighters[0].position.x = -distance / 2.0
+	b.fighters[1].position.x = distance / 2.0
+	return b
+
+
+func _test_spirit_strikes() -> void:
+	var heavy := Roster.heavy()
+	var b := _spirit_bout(heavy, 150.0)
+	_run(b, 50, _at({0: [5, "D"]}))
+	_check("a summoned spirit strikes with its own move",
+			_taken(b, 1) == heavy.moves[heavy.spirit_move].damage, "took %d" % _taken(b, 1))
+
+
+func _test_spirit_cooldown() -> void:
+	var heavy := Roster.heavy()
+	var b := _spirit_bout(heavy, 600.0)
+	var seen := {}
+	_run(b, 120, _at({0: [5, "D"], 60: [5, "D"]}), null, func(x: Bout) -> void:
+		for s in x.spirits:
+			seen[s.get_instance_id()] = true)
+	_check("a spirit on cooldown cannot be summoned again", seen.size() == 1,
+			"summoned %d" % seen.size())
+
+
+func _test_spirit_with_motion() -> void:
+	var balanced := Roster.balanced()
+	var b := _spirit_bout(balanced, 200.0)
+	_run(b, 60, _at({0: [5, "D"]}))
+	_check("a spirit performing a moving move travels like a fighter",
+			_taken(b, 1) == balanced.moves[balanced.spirit_move].damage, "took %d" % _taken(b, 1))
+
+
+func _test_spirit_releases_projectile_for_summoner() -> void:
+	var swift := Roster.swift()
+	var b := _spirit_bout(swift, 500.0)
+	var owners := {}
+	_run(b, 120, _at({0: [5, "D"]}), null, func(x: Bout) -> void:
+		for e in x.entities:
+			owners[e.owner_index] = true)
+	_check("a spirit's projectile belongs to the summoner and hits",
+			owners.keys() == [0] and _taken(b, 1) == swift.moves[&"projectile"].spawn.damage,
+			"owners %s, took %d" % [owners.keys(), _taken(b, 1)])
+
+
+# --- controls text -----------------------------------------------------------
+
+func _test_controls_text() -> void:
+	var right := ControlsText.describe("236C", 1, "p1_")
+	var left := ControlsText.describe("236C", -1, "p1_")
+	var tap := ControlsText.describe("656", 1, "p1_")
+	_check("commands render as player 1's keys for each facing",
+			right == "S, S+D, D + L" and left == "S, S+A, A + L" and tap == "D, release, D",
+			"%s | %s | %s" % [right, left, tap])

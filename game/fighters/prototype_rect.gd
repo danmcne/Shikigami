@@ -1,6 +1,7 @@
 extends RefCounted
-## The prototype fighter: a rectangle with six normals, a throw, two dashes
-## and four specials. Its numbers are starting points for tuning feel, not
+## The base prototype fighter: a rectangle with six normals, a throw, two
+## dashes, four specials and a summon. roster.gd derives the other archetypes
+## from it. Its numbers are starting points for tuning feel, not
 ## balance claims.
 ##
 ## The specials deliberately mix two input styles, direction + C and motion + C,
@@ -72,6 +73,10 @@ static func definition() -> FighterDefinition:
 	]
 	for m in moves:
 		d.moves[m.id] = m
+
+	d.summon_move = _move({id = &"summon", startup = 6, active = 1, recovery = 14})
+	d.spirit_move = &"rush"
+	d.spirit_cooldown = 360
 
 	d.commands = {
 		"AB": &"throw",        # hold back for a back throw

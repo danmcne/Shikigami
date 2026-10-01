@@ -1,9 +1,10 @@
 class_name Bout
 extends RefCounted
-## Two fighters, their entities, one stage, a best-of-three. Owns the frame
-## order:
-##   record input -> (hitstop? stop) -> face, flag threats -> step fighters
-##   -> step and spawn entities -> push apart, clamp -> resolve hits -> KO?
+## Two fighters, their spirits and entities, one stage, a best-of-three.
+## Owns the frame order:
+##   record input -> (throw held? check escape, stop) -> (hitstop? stop)
+##   -> face, flag threats -> step fighters and spirits -> spawn
+##   -> push apart, clamp -> resolve hits -> KO?
 ## Pure simulation; the view reads its state and draws it.
 
 enum Phase { FIGHT, ROUND_OVER, BOUT_OVER }
@@ -16,9 +17,16 @@ const ROUND_OVER_FRAMES := 120
 const BOUT_OVER_FRAMES := 240
 ## Where a back throw puts the victim, measured behind the thrower.
 const BACK_THROW_DISTANCE := 60.0
+## Frames a throw holds its victim before landing. Pressing A+B within this
+## window (or just before it) escapes.
+const TECH_WINDOW := 10
+const TECH_PREBUFFER := 3
 
 var fighters: Array[Fighter] = []
 var entities: Array[Entity] = []
+## Summoned spirits: body-less copies of other fighters, each performing one
+## move. They strike but have no hurtbox or pushbox.
+var spirits: Array[Fighter] = []
 var wins: Array[int] = [0, 0]
 var round_number := 1
 var phase := Phase.FIGHT
@@ -26,10 +34,15 @@ var phase_frame := 0
 ## Index of the last round's winner, or -1 for a double KO.
 var round_winner := -1
 var hitstop := 0
+## While positive, a throw is holding its victim and the fight is frozen.
+var grab_frames := 0
+var grab_thrower := -1
+var _grab_input_start := 0
 
 
-func _init(a: FighterDefinition, b: FighterDefinition) -> void:
-	fighters.assign([Fighter.new(a), Fighter.new(b)])
+func _init(a: FighterDefinition, b: FighterDefinition,
+		spirits_a: Array[FighterDefinition] = [], spirits_b: Array[FighterDefinition] = []) -> void:
+	fighters.assign([Fighter.new(a, spirits_a), Fighter.new(b, spirits_b)])
 	start_round()
 
 
@@ -37,9 +50,12 @@ func start_round() -> void:
 	fighters[0].reset(-START_OFFSET, 1)
 	fighters[1].reset(START_OFFSET, -1)
 	entities.clear()
+	spirits.clear()
 	phase = Phase.FIGHT
 	phase_frame = 0
 	hitstop = 0
+	grab_frames = 0
+	grab_thrower = -1
 
 
 func restart() -> void:
@@ -78,6 +94,9 @@ func winner() -> int:
 func _fight_step(intents: Array[Intent]) -> void:
 	for i in 2:
 		fighters[i].record(intents[i])
+	if grab_frames > 0:
+		_hold_throw()
+		return
 	if hitstop > 0:
 		hitstop -= 1
 		return
@@ -85,19 +104,74 @@ func _fight_step(intents: Array[Intent]) -> void:
 		var me := fighters[i]
 		var them := fighters[1 - i]
 		me.face_toward(them.position.x)
-		me.threatened = them.threatening() or _has_entity(1 - i)
-		me.has_projectile = _has_entity(i)
+		me.threatened = _threatens(1 - i)
+		me.live_spawns = entities.filter(func(e: Entity) -> bool: return e.owner_index == i) \
+				.map(func(e: Entity) -> MoveDefinition: return e.move)
 	for f in fighters:
 		f.step()
+	for s in spirits:
+		s.record(Intent.new())
+		s.step()
 	for e in entities:
 		e.step()
-	for i in 2:
-		if fighters[i].pending_spawn:
-			entities.append(Entity.new(fighters[i].pending_spawn, fighters[i], i))
+	_spawn()
 	_push_apart()
 	_resolve_hits()
 	entities.assign(entities.filter(func(e: Entity) -> bool: return not e.spent))
+	spirits.assign(spirits.filter(func(s: Fighter) -> bool: return s.state == Fighter.State.MOVE))
 	_check_ko()
+
+
+func _threatens(index: int) -> bool:
+	if fighters[index].threatening():
+		return true
+	for e in entities:
+		if e.owner_index == index and not e.spent:
+			return true
+	for s in spirits:
+		if s.summoner == index and s.threatening():
+			return true
+	return false
+
+
+## Releases what moves asked for this frame: projectiles from fighters and
+## spirits, and spirits from summons.
+func _spawn() -> void:
+	for i in 2:
+		var f := fighters[i]
+		if f.pending_spawn:
+			entities.append(Entity.new(f.pending_spawn, f, i))
+		if f.pending_summon >= 0:
+			var source := f.spirits[f.pending_summon]
+			var s := Fighter.new(source)
+			s.reset(f.position.x + f.facing * source.spirit_offset.x, f.facing)
+			s.summoner = i
+			s.perform(source.spirit_move)
+			spirits.append(s)
+	for s in spirits:
+		if s.pending_spawn:
+			entities.append(Entity.new(s.pending_spawn, s, s.summoner))
+
+
+## The fight is frozen while a throw holds its victim. The victim escapes by
+## pressing A+B; otherwise the throw lands when the window closes.
+func _hold_throw() -> void:
+	grab_frames -= 1
+	var thrower := fighters[grab_thrower]
+	var victim := fighters[1 - grab_thrower]
+	if victim.input.chord(InputHistory.A | InputHistory.B, _grab_input_start - TECH_PREBUFFER) >= 0:
+		grab_frames = 0
+		thrower.release_from_throw(-thrower.facing)
+		victim.release_from_throw(thrower.facing)
+		return
+	if grab_frames > 0:
+		return
+	var direction := thrower.facing
+	if thrower.move_reversed:
+		direction = -thrower.facing
+		victim.position.x = thrower.position.x - thrower.facing * BACK_THROW_DISTANCE
+	victim.receive(thrower.move, direction)
+	hitstop = maxi(hitstop, thrower.move.hitstop)
 
 
 ## After a KO the fighters keep falling and sliding, but take no input.
@@ -110,7 +184,8 @@ func _settle_step() -> void:
 
 ## Strikes are collected first and applied together, so two that land on the
 ## same frame trade. Throws are applied afterwards: a thrower struck on the
-## same frame loses the throw, and two throws on the same frame cancel out.
+## same frame loses the throw, two throws on the same frame cancel out, and a
+## throw that connects holds its victim for the escape window.
 func _resolve_hits() -> void:
 	_clash_entities()
 	var strikes: Array = []
@@ -130,6 +205,11 @@ func _resolve_hits() -> void:
 			if e.owner_index == i and _any_hit(e.active_hitboxes(), hurt):
 				strikes.append([i, e.move, e.facing, null])
 				e.spent = true
+		for s in spirits:
+			if s.summoner == i and s.state == Fighter.State.MOVE and not s.move.throw \
+					and _any_hit(s.active_hitboxes(), hurt):
+				strikes.append([i, s.move, s.facing, null])
+				s.move_connected = true
 
 	var struck := [false, false]
 	for s in strikes:
@@ -155,12 +235,10 @@ func _resolve_hits() -> void:
 		if struck[i] or not target.throwable():
 			continue
 		thrower.move_connected = true
-		var direction := thrower.facing
-		if thrower.move_reversed:
-			direction = -thrower.facing
-			target.position.x = thrower.position.x - thrower.facing * BACK_THROW_DISTANCE
-		target.receive(thrower.move, direction)
-		hitstop = maxi(hitstop, thrower.move.hitstop)
+		target.grabbed()
+		grab_thrower = i
+		grab_frames = TECH_WINDOW
+		_grab_input_start = target.input.frame
 
 
 ## Opposing entities that touch destroy each other.
@@ -182,14 +260,9 @@ func _any_hit(boxes: Array[Rect2], target: Rect2) -> bool:
 	return false
 
 
-func _has_entity(index: int) -> bool:
-	for e in entities:
-		if e.owner_index == index and not e.spent:
-			return true
-	return false
-
-
 func _push_apart() -> void:
+	for s in spirits:
+		_clamp(s)
 	for f in fighters:
 		_clamp(f)
 	var l := fighters[0]
@@ -240,6 +313,8 @@ func _check_ko() -> void:
 	round_winner = -1 if (down[0] and down[1]) else (1 if down[0] else 0)
 	if round_winner >= 0:
 		wins[round_winner] += 1
+	entities.clear()
+	spirits.clear()
 	_enter(Phase.ROUND_OVER)
 
 
