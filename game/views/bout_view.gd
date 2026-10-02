@@ -51,15 +51,18 @@ static func _monster(ci: CanvasItem, m: Monster, show_boxes: bool) -> void:
 		tint = Color(1.4, 1.4, 1.4)
 	elif m.state == Fighter.State.KO:
 		tint = Color(0.4, 0.4, 0.4)
+	for shape in m.monster.backdrop:
+		ci.draw_rect(m.to_world(shape), Color(0.85, 0.82, 0.7, 0.12) * tint)
 	for k in m.monster.parts.size():
 		var part: MonsterDefinition.Part = m.monster.parts[k]
 		var box := m.to_world(part.box)
-		var color := Color(0.45, 0.22, 0.18)
+		var color := m.monster.colour.darkened(0.2)
 		if part.health > 0:
-			color = Color(0.35, 0.35, 0.35) if m.part_health[k] <= 0 else Color(0.55, 0.3, 0.2)
+			color = Color(0.35, 0.35, 0.35) if m.part_health[k] <= 0 else m.monster.colour
 		if part.hidden:
 			if not m.exposed(k):
-				ci.draw_rect(box, Color(0.6, 0.5, 0.2, 0.5), false, 2.0)
+				var resting := Rect2(box.position + part.rest_offset, box.size)
+				ci.draw_rect(resting, Color(0.6, 0.5, 0.2, 0.5), false, 2.0)
 				continue
 			color = Color(1.0, 0.85, 0.3)
 		ci.draw_rect(box, color * tint)

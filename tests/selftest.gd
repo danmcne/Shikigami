@@ -104,6 +104,11 @@ func _init() -> void:
 	_test_buck_throws_riders_off()
 	_test_ushi_oni_turns_slowly()
 	_test_teleport_lands_behind_a_monster()
+	print("monster pace, Gashadokuro")
+	_test_monster_pace_follows_difficulty()
+	_test_gashadokuro_hands_open_after_slams()
+	_test_gashadokuro_sweep_from_behind_and_no_body()
+	_test_gashadokuro_broken_hand_rains_bones()
 	print("CPU, run, calibration")
 	_test_cpu_enters_motions()
 	_test_cpu_attacks()
@@ -1365,3 +1370,101 @@ func _test_teleport_lands_behind_a_monster() -> void:
 	var far_edge := oni.position.x + oni.definition.pushbox.size.x / 2.0
 	_check("Fox Step reappears beyond the far side of a monster, not inside it",
 			b.fighters[0].position.x > far_edge, "at %.0f, far edge %.0f" % [b.fighters[0].position.x, far_edge])
+
+
+# --- monster pace, Gashadokuro ------------------------------------------------
+
+func _turn_frame(level: int) -> int:
+	var b := Bout.versus_monster(def, [], Monster.new(Bestiary.by_id(&"ushi_oni"), 6, CpuController.LEVELS[level][1]))
+	b.fighters[1].position.x = 200
+	b.fighters[1].facing = -1
+	(b.fighters[1] as Monster).health = 99999
+	b.fighters[0].position.x = 520
+	b.fighters[0].invincible = true
+	var turned := [-1]
+	_run(b, 600, _at({}), null, func(x: Bout) -> void:
+		if turned[0] < 0 and (x.fighters[1] as Monster).facing == 1:
+			turned[0] = x.phase_frame)
+	return turned[0]
+
+
+func _test_monster_pace_follows_difficulty() -> void:
+	var practice := _turn_frame(0)
+	var easy := _turn_frame(1)
+	var hard := _turn_frame(3)
+	_check("monsters turn more slowly on easier difficulties",
+			practice > easy and easy > hard and practice >= 180, "Practice %d, Easy %d, Hard %d" % [practice, easy, hard])
+
+
+func _gasha_bout(distance := 200.0) -> Bout:
+	var b := Bout.versus_monster(def, [], Monster.new(Bestiary.by_id(&"gashadokuro"), 8))
+	b.fighters[0].position.x = -distance / 2.0
+	b.fighters[1].position.x = distance / 2.0
+	b.fighters[1].facing = -1
+	return b
+
+
+func _gasha_perform(g: Monster, id: StringName) -> MonsterDefinition.Attack:
+	var a: MonsterDefinition.Attack = g.monster.attacks.filter(
+			func(x: MonsterDefinition.Attack) -> bool: return x.move.id == id)[0]
+	g.attack = a
+	g._begin(a.move)
+	return a
+
+
+func _test_gashadokuro_hands_open_after_slams() -> void:
+	var b := _gasha_bout(200.0)  # the fighter stands under its near hand
+	var g: Monster = b.fighters[1]
+	var nothing_at_rest := g.hurtboxes().is_empty()
+	var slam := _gasha_perform(g, &"hand_slam")
+	var open_during_recovery := false
+	var open_before := false
+	for n in slam.move.total_frames():
+		var intents: Array[Intent] = [Intent.new(), Intent.new()]
+		b.step(intents)
+		var open := not g.hurtboxes().is_empty()
+		if open and g.state_frame < slam.move.startup + slam.move.active:
+			open_before = true
+		if open:
+			open_during_recovery = true
+	_check("Gashadokuro: nothing to strike at rest; a slam hits whoever is under the hand, which then lies open",
+			nothing_at_rest and open_during_recovery and not open_before and _taken(b, 0) == slam.move.damage,
+			"rest %s open %s early %s took %d" % [nothing_at_rest, open_during_recovery, open_before, _taken(b, 0)])
+
+
+func _test_gashadokuro_sweep_from_behind_and_no_body() -> void:
+	var b := _gasha_bout(400.0)
+	var g: Monster = b.fighters[1]
+	_gasha_perform(g, &"bone_sweep")
+	var spawned_at := [INF]
+	var heading := [0]
+	_run(b, 60, _at({}), null, func(x: Bout) -> void:
+		for e in x.entities:
+			if spawned_at[0] == INF:
+				spawned_at[0] = e.position.x
+				heading[0] = e.facing)
+	# Walk straight through where its body is.
+	var walker := _gasha_bout(100.0)
+	(walker.fighters[1] as Monster).health = 99999
+	(walker.fighters[1] as Monster)._rest = 100000
+	var w := walker.fighters[0]
+	_run(walker, 60, func(n: int) -> Array: return [6 if w.facing == 1 else 4, ""])
+	_check("the sweep starts at the stage edge behind you and comes toward it; you can walk beneath it",
+			spawned_at[0] == Bout.STAGE_LEFT and heading[0] == 1 and walker.fighters[0].position.x > walker.fighters[1].position.x,
+			"spawned at %.0f heading %d; walker at %.0f" % [spawned_at[0], heading[0], walker.fighters[0].position.x])
+
+
+func _test_gashadokuro_broken_hand_rains_bones() -> void:
+	var b := _gasha_bout(400.0)
+	var g: Monster = b.fighters[1]
+	g.health = 99999
+	b.fighters[0].invincible = true
+	g.part_health[0] = 0  # the near hand broken
+	var used := {}
+	_run(b, 1500, _at({}), null, func(x: Bout) -> void:
+		var m: Monster = x.fighters[1]
+		if m.state == Fighter.State.MOVE:
+			used[m.move.id] = true)
+	_check("with its near hand broken it rains bones and no longer slams or sweeps with it",
+			used.has(&"bone_rain") and not used.has(&"hand_slam") and not used.has(&"bone_sweep"),
+			"used %s" % [used.keys()])

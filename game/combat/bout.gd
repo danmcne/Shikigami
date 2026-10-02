@@ -252,7 +252,14 @@ func _spawn() -> void:
 	for f in performers:
 		var side := f.summoner if f.summoner >= 0 else fighters.find(f)
 		if f.pending_spawn:
-			entities.append(Entity.new(f.pending_spawn, f, side))
+			var e := Entity.new(f.pending_spawn, f, side)
+			if f.move.spawn_from_edge:
+				var toward := signf(fighters[1 - side].position.x - f.position.x)
+				if toward == 0.0:
+					toward = f.facing
+				e.position.x = STAGE_RIGHT if toward > 0.0 else STAGE_LEFT
+				e.facing = -int(toward)
+			entities.append(e)
 		if f.pending_heal > 0:
 			fighters[side].heal(f.pending_heal)
 		if f.pending_armor > 0:
@@ -472,7 +479,8 @@ func _push_apart() -> void:
 func _overlap(l: Fighter, r: Fighter) -> float:
 	var a := l.pushbox()
 	var b := r.pushbox()
-	if not a.intersects(b):
+	# A body without a pushbox (a giant looming behind the stage) blocks nothing.
+	if not a.has_area() or not b.has_area() or not a.intersects(b):
 		return 0.0
 	return a.end.x - b.position.x
 

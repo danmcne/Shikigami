@@ -8,6 +8,9 @@ extends Fighter
 ## changing which attacks it uses. It cannot be thrown or bound.
 
 var monster: MonsterDefinition
+## Difficulty: multipliers on turning delay and rest between attacks.
+var turn_scale := 1.0
+var rest_scale := 1.0
 var part_health: Array[int] = []
 var attack: MonsterDefinition.Attack = null
 var rng := RandomNumberGenerator.new()
@@ -18,17 +21,21 @@ var _target_x := 0.0
 var _behind := 0
 
 
-func _init(def: MonsterDefinition, seed_value := 0) -> void:
+## `pace` is a difficulty table (CpuController.LEVELS); its monster_turn and
+## monster_rest entries slow or quicken the monster.
+func _init(def: MonsterDefinition, seed_value := 0, pace: Dictionary = {}) -> void:
 	super(def.body)
 	monster = def
 	rng.seed = seed_value
+	turn_scale = pace.get("monster_turn", 1.0)
+	rest_scale = pace.get("monster_rest", 1.0)
 
 
 func reset(x: float, face: int) -> void:
 	super.reset(x, face)
 	part_health.assign(monster.parts.map(func(p: MonsterDefinition.Part) -> int: return p.health))
 	attack = null
-	_rest = monster.rest
+	_rest = roundi(monster.rest * rest_scale)
 
 
 ## It turns round only after its opponent has stayed behind it for a while
@@ -42,7 +49,7 @@ func face_toward(x: float) -> void:
 	if not can_turn():
 		return
 	_behind += 1
-	if _behind >= monster.turn_delay:
+	if _behind >= roundi(monster.turn_delay * turn_scale):
 		facing = side
 		_behind = 0
 		show_notice("TURNS")
@@ -117,7 +124,7 @@ func step() -> void:
 			if state_frame >= move.total_frames():
 				_halt()
 				attack = null
-				_rest = roundi(monster.rest * (1.5 if crippled() else 1.0))
+				_rest = roundi(monster.rest * rest_scale * (1.5 if crippled() else 1.0))
 				_set_state(State.STAND)
 		State.HITSTUN:
 			stun -= 1

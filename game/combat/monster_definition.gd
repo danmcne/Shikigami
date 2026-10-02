@@ -23,6 +23,9 @@ class Part:
 	## How far above its box it can still be struck, so that a fighter
 	## standing on it hits what it stands on.
 	var reach_above := 0.0
+	## For drawing only: where a hidden part is shown while it can't be struck
+	## (a giant's hand raised out of reach).
+	var rest_offset := Vector2.ZERO
 
 	func _init(part_name: String, local_box: Rect2, scale := 1.0, part_health := 0, is_hidden := false,
 			can_stand := false, above := 0.0) -> void:
@@ -67,5 +70,9 @@ var rest := 40
 var stagger := 60
 ## It stops walking closer than this gap.
 var close_gap := 80.0
+## For drawing only: faint shapes behind its parts (a giant's ribs and spine),
+## and the colour of its parts.
+var backdrop: Array[Rect2] = []
+var colour := Color(0.55, 0.3, 0.2)
 ## Frames an opponent must stay behind it before it turns round.
 var turn_delay := 60

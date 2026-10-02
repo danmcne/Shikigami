@@ -4,7 +4,7 @@ A 2D fighting game set in a fantasy Japan, in the lineage of Street Fighter and 
 
 The guiding principle: **the fighting is the game; the campaign exists to produce unusual fights.** There are no levels, stat sheets or grinding.
 
-This repository contains Prototype 9: sixteen humans and yokai and the first monster, Ushi-oni, still drawn as rectangles; the full human campaign ending in the monster fight; combos; a computer at four difficulties; and a balance tournament runnable from the game or the command line. Everything below the "Prototype 9" heading describes that code. Everything above it describes the design.
+This repository contains Prototype 10: sixteen humans and yokai and two monsters, Ushi-oni and Gashadokuro, still drawn as rectangles; the full human campaign ending in a monster fight; combos; a computer at four difficulties; and a balance tournament runnable from the game or the command line. Everything below the "Prototype 10" heading describes that code. Everything above it describes the design.
 
 ## The design
 
@@ -37,7 +37,7 @@ Eight humans and eight yokai. Each has two specials: one on special, one on away
 | Kitsune | yokai | Fox Step: vanishes and reappears behind to strike | Foxfire: kitsune-bi, a projectile |
 | Tengu | yokai | Gale Fan: a gust that hurls more than it hurts | Flight: a gliding overhead strike; also in the air |
 | Kappa | yokai | Sumo Grab: kappa challenge travellers to sumo; slow to recharge | Water Jet: from the dish on its head, a low projectile |
-| Yuki-onna | yokai | Frost Breath: short range; slows whoever it touches | Icicle: falls from above some way ahead, an overhead |
+| Yuki-onna | yokai | Frost Breath: short range; slows whoever it touches; quick to recharge | Icicle: falls from above some way ahead, an overhead |
 | Jorōgumo | yokai | Web: a strand that reels the victim in | Ceiling Drop: up out of reach and down on top of you |
 | Nekomata | yokai | Pounce: a leaping overhead | Twin Tails: two tails, low and mid at once |
 | Tanuki | yokai | Belly Drum: hara-tsuzumi, a low shockwave to both sides | Leaf Disguise: a counter; a leaf on the head and it is a statue that strikes back |
@@ -107,7 +107,7 @@ A run is a single climb through three tiers. Opponents are shuffled within each 
    - The second opponent's single spirit is simply yours when you win.
    - From the third and fourth, your finisher captures one of the spirits they carry.
 2. **Other-kind tier, 4 fights.** Again 0, 1, 2 and 2 spirits (now of your own kind, which you can't take). Your finisher seals the opponent itself, and you take one of its two specials.
-3. **Monster tier.** A fight against a monster (now Ushi-oni) under its own rules (below).
+3. **Monster tier.** A fight against a monster (Ushi-oni or Gashadokuro, at random) under its own rules (below).
 
 The run is saved before every fight, including the random generator's state, so it resumes exactly.
 
@@ -129,6 +129,15 @@ Monsters are not scaled-up fighters. Each is a bespoke encounter, built from the
 - **Climbing.** Some parts can be stood on. A fighter lands on them, is carried as the monster moves, and faces the way it walks while on top. Strikes from on top hit the part underfoot. Walking off an edge drops you to the ground.
 - **Turning.** A monster turns round only after its opponent has stayed behind it for a while; until then it can use only attacks that reach behind it. It doesn't turn at all while ridden, and some attacks exist only to throw riders off.
 - **Teleports** land beyond the far edge of the target's body, so teleporting past a monster puts you behind it rather than inside it.
+- **Attacks from the stage edge.** An attack can release its projectile at the stage edge beyond the opponent, travelling back toward the monster: a giant's hand sweeping in from behind you.
+- **Pace follows difficulty.** A monster's turning delay and its rest between attacks scale with the difficulty setting:
+
+  | Setting | Turning delay | Rest between attacks |
+  |---|---|---|
+  | Practice | ×3 | ×1.6 |
+  | Easy | ×2 | ×1.3 |
+  | Normal | ×1 | ×1 |
+  | Hard | ×0.85 | ×0.85 |
 - **Telegraphs.** Every attack's start-up is drawn in red where its hitboxes will land, brightening as the attack approaches.
 - **Attacks from outside the fighting space.** Hands, tails and lightning arrive from beyond the stage edges or from above.
 - **No throws against a boss,** and a boss can't be bound. Spirits work normally against it. Boss strikes are guarded with plain guard, at the usual heights.
@@ -136,7 +145,7 @@ Monsters are not scaled-up fighters. Each is a bespoke encounter, built from the
 | Monster | Legend | Encounter |
 |---|---|---|
 | Ushi-oni (built) | ox-headed, spider-bodied shore demon | Fills a third of the stage; its shell takes half damage. Leg Stab strikes both sides at once. Stomp is a low quake across the stage. Charge crosses the whole stage at speed, passing through you, and must be jumped. Poison Breath slows. Its legs can be broken with low attacks; once crippled it walks at half speed, can't stomp, and breathes more. Its head takes double damage but is open only after a charge, when it lowers to recover. Its head and back can be stood on: jump onto the head, then up onto the back, ride it, strike the shell, or drop off behind to reach its back legs. It turns round after a second, and Buck throws off riders. |
-| Gashadokuro | giant skeleton of the unburied dead | Only its upper body is visible, rising behind the stage. Hands slam in from the stage edges and sweep across; the skull bites from above. The hands are parts. The skull is reachable only after a hand is broken, by jumping to its jaw. Breaking bones throws debris as projectiles. |
+| Gashadokuro (built) | giant skeleton of the unburied dead | Looms behind the stage with no body to bump into: you walk beneath it, and it drifts to keep you under one hand. Nothing of it can be struck at rest. Hand Slam comes down from above on whoever stands under the hand, an overhead. Far Slam is the other hand, for those who slip past. Skull Bite comes down at its centre. Bone Sweep is a hand sweeping in along the floor from the stage edge behind you. After a slam the hand lies open and can be broken; after a bite the skull stays low, taking double damage. Break a hand and it rains bones from above instead of using that hand. |
 | Nue | chimera (monkey face, tanuki body, tiger limbs, snake tail) in a thundercloud; shot down by Minamoto no Yorimasa | Flies around the arena out of normal reach. Lightning strikes marked spots on the floor, the snake tail strikes from behind, and dives are overheads. It is vulnerable when it dives, and to anti-air projectiles. Bringing it down grounds it for a final phase. |
 | Ōmukade (candidate) | the giant centipede shot by Tawara Tōda | A segmented body that crosses the stage in waves; segments are parts. |
 | Yamata no Orochi (candidate) | eight-headed serpent | Several heads as parts, each with its own attack. |
@@ -147,7 +156,7 @@ A monster is data (`MonsterDefinition`):
 - attacks, each an ordinary `MoveDefinition` with a weight (and a weight once crippled), the distances it is used at, a travel speed, whether it passes through, which hidden parts it exposes, and which parts it needs unbroken;
 - walking speed, rest between attacks, and stagger time.
 
-`Monster` interprets the data, so a new monster is mostly a new data file. Next: Gashadokuro, which needs attacks spawned relative to the stage, from beyond its edges; then Nue, which needs flight.
+`Monster` interprets the data, so a new monster is mostly a new data file; Gashadokuro needed only edge-spawned attacks beyond what Ushi-oni had. Next: Nue, which needs flight.
 
 ### Modes
 
@@ -173,7 +182,7 @@ Art comes after the systems it has to serve are proven on rectangles.
 4. **CPU and run loop.** *Done.*
 5. **Character.** Sixteen named fighters, two specials each, spirits performing a chosen special, exclusive guards. *Done.*
 6. **Campaign and balance tools.** The human campaign's capture structure, unlocks, combos, a Hard computer, and a computer-against-computer tournament. *Done in this repository.*
-7. **Monsters.** The engine and Ushi-oni. *Done in this repository.* Next: Gashadokuro, then Nue.
+7. **Monsters.** The engine, Ushi-oni and Gashadokuro. *Done in this repository.* Next: Nue.
 8. **Balance by play,** guided by the tournament, then rising difficulty through the campaign.
 9. **Art** for a first handful of fighters.
 10. **Presentation.** Menus, sound, story between fights.
@@ -186,7 +195,7 @@ Art comes after the systems it has to serve are proven on rectangles.
 
 ---
 
-## Prototype 9
+## Prototype 10
 
 ### Running
 
@@ -196,9 +205,9 @@ Open the folder in Godot 4.3+ and press Play, or run `godot --path .` from the c
 |---|---|
 | Menu | 1 new run, 2 continue run, 3 versus, 4 calibrate timing, 5 computer difficulty, 6 game speed, 7 player 1 invincible, 8 unlock the yokai for practice, 9 tournament |
 | Fighter select | A / D or arrows to move, Enter or J to begin |
-| Run | nine fights: four of your own kind, four of the other, then Ushi-oni |
+| Run | nine fights: four of your own kind, four of the other, then a monster |
 | After a capture | a number to take that spirit, or the last number to release; then, if slots are full, 1 or 2 to replace, 3 to release |
-| Versus | F2 player 2: human / dummy / CPU; F3 dummy behaviour; F5 restart; F6 / F7 change fighters (F7 also reaches Ushi-oni) |
+| Versus | F2 player 2: human / dummy / CPU; F3 dummy behaviour; F5 restart; F6 / F7 change fighters (F7 also reaches the monsters) |
 | Tournament | progress, then results; Esc stops it or returns |
 | Anywhere | Esc to the menu; F1 shows boxes, states and frames |
 
@@ -229,6 +238,19 @@ In versus, press F7 until player 2 is Ushi-oni. In a run, it is the ninth fight.
   - Poison Breath: guard it, or be slowed.
   - Buck, used only on riders: jump off when it shows red above its back, or guard.
 - **Strategy.** Low attacks break its legs; the head takes double damage. Throws don't work on it, and it can't be bound.
+
+### Fighting Gashadokuro
+
+In versus, press F7 past Ushi-oni. In a run, it may be the ninth fight.
+
+- **What you see.** Its ribs and spine loom faintly behind the stage. Its hands and skull are outlines high above when they can't be struck, and solid bone when they can.
+- **Its attacks and their answers:**
+  - Hand Slam, on whoever is under its near hand: step out of the red, or guard standing. Then strike the hand while it lies open.
+  - Far Slam, on the far side, if you slipped under it: the same answer.
+  - Skull Bite, at its centre: step out, then strike the skull while it stays low, for double damage.
+  - Bone Sweep, along the floor from the stage edge behind you: jump it, or guard low.
+  - Bone Rain, once a hand is broken: guard standing, or keep moving.
+- **Moving.** You can walk straight under it; it turns round to follow, after its turning delay.
 
 ### Tournament
 
@@ -267,9 +289,16 @@ These are results from the Hard computer playing itself, with the caveats above.
 
 ### What changed
 
-- **Ushi-oni and the monster engine** (above). The run ends with it, and versus can field it.
-  - In the latest revision, its head and back can be climbed and ridden. It turns round slowly, bucks riders off, and can't be shoved.
-  - Teleports land beyond the far edge of a body, so the fox's step reaches behind it.
+- **Gashadokuro**, the second monster (above).
+- **Attacks from the stage edge,** a new monster capability.
+- **A body without a pushbox now blocks nothing.** Before, a zero-size pushbox still counted as overlapping whatever contained it.
+- **Monster pace follows difficulty.** On Easy, Ushi-oni takes twice as long to turn round as on Normal; on Practice, three times.
+- **Yuki-onna** has a little more health (950, from 900) and a quicker frost breath (recharges in 1.7 s, from 2 s).
+- **From Prototype 9:**
+  - Ushi-oni and the monster engine; its head and back can be climbed and ridden; it turns slowly, bucks riders off, and can't be shoved.
+  - Teleports land beyond a body's far edge.
+  - Kojirō's longer Drying Pole.
+  - Slow, strategic heals, and the computer healing at safe moments.
 - **Sake and meditation:** big heals, very slow recharge, longer and interruptible. The computer heals at safe moments at every level, Practice included.
 - **Spirit recharge** is never shorter than the recharge of the special the spirit performs.
 - **Tournament** in the game and on the command line (the old test script is gone).
@@ -309,6 +338,7 @@ game/
     roster.gd              the sixteen fighters and their specials, as a data table
   monsters/
     ushi_oni.gd            Ushi-oni, as data
+    gashadokuro.gd         Gashadokuro, as data
     bestiary.gd            every monster
 tests/
   selftest.gd              mechanics checks, run only on request
@@ -321,10 +351,12 @@ godot --headless --path . --import          # once, to build the class cache
 godot --headless --path . --script res://tests/selftest.gd
 ```
 
-There are 89 checks. This prototype adds checks for:
+There are 93 checks. Prototypes 9 and 10 added checks for:
 
 - Ushi-oni: its hidden head, open after a charge; its charge passing through; damage by part; a broken leg staggering and crippling it; one-round bouts; no throws or binding; using its attacks unprompted.
 - Climbing it: onto the head, then the back; every fighter's jump clearing the head; striking from on top; dropping off behind; being carried by its charge; being bucked off; its slow turning; and a teleport landing behind it.
+- Monster pace by difficulty.
+- Gashadokuro: nothing to strike at rest; a slam hitting whoever is under the hand, which then lies open; the sweep coming from the stage edge behind you; walking beneath it; bone rain once a hand is broken.
 - The computer drinking its sake when hurt and safe, at the easiest and hardest levels.
 - A spirit's recharge.
 - The tournament engine.

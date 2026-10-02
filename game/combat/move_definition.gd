@@ -44,6 +44,9 @@ enum Height { HIGH, MID, LOW, HIGH_LOW }
 ## a bound spirit later.
 @export var spawn: MoveDefinition
 @export var spawn_offset: Vector2 = Vector2.ZERO
+## Release the spawn at the stage edge beyond the opponent instead, moving
+## back across the stage toward the performer (a giant's hand sweeping in).
+@export var spawn_from_edge: bool = false
 ## Health restored on the first active frame: to the performer, or, for a
 ## spirit, to the fighter who summoned it.
 @export var heal: int = 0

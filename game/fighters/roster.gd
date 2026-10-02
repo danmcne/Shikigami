@@ -175,9 +175,9 @@ static func _table() -> Array:
 						damage = 45, hitstun = 16, blockstun = 12, knockback = 5.0, hitstop = 5, height = H.LOW,
 						hitboxes = [Rect2(-20, -20, 40, 20)]}}]},
 		{id = &"yuki_onna", name = "Yuki-onna", kind = YOKAI,
-			p = {health = 900, size = 0.95, speed = 1.05, jump = 1.0, power = 0.95, tempo = 0},
+			p = {health = 950, size = 0.95, speed = 1.05, jump = 1.0, power = 0.95, tempo = 0},
 			# The snow woman's breath: it chills, and the chilled are slow.
-			specials = [{id = &"frost_breath", startup = 10, active = 10, recovery = 18, cooldown = 120,
+			specials = [{id = &"frost_breath", startup = 10, active = 10, recovery = 18, cooldown = 100,
 					damage = 40, hitstun = 16, blockstun = 12, knockback = 4.0, hitstop = 6, slows = 180,
 					hitboxes = [Rect2(15, -140, 110, 60)]},
 				# An icicle falling from above, some way ahead: an overhead.

@@ -267,7 +267,8 @@ func _make_bout(a: FighterDefinition, b: FighterDefinition,
 
 func _make_monster_bout(a: FighterDefinition, sa: Array[SpiritBinding], beast: MonsterDefinition,
 		seed_value: int) -> Bout:
-	var made := Bout.versus_monster(a, sa.duplicate(), Monster.new(beast, seed_value))
+	var pace: Dictionary = CpuController.LEVELS[Settings.difficulty()][1]
+	var made := Bout.versus_monster(a, sa.duplicate(), Monster.new(beast, seed_value, pace))
 	made.fighters[0].set_chord_window(Settings.chord_window(0))
 	made.fighters[0].invincible = Settings.invincible()
 	return made
