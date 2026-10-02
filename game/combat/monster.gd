@@ -11,8 +11,11 @@ var monster: MonsterDefinition
 var part_health: Array[int] = []
 var attack: MonsterDefinition.Attack = null
 var rng := RandomNumberGenerator.new()
+## Someone is standing on it; set by the Bout each frame.
+var ridden := false
 var _rest := 0
 var _target_x := 0.0
+var _behind := 0
 
 
 func _init(def: MonsterDefinition, seed_value := 0) -> void:
@@ -28,9 +31,30 @@ func reset(x: float, face: int) -> void:
 	_rest = monster.rest
 
 
+## It turns round only after its opponent has stayed behind it for a while
+## (its own attacks pause the count), and not at all while being ridden.
 func face_toward(x: float) -> void:
 	_target_x = x
-	super.face_toward(x)
+	var side := 1 if x > position.x else -1
+	if ridden or side == facing:
+		_behind = 0
+		return
+	if not can_turn():
+		return
+	_behind += 1
+	if _behind >= monster.turn_delay:
+		facing = side
+		_behind = 0
+		show_notice("TURNS")
+
+
+## The tops of its standable parts, in world space.
+func surfaces() -> Array[Rect2]:
+	var out: Array[Rect2] = []
+	for p in monster.parts:
+		if p.standable:
+			out.append(to_world(p.box))
+	return out
 
 
 func crippled() -> bool:
@@ -60,8 +84,15 @@ func hurtboxes() -> Array[Rect2]:
 	var boxes: Array[Rect2] = []
 	for k in monster.parts.size():
 		if exposed(k):
-			boxes.append(to_world(monster.parts[k].box))
+			boxes.append(_strike_box(k))
 	return boxes
+
+
+## Where part k can be struck: its box, extended upward by its reach_above.
+func _strike_box(k: int) -> Rect2:
+	var p: MonsterDefinition.Part = monster.parts[k]
+	var box := to_world(p.box)
+	return Rect2(box.position.x, box.position.y - p.reach_above, box.size.x, box.size.y + p.reach_above)
 
 
 func pushbox() -> Rect2:
@@ -137,26 +168,33 @@ func throwable() -> bool:
 ## attack that suits the distance.
 func _think() -> void:
 	var gap := absf(_target_x - position.x) - definition.stand_hurtbox.size.x / 2.0
+	var ahead := (_target_x - position.x) * facing >= 0.0
 	_rest -= 1
 	if _rest > 0:
-		if gap > monster.close_gap:
+		if gap > monster.close_gap and ahead and not ridden:
 			position.x += facing * monster.walk_speed * (0.5 if crippled() else 1.0)
 			_set_state(State.WALK)
 		else:
 			_set_state(State.STAND)
 		return
-	var choice := _choose(gap)
+	var choice := _choose(gap, ahead)
 	if choice:
 		attack = choice
 		_begin(choice.move)
 
 
-func _choose(gap: float) -> MonsterDefinition.Attack:
+## An attack for the moment. With its opponent behind it, only attacks that
+## reach behind; while ridden, any, but those meant for riders first.
+func _choose(gap: float, ahead: bool) -> MonsterDefinition.Attack:
 	var usable: Array = []
 	var weights := PackedFloat32Array()
 	for a in monster.attacks:
 		var attack_def: MonsterDefinition.Attack = a
-		if gap < attack_def.min_gap or gap > attack_def.max_gap:
+		if attack_def.ridden_only and not ridden:
+			continue
+		if not ridden and (gap < attack_def.min_gap or gap > attack_def.max_gap):
+			continue
+		if not ahead and not ridden and not attack_def.move.hitboxes.any(func(r: Rect2) -> bool: return r.position.x < 0.0):
 			continue
 		if attack_def.requires.any(func(name: String) -> bool: return broken(name)):
 			continue
@@ -177,7 +215,7 @@ func _part_at(contact: Rect2) -> int:
 	for k in monster.parts.size():
 		if not exposed(k):
 			continue
-		var box := to_world(monster.parts[k].box)
+		var box := _strike_box(k)
 		if box.has_point(centre):
 			return k
 		if touched < 0 and box.intersects(contact.grow(0.5)):

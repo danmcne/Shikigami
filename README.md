@@ -26,7 +26,7 @@ Eight humans and eight yokai. Each has two specials: one on special, one on away
 | | Kind | Special | Away + special |
 |---|---|---|---|
 | Miyamoto Musashi | human | Two Heavens: one sword high, one low, at once; no single guard height stops it | Void Stance: a counter; struck during it, he cuts back |
-| Sasaki Kojirō | human | Swallow Cut: Tsubame Gaeshi, an arc covering above and ahead; also in the air | Drying Pole: a thrust of exceptional reach with his overlong nodachi |
+| Sasaki Kojirō | human | Swallow Cut: Tsubame Gaeshi, an arc covering above and ahead; also in the air | Drying Pole: a thrust of exceptional reach with his overlong nodachi, the longest strike in the roster |
 | Tomoe Gozen | human | Naginata Wheel: a full circle, front and back; also in the air | Naginata Sweep: a long low sweep that knocks down |
 | Benkei | human | Standing Death: advances with armour, after his death standing on the bridge | Seven Weapons: a long-reach grapple, slow to recharge |
 | Hattori Hanzō | human | Kawarimi: a counter; struck, he vanishes and strikes from behind | Shuriken: a fast, light projectile; also in the air |
@@ -125,14 +125,17 @@ Monsters are not scaled-up fighters. Each is a bespoke encounter, built from the
 
 - **One long round**, not best of three.
 - **Parts.** A monster's body is several hurtboxes. Every hit lands on a part and costs the monster health, scaled by that part: a shell takes less, a weak point more. Some parts can be broken; breaking one staggers the monster and may cripple it, changing what it can do. Some parts are hidden and can be struck only while an attack exposes them.
-- **No flinching.** Monsters take damage without being interrupted, except when a part breaks.
+- **No flinching.** Monsters take damage without being interrupted, except when a part breaks. Nor can they be shoved: when bodies collide, the fighter gives way.
+- **Climbing.** Some parts can be stood on. A fighter lands on them, is carried as the monster moves, and faces the way it walks while on top. Strikes from on top hit the part underfoot. Walking off an edge drops you to the ground.
+- **Turning.** A monster turns round only after its opponent has stayed behind it for a while; until then it can use only attacks that reach behind it. It doesn't turn at all while ridden, and some attacks exist only to throw riders off.
+- **Teleports** land beyond the far edge of the target's body, so teleporting past a monster puts you behind it rather than inside it.
 - **Telegraphs.** Every attack's start-up is drawn in red where its hitboxes will land, brightening as the attack approaches.
 - **Attacks from outside the fighting space.** Hands, tails and lightning arrive from beyond the stage edges or from above.
 - **No throws against a boss,** and a boss can't be bound. Spirits work normally against it. Boss strikes are guarded with plain guard, at the usual heights.
 
 | Monster | Legend | Encounter |
 |---|---|---|
-| Ushi-oni (built) | ox-headed, spider-bodied shore demon | Fills a third of the stage; its shell takes half damage. Leg Stab strikes both sides at once. Stomp is a low quake across the stage. Charge crosses the whole stage at speed, passing through you, and must be jumped. Poison Breath slows. Its legs can be broken with low attacks; once crippled it walks at half speed, can't stomp, and breathes more. Its head takes double damage but is reachable only after a charge, when it lowers to recover. |
+| Ushi-oni (built) | ox-headed, spider-bodied shore demon | Fills a third of the stage; its shell takes half damage. Leg Stab strikes both sides at once. Stomp is a low quake across the stage. Charge crosses the whole stage at speed, passing through you, and must be jumped. Poison Breath slows. Its legs can be broken with low attacks; once crippled it walks at half speed, can't stomp, and breathes more. Its head takes double damage but is open only after a charge, when it lowers to recover. Its head and back can be stood on: jump onto the head, then up onto the back, ride it, strike the shell, or drop off behind to reach its back legs. It turns round after a second, and Buck throws off riders. |
 | Gashadokuro | giant skeleton of the unburied dead | Only its upper body is visible, rising behind the stage. Hands slam in from the stage edges and sweep across; the skull bites from above. The hands are parts. The skull is reachable only after a hand is broken, by jumping to its jaw. Breaking bones throws debris as projectiles. |
 | Nue | chimera (monkey face, tanuki body, tiger limbs, snake tail) in a thundercloud; shot down by Minamoto no Yorimasa | Flies around the arena out of normal reach. Lightning strikes marked spots on the floor, the snake tail strikes from behind, and dives are overheads. It is vulnerable when it dives, and to anti-air projectiles. Bringing it down grounds it for a final phase. |
 | Ōmukade (candidate) | the giant centipede shot by Tawara Tōda | A segmented body that crosses the stage in waves; segments are parts. |
@@ -216,11 +219,15 @@ In versus, press F7 until player 2 is Ushi-oni. In a run, it is the ninth fight.
 
 - **Parts.** Its parts are drawn separately. The orange bars under its legs show how close each leg is to breaking, and broken legs turn grey. Its head is an outline until it lowers after a charge, when it lights up.
 - **Telegraphs.** Every attack's start-up is drawn in red where it will land, brightening as it approaches.
+- **Getting behind it.** Jump onto its head (every fighter's jump clears it), then up onto its back.
+  - On its back you are carried as it moves, you face the way you walk, and your attacks hit the shell beneath you.
+  - Walk off the back to drop behind it. It turns round about a second later. Until then it can only use attacks that reach behind it: the leg stab and the stomp.
 - **Its attacks and their answers:**
   - Leg Stab: guard it.
   - Stomp: jump it or guard low.
-  - Charge: jump it. It passes through, and then its head is open.
+  - Charge: jump it, or ride it. It passes through, and then its head is open.
   - Poison Breath: guard it, or be slowed.
+  - Buck, used only on riders: jump off when it shows red above its back, or guard.
 - **Strategy.** Low attacks break its legs; the head takes double damage. Throws don't work on it, and it can't be bound.
 
 ### Tournament
@@ -253,12 +260,16 @@ These are results from the Hard computer playing itself, with the caveats above.
 
   In the latest run the oni drank about once per bout and restored about 95 health per bout. The monk prayed about once per bout and restored about 110. Some attempts are still spilled by hits, as intended.
 - **Shuten-dōji** won 38–42% of its bouts across the two runs since, up from about a third before the computer drank. The very slow recharge keeps the sake from making it overpowered.
-- **Kojirō is the most persistent low result,** last or nearly last in every run (28–35%). The onmyōji and the kitsune are also usually in the bottom quarter, and Hanzō, Tomoe Gozen and the miko usually at the top. The human/yokai gap has narrowed to a few points.
+- **Kojirō** was last or nearly last in every run (28–35%). After his Drying Pole was lengthened (reach 280, start-up one frame faster), he won 47% in the next run.
+- **The onmyōji** is usually in the bottom quarter. Hanzō, Tomoe Gozen, Musashi and the miko are usually near the top. In the latest run Yuki-onna won only 20%, against 36–47% before; that may be noise, but it's worth watching.
+- **The human/yokai gap** varies between runs, from a few points to about ten in the latest.
 - **Noise.** Each run gives a fighter only 60 bouts, so these are patterns to check in play rather than numbers to tune from.
 
 ### What changed
 
 - **Ushi-oni and the monster engine** (above). The run ends with it, and versus can field it.
+  - In the latest revision, its head and back can be climbed and ridden. It turns round slowly, bucks riders off, and can't be shoved.
+  - Teleports land beyond the far edge of a body, so the fox's step reaches behind it.
 - **Sake and meditation:** big heals, very slow recharge, longer and interruptible. The computer heals at safe moments at every level, Practice included.
 - **Spirit recharge** is never shorter than the recharge of the special the spirit performs.
 - **Tournament** in the game and on the command line (the old test script is gone).
@@ -310,9 +321,10 @@ godot --headless --path . --import          # once, to build the class cache
 godot --headless --path . --script res://tests/selftest.gd
 ```
 
-There are 82 checks. This prototype adds checks for:
+There are 89 checks. This prototype adds checks for:
 
 - Ushi-oni: its hidden head, open after a charge; its charge passing through; damage by part; a broken leg staggering and crippling it; one-round bouts; no throws or binding; using its attacks unprompted.
+- Climbing it: onto the head, then the back; every fighter's jump clearing the head; striking from on top; dropping off behind; being carried by its charge; being bucked off; its slow turning; and a teleport landing behind it.
 - The computer drinking its sake when hurt and safe, at the easiest and hardest levels.
 - A spirit's recharge.
 - The tournament engine.

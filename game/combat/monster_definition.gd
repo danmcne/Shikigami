@@ -18,13 +18,21 @@ class Part:
 	var damage_scale := 1.0
 	var health := 0
 	var hidden := false
+	## Its top edge is a surface fighters can land and stand on.
+	var standable := false
+	## How far above its box it can still be struck, so that a fighter
+	## standing on it hits what it stands on.
+	var reach_above := 0.0
 
-	func _init(part_name: String, local_box: Rect2, scale := 1.0, part_health := 0, is_hidden := false) -> void:
+	func _init(part_name: String, local_box: Rect2, scale := 1.0, part_health := 0, is_hidden := false,
+			can_stand := false, above := 0.0) -> void:
 		name = part_name
 		box = local_box
 		damage_scale = scale
 		health = part_health
 		hidden = is_hidden
+		standable = can_stand
+		reach_above = above
 
 
 class Attack:
@@ -44,6 +52,8 @@ class Attack:
 	var exposes: Array[String] = []
 	## Parts that must be unbroken for this attack to be used.
 	var requires: Array[String] = []
+	## Used only while someone stands on the monster (to throw them off).
+	var ridden_only := false
 
 
 ## The body as a fighter sees it: name, kind MONSTER, health, pushbox, and a
@@ -57,3 +67,5 @@ var rest := 40
 var stagger := 60
 ## It stops walking closer than this gap.
 var close_gap := 80.0
+## Frames an opponent must stay behind it before it turns round.
+var turn_delay := 60

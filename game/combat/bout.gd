@@ -142,13 +142,18 @@ func _fight_step(intents: Array[Intent]) -> void:
 		var them := fighters[1 - i]
 		if not me.state in [Fighter.State.HITSTUN, Fighter.State.KNOCKDOWN, Fighter.State.GRABBED]:
 			combo[i] = 0
-		me.face_toward(them.position.x)
+		# Standing on a monster, a fighter faces where it walks instead.
+		if not me.on_raised_ground():
+			me.face_toward(them.position.x)
 		me.threatened = _threatens(1 - i)
 		me.spirit_threatened = _spirit_threatens(1 - i)
 		me.live_spawns = entities.filter(func(e: Entity) -> bool: return e.owner_index == i) \
 				.map(func(e: Entity) -> MoveDefinition: return e.move)
+	_update_surfaces()
+	var monster_before := _monster_x()
 	for f in fighters:
 		f.step()
+	_carry_riders(monster_before)
 	for s in spirits:
 		s.record(Intent.new())
 		s.step()
@@ -191,6 +196,41 @@ func _spirit_threatens(index: int) -> bool:
 	return false
 
 
+## Each fighter's floor: the stage, or the top of a monster part beneath its
+## feet. A monster learns whether it is being ridden.
+func _update_surfaces() -> void:
+	for i in 2:
+		var f := fighters[i]
+		var other := fighters[1 - i]
+		if f is Monster:
+			continue
+		f.floor_y = Fighter.FLOOR_Y
+		if other is Monster:
+			var beast := other as Monster
+			for top: Rect2 in beast.surfaces():
+				var above: bool = f.position.y <= top.position.y + 1.0
+				if above and f.position.x >= top.position.x and f.position.x <= top.end.x \
+						and top.position.y < f.floor_y:
+					f.floor_y = top.position.y
+			beast.ridden = f.on_raised_ground()
+
+
+## The monster's position before this frame's steps, if there is one.
+func _monster_x() -> float:
+	for f in fighters:
+		if f is Monster:
+			return f.position.x
+	return 0.0
+
+
+## Whoever stands on a monster moves with it.
+func _carry_riders(before: float) -> void:
+	for i in 2:
+		var other := fighters[1 - i]
+		if other is Monster and fighters[i].on_raised_ground():
+			fighters[i].position.x += other.position.x - before
+
+
 func _threatens(index: int) -> bool:
 	if fighters[index].threatening():
 		return true
@@ -222,7 +262,8 @@ func _spawn() -> void:
 			var across := signf(target.position.x - f.position.x)
 			if across == 0.0:
 				across = f.facing
-			f.position = Vector2(target.position.x + across * f.pending_teleport, Fighter.FLOOR_Y)
+			var beyond := target.definition.pushbox.size.x / 2.0 + f.pending_teleport
+			f.position = Vector2(target.position.x + across * beyond, Fighter.FLOOR_Y)
 			f.facing = -int(across)
 			_clamp(f)
 		if f.pending_summon >= 0:
@@ -414,8 +455,10 @@ func _push_apart() -> void:
 	var overlap := _overlap(l, r)
 	if overlap <= 0.0:
 		return
-	l.position.x -= overlap / 2.0
-	r.position.x += overlap / 2.0
+	# A fighter can't shove a monster; it gives way entirely.
+	var l_share := 1.0 if r is Monster else (0.0 if l is Monster else 0.5)
+	l.position.x -= overlap * l_share
+	r.position.x += overlap * (1.0 - l_share)
 	_clamp(l)
 	_clamp(r)
 	overlap = _overlap(l, r)

@@ -60,6 +60,9 @@ var move_connected := false
 ## The move was started while holding back (a throw then goes backward).
 var move_reversed := false
 var airborne := false
+## The surface under this fighter: the stage floor, or the top of a monster
+## part it stands on. Set by the Bout each frame.
+var floor_y := FLOOR_Y
 var crouching := false
 var holding_back := false
 var air_move_used := false
@@ -137,6 +140,7 @@ func reset(x: float, face: int) -> void:
 	move_connected = false
 	move_reversed = false
 	airborne = false
+	floor_y = FLOOR_Y
 	crouching = false
 	holding_back = false
 	air_move_used = false
@@ -420,6 +424,11 @@ func hurtboxes() -> Array[Rect2]:
 	return boxes
 
 
+## Standing on something above the stage floor.
+func on_raised_ground() -> bool:
+	return not airborne and floor_y < FLOOR_Y
+
+
 func hurtbox() -> Rect2:
 	if airborne:
 		return to_world(definition.air_hurtbox)
@@ -482,6 +491,9 @@ func _act_on_ground() -> void:
 
 
 func _walk(factor: float) -> void:
+	if _intent.x != 0 and on_raised_ground():
+		facing = _intent.x
+		holding_back = false
 	if _intent.x != 0:
 		var speed := definition.walk_back if holding_back else definition.walk_forward
 		position.x += _intent.x * speed * factor * _pace()
@@ -614,8 +626,9 @@ func _integrate() -> void:
 	if airborne:
 		velocity.y += definition.gravity
 		position += velocity
-		if position.y >= FLOOR_Y:
-			position.y = FLOOR_Y
+		# Land only while falling, so a jump passes up through a surface.
+		if position.y >= floor_y and velocity.y >= 0.0:
+			position.y = floor_y
 			velocity = Vector2.ZERO
 			airborne = false
 			juggle_hits = 0
@@ -623,6 +636,13 @@ func _integrate() -> void:
 	else:
 		position.x += slide
 		slide = move_toward(slide, 0.0, SLIDE_DECEL)
+		if position.y < floor_y - 0.5:
+			# The surface underfoot has gone (walked off a monster's back).
+			airborne = true
+			velocity = Vector2.ZERO
+			if state in [State.STAND, State.WALK, State.CROUCH, State.GUARD]:
+				air_move_used = false
+				_set_state(State.JUMP)
 
 
 func _on_land() -> void:

@@ -47,8 +47,8 @@ enum Height { HIGH, MID, LOW, HIGH_LOW }
 ## Health restored on the first active frame: to the performer, or, for a
 ## spirit, to the fighter who summoned it.
 @export var heal: int = 0
-## On this frame the performer reappears `teleport_distance` behind its
-## opponent, facing them. -1: no teleport.
+## On this frame the performer reappears `teleport_distance` beyond the far
+## edge of its opponent's body, facing them. -1: no teleport.
 @export var teleport_frame: int = -1
 @export var teleport_distance: float = 70.0
 ## Frames before this move can be used again. Zero: no recharge.

@@ -96,6 +96,14 @@ func _init() -> void:
 	_test_cpu_drinks_when_safe()
 	_test_spirit_recharge_at_least_special()
 	_test_tournament_engine()
+	print("climbing and turning")
+	_test_climb_onto_ushi_oni()
+	_test_every_fighter_reaches_the_head()
+	_test_ride_strike_and_drop_behind()
+	_test_riders_are_carried()
+	_test_buck_throws_riders_off()
+	_test_ushi_oni_turns_slowly()
+	_test_teleport_lands_behind_a_monster()
 	print("CPU, run, calibration")
 	_test_cpu_enters_motions()
 	_test_cpu_attacks()
@@ -1245,3 +1253,115 @@ func _test_tournament_engine() -> void:
 			t.bouts_done == 2 and lines.any(func(l: String) -> bool: return l.begins_with("Overall"))
 			and lines.any(func(l: String) -> bool: return l.contains("sake")),
 			"%d bouts" % t.bouts_done)
+
+
+# --- climbing and turning ----------------------------------------------------
+
+## A fighter against Ushi-oni, the monster at x = 200 facing left.
+func _oni_setup(fighter: FighterDefinition = def) -> Bout:
+	var b := Bout.versus_monster(fighter, [], Monster.new(Bestiary.by_id(&"ushi_oni"), 6))
+	b.fighters[1].position.x = 200
+	b.fighters[1].facing = -1
+	return b
+
+
+func _test_climb_onto_ushi_oni() -> void:
+	var b := _oni_setup()
+	var f := b.fighters[0]
+	var oni: Monster = b.fighters[1]
+	oni.health = 99999
+	_airborne(f, Vector2(-10, -200))
+	_run(b, 30, _at({}))
+	var on_head := not f.airborne and is_equal_approx(f.position.y, -130.0)
+	_run(b, 60, _at({0: [9, ""]}))
+	var on_back := not f.airborne and is_equal_approx(f.position.y, -210.0)
+	_check("a fighter can jump onto Ushi-oni's head, and from there onto its back",
+			on_head and on_back, "head %s back %s at y %.0f" % [on_head, on_back, f.position.y])
+
+
+func _test_every_fighter_reaches_the_head() -> void:
+	var head_top := 130.0
+	var short := []
+	for d in Roster.all():
+		if d.jump_velocity * d.jump_velocity / (2.0 * d.gravity) < head_top + 10.0:
+			short.append(d.display_name)
+	_check("every fighter's jump clears Ushi-oni's head", short.is_empty(), "too short: %s" % [short])
+
+
+func _rider() -> Bout:
+	var b := _oni_setup()
+	var f := b.fighters[0]
+	(b.fighters[1] as Monster).health = 99999
+	_airborne(f, Vector2(200, -260))
+	_run(b, 20, _at({}))
+	return b
+
+
+func _test_ride_strike_and_drop_behind() -> void:
+	var b := _rider()
+	var f := b.fighters[0]
+	var oni: Monster = b.fighters[1]
+	var riding := f.on_raised_ground() and oni.ridden
+	var before := oni.health
+	_run(b, 20, _at({0: [5, "A"]}))
+	var struck := before - oni.health == roundi(_dmg(&"stand_light") * 0.5)
+	# Walk off the back (away from the head, to the right) and land behind it,
+	# with the monster kept from acting (bucking is tested separately).
+	oni._rest = 100000
+	_run(b, 80, func(n: int) -> Array: return [6 if f.facing == 1 else 4, ""])
+	var behind := not f.airborne and f.position.y == 0.0 and f.position.x > oni.position.x
+	_check("riding it, striking the shell from above, and dropping off behind",
+			riding and struck and behind,
+			"riding %s struck %s behind %s (x %.0f vs %.0f)" % [riding, struck, behind, f.position.x, oni.position.x])
+
+
+func _test_riders_are_carried() -> void:
+	var b := _rider()
+	var f := b.fighters[0]
+	var oni: Monster = b.fighters[1]
+	var charge: MonsterDefinition.Attack = oni.monster.attacks.filter(
+			func(a: MonsterDefinition.Attack) -> bool: return a.move.id == &"charge")[0]
+	oni.attack = charge
+	oni._begin(charge.move)
+	var gap_before := f.position.x - oni.position.x
+	var moved := oni.position.x
+	_run(b, 50, _at({}))
+	moved = absf(oni.position.x - moved)
+	_check("a rider is carried when the monster charges",
+			moved > 100.0 and absf((f.position.x - oni.position.x) - gap_before) < 1.0 and f.on_raised_ground(),
+			"monster moved %.0f, rider offset changed by %.1f" % [moved, (f.position.x - oni.position.x) - gap_before])
+
+
+func _test_buck_throws_riders_off() -> void:
+	var b := _rider()
+	var f := b.fighters[0]
+	var thrown := [false]
+	_run(b, 400, _at({}), null, func(x: Bout) -> void:
+		if not x.fighters[0].on_raised_ground() and x.fighters[0].state in [Fighter.State.KNOCKDOWN, Fighter.State.HITSTUN]:
+			thrown[0] = true)
+	_check("Ushi-oni bucks a rider off its back", thrown[0] and not f.on_raised_ground())
+
+
+func _test_ushi_oni_turns_slowly() -> void:
+	var b := _oni_setup()
+	var oni: Monster = b.fighters[1]
+	oni.health = 99999
+	b.fighters[0].position.x = 520
+	b.fighters[0].invincible = true
+	var turned_at := [-1]
+	_run(b, 300, _at({}), null, func(x: Bout) -> void:
+		if turned_at[0] < 0 and (x.fighters[1] as Monster).facing == 1:
+			turned_at[0] = x.phase_frame)
+	_check("with you behind it, Ushi-oni turns, but only after its turn delay",
+			turned_at[0] >= oni.monster.turn_delay, "turned at frame %d" % turned_at[0])
+
+
+func _test_teleport_lands_behind_a_monster() -> void:
+	var b := _oni_setup(_r(&"kitsune"))
+	(b.fighters[1] as Monster).health = 99999
+	b.fighters[0].position.x = -250
+	_run(b, 30, _at({0: [5, "C"]}))
+	var oni: Monster = b.fighters[1]
+	var far_edge := oni.position.x + oni.definition.pushbox.size.x / 2.0
+	_check("Fox Step reappears beyond the far side of a monster, not inside it",
+			b.fighters[0].position.x > far_edge, "at %.0f, far edge %.0f" % [b.fighters[0].position.x, far_edge])

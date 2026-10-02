@@ -53,9 +53,9 @@ static func _table() -> Array:
 					damage = 90, knockdown = 40, knockback = 7.0, hitstop = 10,
 					hitboxes = [Rect2(0, -230, 90, 110), Rect2(20, -130, 100, 50)]},
 				# The Drying Pole, his overlong nodachi.
-				{id = &"drying_pole", startup = 11, active = 4, recovery = 20, cooldown = 60,
+				{id = &"drying_pole", startup = 10, active = 4, recovery = 20, cooldown = 60,
 					damage = 80, hitstun = 18, blockstun = 12, knockback = 12.0, hitstop = 9,
-					hitboxes = [Rect2(30, -115, 190, 25)]}]},
+					hitboxes = [Rect2(30, -115, 250, 25)]}]},
 		{id = &"tomoe", name = "Tomoe Gozen", kind = HUMAN,
 			p = {health = 950, size = 0.95, speed = 1.1, jump = 1.0, power = 0.95, tempo = -1},
 			# The naginata swung full circle, front and back, also in the air.
@@ -79,7 +79,7 @@ static func _table() -> Array:
 			# Kawarimi, the substitution: struck, he is gone, and behind you.
 			specials = [{id = &"kawarimi", startup = 2, active = 20, recovery = 22, cooldown = 150,
 					counter = {id = &"kawarimi_strike", startup = 10, active = 4, recovery = 12,
-						teleport_frame = 1, teleport_distance = 70.0, invulnerable = 8,
+						teleport_frame = 1, teleport_distance = 45.0, invulnerable = 8,
 						damage = 80, hitstun = 20, knockback = 7.0, hitstop = 9, hitboxes = [Rect2(10, -120, 70, 50)]}},
 				{id = &"shuriken", startup = 8, active = 1, recovery = 16, cooldown = 45, air = true,
 					spawn_offset = Vector2(40, -120),
@@ -140,7 +140,7 @@ static func _table() -> Array:
 			p = {health = 850, size = 0.85, speed = 1.35, jump = 1.06, power = 0.8, tempo = -1},
 			# Fox illusion: gone, then behind you.
 			specials = [{id = &"fox_step", startup = 20, active = 4, recovery = 16, cooldown = 120,
-					invulnerable = 16, teleport_frame = 14, teleport_distance = 70.0,
+					invulnerable = 16, teleport_frame = 14, teleport_distance = 45.0,
 					damage = 70, hitstun = 18, blockstun = 12, knockback = 7.0, hitstop = 8,
 					hitboxes = [Rect2(10, -120, 70, 50)]},
 				# Kitsune-bi.

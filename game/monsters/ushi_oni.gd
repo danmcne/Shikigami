@@ -1,18 +1,23 @@
 extends RefCounted
 ## Ushi-oni, the ox-headed, spider-bodied demon of the shore.
 ##
-## Its body fills about a third of the stage and can't be jumped over. It
-## takes only half damage on its shell. Its legs can be broken from below with
-## low attacks; a broken leg staggers it, and once crippled it walks at half
-## speed, can no longer stomp, and breathes poison more often. Its head is out
-## of reach except after a charge, when it lowers it to recover. There it takes
-## double damage.
+## Its body fills about a third of the stage. It takes only half damage on
+## its shell. Its legs can be broken from below with low attacks; a broken leg
+## staggers it, and once crippled it walks at half speed, can no longer stomp,
+## and breathes poison more often. Its head takes double damage, but only after
+## a charge, when it lowers it to recover.
+##
+## Its head and back can be stood on: jump onto the head, then up onto the
+## back, ride it, strike the shell beneath you, or drop off behind it to reach
+## its back legs. It turns round only after you have been behind it for a
+## second, and it bucks to throw off anyone on its back.
 ##
 ## Attacks, each telegraphed by its start-up:
 ##   Leg Stab      both sides at once, beyond its legs; guard it
 ##   Stomp         a low quake across the stage; jump it or guard low
 ##   Charge        the whole stage at speed, passing through you; jump it
 ##   Poison Breath a slow cloud that slows whoever it touches; guard it
+##   Buck          throws off a rider; jump off, or guard
 
 
 const H := MoveDefinition.Height
@@ -34,12 +39,15 @@ static func definition() -> MonsterDefinition:
 	d.rest = 45
 	d.stagger = 70
 	d.close_gap = 60.0
+	d.turn_delay = 60
 
+	# The head's top is low enough for the heaviest fighters' jump, and the
+	# back is one jump above it.
 	d.parts = [
-		MonsterDefinition.Part.new("shell", Rect2(-180, -210, 360, 140), 0.5),
+		MonsterDefinition.Part.new("shell", Rect2(-180, -210, 360, 140), 0.5, 0, false, true, 170.0),
 		MonsterDefinition.Part.new("front legs", Rect2(110, -70, 90, 70), 1.0, 350),
 		MonsterDefinition.Part.new("back legs", Rect2(-200, -70, 90, 70), 1.0, 350),
-		MonsterDefinition.Part.new("head", Rect2(170, -150, 80, 60), 2.0, 0, true),
+		MonsterDefinition.Part.new("head", Rect2(170, -130, 80, 60), 2.0, 0, true, true),
 	]
 
 	var stab := MonsterDefinition.Attack.new()
@@ -78,7 +86,15 @@ static func definition() -> MonsterDefinition:
 	breath.crippled_weight = 3.0
 	breath.min_gap = 60.0
 
-	d.attacks = [stab, stomp, charge, breath]
+	var buck := MonsterDefinition.Attack.new()
+	buck.move = _move({id = &"buck", startup = 24, active = 8, recovery = 30,
+		damage = 40, knockdown = 40, knockback = 14.0, hitstop = 10, height = H.MID,
+		hitboxes = [Rect2(-200, -400, 400, 195)]})
+	buck.weight = 6.0
+	buck.crippled_weight = 6.0
+	buck.ridden_only = true
+
+	d.attacks = [stab, stomp, charge, breath, buck]
 	return d
 
 
