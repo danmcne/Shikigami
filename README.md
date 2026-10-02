@@ -4,7 +4,7 @@ A 2D fighting game set in a fantasy Japan, in the lineage of Street Fighter and 
 
 The guiding principle: **the fighting is the game; the campaign exists to produce unusual fights.** There are no levels, stat sheets or grinding.
 
-This repository contains Prototype 10: sixteen humans and yokai and two monsters, Ushi-oni and Gashadokuro, still drawn as rectangles; the full human campaign ending in a monster fight; combos; a computer at four difficulties; and a balance tournament runnable from the game or the command line. Everything below the "Prototype 10" heading describes that code. Everything above it describes the design.
+This repository contains Prototype 10.2: sixteen humans and yokai and two giants, Ushi-oni and Gashadokuro, still drawn as rectangles; the full human campaign ending in a giant; combos; a computer at four difficulties; and a balance tournament runnable from the game or the command line. Everything below the "Prototype 10.2" heading describes that code. Everything above it describes the design.
 
 ## The design
 
@@ -115,27 +115,42 @@ The run is saved before every fight, including the random generator's state, so 
 
 **Rising difficulty** (planned). Later opponents should be harder through some mix of more health, faster play and a better computer. The tiers already make this a matter of a table keyed by fight number.
 
+### Roster policy
+
+- **Playable fighters** are roughly person-sized and fit the ordinary fighting-game space.
+- **Giants** are creatures whose size or movement makes them a different kind of encounter.
+- **Growth.** The roster grows only when a newcomer brings a genuinely new mechanic, not for folklore completeness, since with spirits every fighter multiplies the possible combinations.
+- **Rokurokubi** is the strongest candidate: a head on a long neck that can be struck far from its body, an exposed rather than a safe reach. If it comes, it should replace an overlapping kit rather than grow the roster, once balance has settled.
+- **Not planned:** Kamaitachi overlaps Hanzō and the kitsune, and Ame-onna overlaps the miko and Yuki-onna. There will be no second oni, no second cat, and no Nurarihyon without a strong mechanical reason.
+- **Nue** stays a giant.
+
 ### Healing
 
 Two fighters heal: Shuten-dōji's sake and the monk's meditation. Both are long, exposed actions that restore a great deal (260 and 220 health) and recharge very slowly (25 and 20 seconds; recharges reset each round). Healing is therefore a decision made once or twice a round, not a habit. A hit during the drink or the prayer spills it, and the recharge is spent either way.
 
 ### Monsters
 
+Monsters (giants) are not scaled-up fighters with big health bars. Each is a different spatial problem, built from the same combat engine: Ushi-oni is about its body and positioning, Gashadokuro about enormous spatial structure, and Nue (planned) about an enemy in the air.
+
 Monsters are not scaled-up fighters. Each is a bespoke encounter, built from the same frame-based combat. The engine for them exists, and Ushi-oni is the first. Shared rules:
 
-- **One long round**, not best of three.
+- **One long round**, not best of three. **A beaten giant must be sealed.** It lies dazed with its core glowing, and you must land the finisher within the window: 5 s on Normal, 7.5 s on Easy, 10 s on Practice. Miss it and the core reforms with a quarter of its health, and the fight goes on. Sealing a giant earns nothing; it closes the fight.
 - **Parts.** A monster's body is several hurtboxes. Every hit lands on a part and costs the monster health, scaled by that part: a shell takes less, a weak point more. Some parts can be broken; breaking one staggers the monster and may cripple it, changing what it can do. Some parts are hidden and can be struck only while an attack exposes them.
 - **No flinching.** Monsters take damage without being interrupted, except when a part breaks. Nor can they be shoved: when bodies collide, the fighter gives way.
 - **Climbing.** Some parts can be stood on. A fighter lands on them, is carried as the monster moves, and faces the way it walks while on top. Strikes from on top hit the part underfoot. Walking off an edge drops you to the ground.
 - **Turning.** A monster turns round only after its opponent has stayed behind it for a while; until then it can use only attacks that reach behind it. It doesn't turn at all while ridden, and some attacks exist only to throw riders off.
 - **Teleports** land beyond the far edge of the target's body, so teleporting past a monster puts you behind it rather than inside it.
-- **Where attacks come from.** An attack can release one or several pieces:
-  - from the monster;
-  - from above its opponent;
-  - from the left or right stage edge, or both at once, travelling back across the stage.
-
-  A piece can stop at the stage centre, so it covers one half, or meets its twin in the middle. While such an attack winds up, the band it will sweep is drawn in red. Falling pieces cast shadows where they will land.
+- **Where attacks come from.** An attack can release one or several pieces, placed relative to the monster or to its opponent. Volleys around the opponent spread wider on easier settings. Falling pieces cast shadows where they will land.
+- **Converging pieces.** A piece can travel in toward the monster's centreline from wherever it started, often off-screen, and stop there. While such an attack winds up, the band it will sweep is drawn in red. A converging piece may also:
+  - grab: an unguarded target is seized and carried;
+  - push: a guarded target is pushed along in front of it until it stops.
+- **Follow-ups.** One attack can lead straight into another, as the jaws follow a grab.
 - **Monsters that don't turn.** A monster can keep facing one way, so its left and right parts are the stage's left and right. Its attacks can depend on which side of it, or which half of the stage, its opponent is on.
+- **Free facing.** In some giant fights (Gashadokuro's) you don't turn to face the monster but turn by input, and guard covers only the side you face:
+  - a quick press of back is still back, so back + special works;
+  - a double tap of back turns you round in place;
+  - holding back for a fifth of a second turns you and runs that way.
+- **Circular arenas.** A giant may be fought in an arena with no walls that comes back round on itself. The view follows you, and pillars mark the way round.
 - **Pace follows difficulty.** A monster's turning delay and its rest between attacks scale with the difficulty setting:
 
   | Setting | Turning delay | Rest between attacks |
@@ -151,7 +166,7 @@ Monsters are not scaled-up fighters. Each is a bespoke encounter, built from the
 | Monster | Legend | Encounter |
 |---|---|---|
 | Ushi-oni (built) | ox-headed, spider-bodied shore demon | Fills a third of the stage; its shell takes half damage. Leg Stab strikes both sides at once. Stomp is a low quake across the stage. Charge crosses the whole stage at speed, passing through you, and must be jumped. Poison Breath slows. Its legs can be broken with low attacks; once crippled it walks at half speed, can't stomp, and breathes more. Its head takes double damage but is open only after a charge, when it lowers to recover. Its head and back can be stood on: jump onto the head, then up onto the back, ride it, strike the shell, or drop off behind to reach its back legs. It turns round after a second, and Buck throws off riders. |
-| Gashadokuro (built) | giant skeleton of the unburied dead | Looms behind the stage with no body to bump into: you walk beneath it. It doesn't turn, so its left and right hands are the stage's left and right, and it drifts to keep you under one of them. Nothing of it can be struck at rest. A slam comes down from above with the hand on your side, an overhead; the hand then lies open and can be broken. Skull Bite comes down at its centre; the skull then stays low, taking double damage. Each hand sweeps a wall of bone, high and low at once, across its own half of the stage. Claps sweep both hands in from both edges to meet in the middle, at head height (crouch under) or at the ankles (jump over); clapping needs both hands. Once a hand is broken, three bones rain around you as well, at staggered heights, with gaps barely wide enough to stand in. |
+| Gashadokuro (built) | giant skeleton of the unburied dead | Looms over a circular arena three stage-lengths round, as if you were shut in a building and it outside. It has no body to bump into; you walk beneath it. Free facing applies. It doesn't turn, so its left and right hands are the stage's left and right, and it drifts to keep you under one of them. Nothing of it can be struck at rest: a hand lies open after a slam, the skull stays low after a bite. Its hands sweep in from half a stage out from its centreline, often off-screen, to just under its skull. A grab carries you there to be chewed. Guarding it, facing it, you're pushed there unhurt and let go, and the jaws come down, unguardable, with just enough time to escape. Claps meet beneath it at head height or at the ankles; guarding the hand you face pushes you into the other, which strikes your back. Clapping needs both hands. Once a hand is broken, three bones rain around you as well. |
 | Nue | chimera (monkey face, tanuki body, tiger limbs, snake tail) in a thundercloud; shot down by Minamoto no Yorimasa | Flies around the arena out of normal reach. Lightning strikes marked spots on the floor, the snake tail strikes from behind, and dives are overheads. It is vulnerable when it dives, and to anti-air projectiles. Bringing it down grounds it for a final phase. |
 | Ōmukade (candidate) | the giant centipede shot by Tawara Tōda | A segmented body that crosses the stage in waves; segments are parts. |
 | Yamata no Orochi (candidate) | eight-headed serpent | Several heads as parts, each with its own attack. |
@@ -162,7 +177,7 @@ A monster is data (`MonsterDefinition`):
 - attacks, each an ordinary `MoveDefinition` with a weight (and a weight once crippled), the distances it is used at, a travel speed, whether it passes through, which hidden parts it exposes, and which parts it needs unbroken;
 - walking speed, rest between attacks, and stagger time.
 
-`Monster` interprets the data, so a new monster is mostly a new data file; Gashadokuro needed only edge-spawned attacks beyond what Ushi-oni had. Next: Nue, which needs flight.
+`Monster` interprets the data, so a new monster is mostly a new data file plus whatever new spatial capability it is built around. Next: Nue, which needs flight. Whether its fight uses free facing is undecided.
 
 ### Modes
 
@@ -188,7 +203,7 @@ Art comes after the systems it has to serve are proven on rectangles.
 4. **CPU and run loop.** *Done.*
 5. **Character.** Sixteen named fighters, two specials each, spirits performing a chosen special, exclusive guards. *Done.*
 6. **Campaign and balance tools.** The human campaign's capture structure, unlocks, combos, a Hard computer, and a computer-against-computer tournament. *Done in this repository.*
-7. **Monsters.** The engine, Ushi-oni and Gashadokuro. *Done in this repository.* Next: Nue.
+7. **Monsters.** The engine, Ushi-oni and Gashadokuro. *Done in this repository.* Next: Nue (Prototype 11).
 8. **Balance by play,** guided by the tournament, then rising difficulty through the campaign.
 9. **Art** for a first handful of fighters.
 10. **Presentation.** Menus, sound, story between fights.
@@ -201,7 +216,7 @@ Art comes after the systems it has to serve are proven on rectangles.
 
 ---
 
-## Prototype 10
+## Prototype 10.2
 
 ### Running
 
@@ -247,18 +262,25 @@ In versus, press F7 until player 2 is Ushi-oni. In a run, it is the ninth fight.
 
 ### Fighting Gashadokuro
 
-In versus, press F7 past Ushi-oni. In a run, it may be the ninth fight.
+In versus, press F7 past Ushi-oni. In a run, it may be the final fight.
 
-- **What you see.** Its ribs and spine loom faintly behind the stage. Its hands and skull are outlines high above when they can't be struck, and solid bone when they can.
+- **The arena** comes back round on itself, three stage-lengths long. The view follows you, and pillars mark your way. Run far enough and you come back round to it from the other side.
+- **Facing.** You turn by input, not to face it:
+  - tap back twice to turn round;
+  - hold back to turn and run;
+  - a quick back + special is still your away special.
+
+  Guard covers only the side you face.
+- **What you see.** Its ribs and spine loom faintly over the arena. Its hands and skull are outlines high above when they can't be struck, and solid bone when they can. The red band shows where a hand will sweep.
 - **Its attacks and their answers:**
   - Left / Right Slam, the hand on your side, from above: step out of the red, or guard standing. Then strike the hand while it lies open.
   - Skull Bite, at its centre: step out, then strike the skull while it stays low, for double damage.
-  - Left / Right Sweep, a wall from one edge to the centre: no guard stops it, so be in the other half when it arrives. The red shows which half.
-  - High Clap, both hands at head height meeting in the middle: crouch under it, or guard standing.
-  - Low Clap, the same at the ankles: jump over it, or guard low.
+  - Left / Right Grab, a hand sweeping in along the floor. You can be out of its reach (more than half a stage from its centreline), or turn to face it and guard: you're pushed under the skull unhurt and let go, then must get clear before the jaws come down. Caught, you're carried there and chewed.
+  - High Clap, both hands at head height meeting beneath it: crouch under it. Guarding one hand only pushes you into the other.
+  - Low Clap, the same at the ankles: jump over it.
   - Bone Rain, once a hand is broken: three bones with shadows beneath them; stand in a gap, or guard standing.
-- **A broken hand** takes its slam and its sweep with it, and ends the claps.
-- **Moving.** You can walk straight under it. It drifts to follow, keeping you under a hand.
+- **A broken hand** takes its slam and its grab with it, and ends the claps.
+- **Sealing.** When it falls, its skull rests on the ground with the core glowing: land the finisher there before the window closes, or it rises again.
 
 ### Tournament
 
@@ -295,11 +317,20 @@ These are results from the Hard computer playing itself, with the caveats above.
 - **The human/yokai gap** varies between runs, from a few points to about ten in the latest.
 - **Noise.** Each run gives a fighter only 60 bouts, so these are patterns to check in play rather than numbers to tune from.
 
-### What changed
+### Version history
 
-- **Gashadokuro**, the second monster (above).
-- **Revised after your first look.** True left and right hands. Sweeps are walls that cover one half of the stage. New high and low claps from both edges need both hands. Bone rain is three staggered bones with narrow gaps.
-- **New engine capabilities:** spawn origins (monster, target, either or both edges), several pieces per attack, pieces that stop at the centre, monsters that don't turn, attacks chosen by side or stage half, red warning bands for edge attacks, and shadows under falling pieces.
+- **10.2** (this repository): Gashadokuro rebuilt around its centreline; required sealing for giants; free facing; circular arenas; wider bone rain on easier settings.
+- **10.1** (delivered as "10"): Gashadokuro with left and right hands, half-stage walls, claps, staggered rain; multi-piece spawns.
+- **10**: Gashadokuro introduced; monster pace follows difficulty; Yuki-onna boost.
+
+### What changed in 10.2
+
+- **Gashadokuro's hands** start half a stage out from its centreline and stop beneath its skull. Sweeps became grabs with the jaws to follow, and claps push a guard into the other hand.
+- **Free facing** in its fight, with turning by input and guard covering the side you face.
+- **A circular arena** three stage-lengths round, with a following camera.
+- **Giants must be sealed**, or their core reforms with a quarter of their health.
+- **Bone rain** spreads wider on Practice and Easy.
+- **Engine:** converging, grabbing and pushing pieces; follow-up attacks; monster cores; the arena wrap. The stage-edge spawn origins of 10.1 are gone, replaced by origins relative to the monster.
 - **A body without a pushbox now blocks nothing.** Before, a zero-size pushbox still counted as overlapping whatever contained it.
 - **Monster pace follows difficulty.** On Easy, Ushi-oni takes twice as long to turn round as on Normal; on Practice, three times.
 - **Yuki-onna** has a little more health (950, from 900) and a quicker frost breath (recharges in 1.7 s, from 2 s).
@@ -360,18 +391,23 @@ godot --headless --path . --import          # once, to build the class cache
 godot --headless --path . --script res://tests/selftest.gd
 ```
 
-There are 96 checks. Prototypes 9 and 10 added checks for:
+There are 101 checks. Prototypes 9 and 10 added checks for:
 
 - Ushi-oni: its hidden head, open after a charge; its charge passing through; damage by part; a broken leg staggering and crippling it; one-round bouts; no throws or binding; using its attacks unprompted.
 - Climbing it: onto the head, then the back; every fighter's jump clearing the head; striking from on top; dropping off behind; being carried by its charge; being bucked off; its slow turning; and a teleport landing behind it.
 - Monster pace by difficulty.
 - Gashadokuro:
   - nothing to strike at rest; a slam hitting whoever is under the hand, which then lies open;
-  - a sweep walling off one half, unstoppable by any guard;
-  - both claps, from both edges: crouching under the high one, guarding the low one;
+  - its hands converging from half a stage out to beneath its skull;
+  - an unguarded grab carrying you to be chewed, and a guarded one pushing you there unhurt for you to escape the jaws;
+  - a guarded clap pushing you into the other hand, and crouching under the high clap;
   - the rain's three staggered bones and their gaps;
-  - a broken hand ending the claps and its own attacks while the other still sweeps;
-  - walking beneath it.
+  - a broken hand ending the claps and its own attacks while the other still grabs;
+  - walking beneath it;
+  - free facing (no auto-turn, double-tap turn, hold to turn and run, back + special);
+  - the circular arena's wrap;
+  - wider rain on Practice;
+  - a beaten giant needing its seal, and its core reforming when the seal is missed.
 - The computer drinking its sake when hurt and safe, at the easiest and hardest levels.
 - A spirit's recharge.
 - The tournament engine.

@@ -8,9 +8,12 @@ extends Fighter
 ## changing which attacks it uses. It cannot be thrown or bound.
 
 var monster: MonsterDefinition
-## Difficulty: multipliers on turning delay and rest between attacks.
+## Difficulty: multipliers on turning delay, rest between attacks, the spread
+## of its volleys, and the time allowed to seal it.
 var turn_scale := 1.0
 var rest_scale := 1.0
+var spread_scale := 1.0
+var seal_scale := 1.0
 var part_health: Array[int] = []
 var attack: MonsterDefinition.Attack = null
 var rng := RandomNumberGenerator.new()
@@ -29,6 +32,8 @@ func _init(def: MonsterDefinition, seed_value := 0, pace: Dictionary = {}) -> vo
 	rng.seed = seed_value
 	turn_scale = pace.get("monster_turn", 1.0)
 	rest_scale = pace.get("monster_rest", 1.0)
+	spread_scale = pace.get("monster_spread", 1.0)
+	seal_scale = pace.get("monster_seal", 1.0)
 
 
 func reset(x: float, face: int) -> void:
@@ -87,7 +92,27 @@ func exposed(k: int) -> bool:
 			and state_frame >= move.startup + move.active
 
 
+## Beaten and awaiting its seal, only its core can be struck.
+func hurtbox() -> Rect2:
+	if state == State.DAZED and monster.core.has_area():
+		return to_world(monster.core)
+	return super.hurtbox()
+
+
+## The seal was missed: the core reforms and it fights on.
+func reform() -> void:
+	health = maxi(roundi(definition.max_health * monster.reform_fraction), 1)
+	attack = null
+	_halt()
+	_rest = roundi(monster.rest * rest_scale)
+	show_notice("THE CORE REFORMS")
+	_set_state(State.STAND, true)
+
+
 func hurtboxes() -> Array[Rect2]:
+	if state == State.DAZED:
+		var core: Array[Rect2] = [hurtbox()]
+		return core
 	var boxes: Array[Rect2] = []
 	for k in monster.parts.size():
 		if exposed(k):
@@ -122,10 +147,15 @@ func step() -> void:
 			_think()
 		State.MOVE:
 			if state_frame >= move.total_frames():
+				var next := attack.follow_up if attack else null
 				_halt()
 				attack = null
-				_rest = roundi(monster.rest * rest_scale * (1.5 if crippled() else 1.0))
-				_set_state(State.STAND)
+				if next:
+					attack = next
+					_begin(next.move)
+				else:
+					_rest = roundi(monster.rest * rest_scale * (1.5 if crippled() else 1.0))
+					_set_state(State.STAND)
 		State.HITSTUN:
 			stun -= 1
 			if stun <= 0:

@@ -36,6 +36,11 @@ var spirits: Array[Fighter] = []
 var wins: Array[int] = [0, 0]
 ## Rounds needed to win the bout; a monster is fought in one long round.
 var rounds_to_win := ROUNDS_TO_WIN
+## Some monsters are fought in a circular arena this long, with no walls: run
+## far enough one way and you come back round the other. Zero: the walled stage.
+var arena_length := 0.0
+## Frames a beaten giant stays down for its sealing.
+var finish_frames := FINISH_FRAMES
 var round_number := 1
 var phase := Phase.FIGHT
 var phase_frame := 0
@@ -67,13 +72,17 @@ func _init(a: FighterDefinition, b: FighterDefinition,
 	start_round()
 
 
-## A bout between a fighter and a monster, in one long round.
+## A bout between a fighter and a monster, in one long round, in the arena
+## the monster asks for. When the monster falls it must be sealed; if the seal
+## is missed its core reforms and the fight goes on.
 static func versus_monster(a: FighterDefinition, spirits_a: Array[SpiritBinding], monster: Monster) -> Bout:
 	var bout := Bout.new(a, monster.definition, spirits_a, [])
 	bout.fighters[1] = monster
 	bout.rounds_to_win = 1
-	bout.offer_finisher = false
+	bout.arena_length = monster.monster.arena_length
+	bout.finish_frames = roundi(FINISH_FRAMES * monster.seal_scale)
 	bout.start_round()
+	bout.fighters[0].free_facing = monster.monster.free_facing
 	return bout
 
 
@@ -142,8 +151,9 @@ func _fight_step(intents: Array[Intent]) -> void:
 		var them := fighters[1 - i]
 		if not me.state in [Fighter.State.HITSTUN, Fighter.State.KNOCKDOWN, Fighter.State.GRABBED]:
 			combo[i] = 0
-		# Standing on a monster, a fighter faces where it walks instead.
-		if not me.on_raised_ground():
+		# Standing on a monster, or with free facing, a fighter faces where it
+		# walks instead.
+		if not me.on_raised_ground() and not me.free_facing:
 			me.face_toward(them.position.x)
 		me.threatened = _threatens(1 - i)
 		me.spirit_threatened = _spirit_threatens(1 - i)
@@ -159,11 +169,16 @@ func _fight_step(intents: Array[Intent]) -> void:
 		s.step()
 	for e in entities:
 		e.step()
+	_carry_held()
 	_spawn()
 	_push_apart()
 	_resolve_hits()
+	for e in entities:
+		if e.spent and e.holding:
+			e.holding.release_hold()
 	entities.assign(entities.filter(func(e: Entity) -> bool: return not e.spent))
 	spirits.assign(spirits.filter(func(s: Fighter) -> bool: return s.state == Fighter.State.MOVE))
+	_wrap()
 	if time_limit > 0 and round_frame >= time_limit:
 		_time_up()
 	_check_ko()
@@ -196,38 +211,27 @@ func _spirit_threatens(index: int) -> bool:
 	return false
 
 
-## The pieces a move releases, placed by its spawn origin and offsets.
+## The pieces a move releases, at each spawn offset from the performer or
+## from its target. A monster's volleys around its target spread wider on
+## easier settings. Converging pieces head for the performer's centreline.
 func _release(f: Fighter, side: int) -> Array[Entity]:
 	var m := f.move
 	var target := fighters[1 - side]
 	var offsets: Array[Vector2] = m.spawn_offsets.duplicate()
 	if offsets.is_empty():
 		offsets.append(m.spawn_offset)
+	var spread: float = (f as Monster).spread_scale if f is Monster else 1.0
 	var out: Array[Entity] = []
 	for offset in offsets:
-		var places: Array = []  # [position, facing]
-		match m.spawn_origin:
-			MoveDefinition.SpawnOrigin.PERFORMER:
-				places.append([f.position + Vector2(f.facing * offset.x, offset.y), f.facing])
-			MoveDefinition.SpawnOrigin.TARGET:
-				places.append([target.position + offset, f.facing])
-			MoveDefinition.SpawnOrigin.EDGE_BEYOND:
-				var toward := signf(target.position.x - f.position.x)
-				if toward == 0.0:
-					toward = f.facing
-				places.append([Vector2(STAGE_RIGHT if toward > 0.0 else STAGE_LEFT, offset.y), -int(toward)])
-			MoveDefinition.SpawnOrigin.EDGE_LEFT:
-				places.append([Vector2(STAGE_LEFT, offset.y), 1])
-			MoveDefinition.SpawnOrigin.EDGE_RIGHT:
-				places.append([Vector2(STAGE_RIGHT, offset.y), -1])
-			MoveDefinition.SpawnOrigin.EDGES_BOTH:
-				places.append([Vector2(STAGE_LEFT, offset.y), 1])
-				places.append([Vector2(STAGE_RIGHT, offset.y), -1])
-		for place in places:
-			var e := Entity.new(f.pending_spawn, f, side)
-			e.position = place[0]
-			e.facing = place[1]
-			out.append(e)
+		var e := Entity.new(f.pending_spawn, f, side)
+		if m.spawn_origin == MoveDefinition.SpawnOrigin.TARGET:
+			e.position = target.position + Vector2(offset.x * spread, offset.y)
+		else:
+			e.position = f.position + Vector2(f.facing * offset.x, offset.y)
+		if f.pending_spawn.converges:
+			e.centre_x = f.position.x
+			e.facing = 1 if e.centre_x > e.position.x else -1
+		out.append(e)
 	return out
 
 
@@ -343,10 +347,18 @@ func _finish_step(intents: Array[Intent]) -> void:
 	for f in fighters:
 		f.step()
 	_push_apart()
+	_wrap()
 	if winner_fighter.performing_finisher() and _any_hit(winner_fighter.active_hitboxes(), loser.hurtbox()):
 		loser.seal()
 		bound = true
-	elif phase_frame >= FINISH_FRAMES:
+	elif phase_frame >= finish_frames and loser is Monster:
+		# The seal was missed: the giant's core reforms and the fight resumes.
+		(loser as Monster).reform()
+		winner_fighter.awaiting_finisher = false
+		wins[round_winner] -= 1
+		_enter(Phase.FIGHT)
+		return
+	elif phase_frame >= finish_frames:
 		loser.collapse()
 	else:
 		return
@@ -385,10 +397,22 @@ func _resolve_hits() -> void:
 			else:
 				strikes.append([i, f.move, f.facing, f, false, contact])
 		for e in entities:
-			contact = _contact(e.active_hitboxes(), hurt) if e.owner_index == i else Rect2()
-			if contact.has_area():
-				strikes.append([i, e.move, e.facing, null, e.from_spirit, contact])
-				e.spent = true
+			if e.owner_index != i or e.holding or e.pushing:
+				continue
+			contact = _contact(e.active_hitboxes(), hurt)
+			if not contact.has_area():
+				continue
+			# A giant's hand: guarded, it pushes the guard along; unguarded, it seizes.
+			if e.move.pushes_on_guard and target.guards_against(e.move, e.facing, e.from_spirit):
+				target.receive(e.move, e.facing, e.from_spirit)
+				e.pushing = target
+				continue
+			if e.move.grabs and not target.guards_against(e.move, e.facing, e.from_spirit):
+				target.seized(e.move)
+				e.holding = target
+				continue
+			strikes.append([i, e.move, e.facing, null, e.from_spirit, contact])
+			e.spent = true
 		for s in spirits:
 			if s.summoner != i or s.state != Fighter.State.MOVE:
 				continue
@@ -514,11 +538,57 @@ func _overlap(l: Fighter, r: Fighter) -> float:
 
 
 func _clamp(f: Fighter) -> void:
+	if arena_length > 0.0:
+		return
 	var half := f.definition.pushbox.size.x / 2.0
 	f.position.x = clampf(f.position.x, STAGE_LEFT + half, STAGE_RIGHT - half)
 
 
+## Pieces carry whoever they hold, and push whoever guards against them, until
+## they stop; then the guard is let go.
+func _carry_held() -> void:
+	for e in entities:
+		if e.holding:
+			if e.holding.state == Fighter.State.GRABBED:
+				e.holding.position.x = e.position.x
+			else:
+				e.holding = null
+		if e.pushing:
+			var t := e.pushing
+			if e.arrived or not t.state in [Fighter.State.BLOCKSTUN, Fighter.State.GUARD]:
+				e.pushing = null
+				continue
+			t.position.x += e.last_step_x()
+			t.stun = maxi(t.stun, 2)
+
+
+## In a circular arena, every position is kept on the shortest way round from
+## the first fighter, who is kept within one lap of the origin. Hits, pushes
+## and spawns can then use ordinary distances.
+func _wrap() -> void:
+	if arena_length <= 0.0:
+		return
+	var anchor := fighters[0]
+	var laps := roundf(anchor.position.x / arena_length)
+	var bodies: Array = fighters + spirits
+	for body in bodies:
+		body.position.x -= laps * arena_length
+	for e in entities:
+		e.position.x -= laps * arena_length
+		e.centre_x -= laps * arena_length
+	var origin := anchor.position.x
+	for body in bodies:
+		if body != anchor:
+			body.position.x = origin + wrapf(body.position.x - origin, -arena_length / 2.0, arena_length / 2.0)
+	for e in entities:
+		var shift: float = origin + wrapf(e.position.x - origin, -arena_length / 2.0, arena_length / 2.0) - e.position.x
+		e.position.x += shift
+		e.centre_x += shift
+
+
 func _against_wall(f: Fighter, direction: int) -> bool:
+	if arena_length > 0.0:
+		return false
 	var half := f.definition.pushbox.size.x / 2.0
 	if direction > 0:
 		return f.position.x >= STAGE_RIGHT - half - 0.5
@@ -539,7 +609,8 @@ func _check_ko() -> void:
 		return
 	var w := fighters[round_winner]
 	var loser := fighters[1 - round_winner]
-	if offer_finisher and w.definition.finisher_move and finisher_would_gain(w, loser):
+	# A beaten giant must always be sealed, though it yields nothing.
+	if loser is Monster or (offer_finisher and w.definition.finisher_move and finisher_would_gain(w, loser)):
 		loser.daze()
 		w.awaiting_finisher = true
 		_enter(Phase.FINISH)

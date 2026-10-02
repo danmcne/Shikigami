@@ -21,6 +21,10 @@ const FINISHER := &"finisher"
 const FINISHER_COMMAND := "46D"
 const NOTICE_FRAMES := 60
 const JUGGLE_LIMIT := 3
+## With free facing: holding back this long turns round and runs that way, and
+## a double tap of back turns round in place.
+const TURN_HOLD := 12
+const TURN_TAP := "454"
 const WAKE_FRAMES := 12
 const GLOW_FRAMES := 45
 
@@ -30,6 +34,11 @@ var input := InputHistory.new()
 var chord_window := InputHistory.DEFAULT_CHORD
 ## A practice cheat: hits still land and stun, but take no health.
 var invincible := false
+## Set by the Bout in some monster fights: this fighter does not turn to face
+## its opponent but turns by input, and guard covers only the side it faces.
+var free_facing := false
+var _back_held := 0
+var _turn_tap: Command = null
 ## Status effects, in frames remaining. `wake_frames` is the brief
 ## invulnerability after getting up from a knockdown; `glow_frames` only
 ## shows a heal.
@@ -123,6 +132,7 @@ func _init(def: FighterDefinition, bound: Array[SpiritBinding] = []) -> void:
 	if def.finisher_move:
 		_moves[FINISHER] = def.finisher_move
 		_finisher = Command.parse(FINISHER_COMMAND, FINISHER)
+	_turn_tap = Command.parse(TURN_TAP, &"")
 
 
 func reset(x: float, face: int) -> void:
@@ -284,17 +294,24 @@ func step() -> void:
 ## defender must choose which threat to guard against.
 ## `scale` reduces damage later in a combo; `contact` is where the strike
 ## landed, which only a monster's parts care about.
+## Whether this fighter's guard stops `m`, travelling in direction
+## `from_facing`. With free facing, only what comes at its front.
+func guards_against(m: MoveDefinition, from_facing: int, from_spirit := false) -> bool:
+	var held := spirit_guard_held() if from_spirit else (guard_held() and not spirit_guard_held())
+	var guarding := not m.throw and not airborne and held \
+			and state in [State.GUARD, State.BLOCKSTUN]
+	if free_facing and from_facing != -facing:
+		return false
+	var unguardable := MoveDefinition.Height.HIGH if crouching else MoveDefinition.Height.LOW
+	return guarding and m.height != unguardable and m.height != MoveDefinition.Height.HIGH_LOW
+
+
 func receive(m: MoveDefinition, from_facing: int, from_spirit := false, scale := 1.0,
 		_contact := Rect2()) -> void:
 	if counter_ready() and not m.throw:
 		trigger_counter()
 		return
-	var held := spirit_guard_held() if from_spirit else (guard_held() and not spirit_guard_held())
-	var guarding := not m.throw and not airborne and held \
-			and state in [State.GUARD, State.BLOCKSTUN]
-	var unguardable := MoveDefinition.Height.HIGH if crouching else MoveDefinition.Height.LOW
-	var stops := m.height != unguardable and m.height != MoveDefinition.Height.HIGH_LOW
-	if guarding and stops:
+	if guards_against(m, from_facing, from_spirit):
 		move = null
 		_started_rank = -1
 		stun = m.blockstun
@@ -335,6 +352,22 @@ func receive(m: MoveDefinition, from_facing: int, from_spirit := false, scale :=
 	else:
 		stun = m.hitstun
 		_set_state(State.HITSTUN, true)
+
+
+## Seized and carried by a giant's hand: `m`'s damage, then held helpless.
+func seized(m: MoveDefinition) -> void:
+	if not invincible:
+		health = maxi(health - m.damage, 0)
+	_halt()
+	airborne = false
+	velocity = Vector2.ZERO
+	_set_state(State.KO if health == 0 else State.GRABBED, true)
+
+
+## Let go by whatever held it, if nothing else has happened to it since.
+func release_hold() -> void:
+	if state == State.GRABBED:
+		_set_state(State.STAND, true)
 
 
 ## Held by a throw while the victim may still escape it.
@@ -459,6 +492,8 @@ func _act_on_ground() -> void:
 			_walk(1.0)
 			_set_state(State.WALK if _intent.x != 0 else State.STAND)
 		return
+	if free_facing and _turn_by_input():
+		return
 	if guard_held():
 		_guard()
 		return
@@ -519,6 +554,26 @@ func _act_in_air() -> void:
 	if button != "":
 		air_move_used = true
 		_start(StringName("jump_" + button))
+
+
+## With free facing: a double tap of back turns round in place; holding back
+## for TURN_HOLD frames turns round and walks on that way. A quick press of
+## back is still back, so back + special and the like still work. Returns
+## true if the frame was spent turning in place.
+func _turn_by_input() -> bool:
+	if input.matches(_turn_tap, facing, _consumed):
+		facing = -facing
+		holding_back = false
+		_back_held = 0
+		_consumed = input.frame
+		_set_state(State.STAND)
+		return true
+	_back_held = _back_held + 1 if holding_back else 0
+	if _back_held >= TURN_HOLD:
+		facing = -facing
+		holding_back = false
+		_back_held = 0
+	return false
 
 
 ## Guarding spends any attack presses made while the chord is held, so

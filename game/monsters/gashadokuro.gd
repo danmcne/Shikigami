@@ -1,30 +1,40 @@
 extends RefCounted
 ## Gashadokuro, the giant skeleton raised from the bones of the unburied dead.
 ##
-## It looms behind the stage, fifteen times a fighter's height, and has no
-## body to bump into: you walk beneath it. It faces you and doesn't turn; its
-## left and right hands are the stage's left and right. It drifts to keep you
-## under one of them. Nothing of it can be struck at rest. A hand comes down
-## to strike and stays on the ground a moment afterwards, open to attack and
-## breakable. Its skull lowers to bite and stays low a moment, taking double
-## damage. Each hand sweeps its own half of the stage; clapping needs both.
-## Once a hand is broken, bones also rain down around you.
+## It looms over a circular arena three stage-lengths round, as if you were
+## shut in a building and it outside: run far enough one way and you come
+## round the other. It has no body to bump into; you walk beneath it. It faces
+## you and doesn't turn, so its left and right hands are the stage's left and
+## right, and it drifts to keep you under one of them.
 ##
-## Attacks, each telegraphed by its start-up:
-##   Left / Right Slam  the hand on your side comes down from above on you: an
-##                      overhead; step out, or guard standing
+## In this fight you turn by input, not to face it: tap back twice to turn
+## round, or hold back to turn and run. Guard covers only the side you face,
+## so to block a hand you must face it.
+##
+## Nothing of it can be struck at rest. A hand comes down and lies open after a
+## slam; the skull lowers after a bite. Its hands sweep and clap from half a
+## stage out from its centreline, often beyond the screen, to just under its
+## skull.
+##
+## Attacks, each telegraphed:
+##   Left / Right Slam  the hand on your side comes down on you: an overhead
 ##   Skull Bite         from above, at its centre
-##   Left / Right Sweep a wall of bone sweeps in from one edge to the centre,
-##                      high and low at once: no guard stops it; be in the
-##                      other half
-##   High Clap          both hands sweep in from both edges at head height
-##                      and meet in the middle: crouch under it, or guard standing
-##   Low Clap           the same at the ankles: jump over it, or guard low
+##   Left / Right Grab  a hand sweeps in along the floor. Caught, you are
+##                      carried under the skull and chewed. Guarding it,
+##                      facing it, you are pushed there unhurt and let go; the
+##                      jaws then come down, unguardable, giving you just
+##                      enough time to get clear.
+##   High / Low Clap    both hands sweep in and meet beneath it, at head height
+##                      (crouch under) or at the ankles (jump over). Guarding
+##                      the hand you face pushes you on into the other, which
+##                      strikes your back. Clapping needs both hands.
 ##   Bone Rain          once a hand is broken: three bones fall around you, at
-##                      staggered heights, with gaps barely wide enough to stand in
+##                      staggered heights, with narrow gaps between them
 
 const H := MoveDefinition.Height
 const O := MoveDefinition.SpawnOrigin
+## Where its hands start sweeping: half a stage-length from its centreline.
+const REACH := 600.0
 
 
 static func definition() -> MonsterDefinition:
@@ -42,6 +52,8 @@ static func definition() -> MonsterDefinition:
 	d.body = body
 	d.colour = Color(0.86, 0.83, 0.72)
 	d.turns = false
+	d.free_facing = true
+	d.arena_length = 3600.0
 	d.walk_speed = 2.2
 	d.rest = 50
 	d.stagger = 80
@@ -49,6 +61,8 @@ static func definition() -> MonsterDefinition:
 	d.close_gap = 160.0
 	d.backdrop = [Rect2(-160, -600, 320, 300), Rect2(-25, -300, 50, 300),
 			Rect2(-300, -560, 140, 50), Rect2(160, -560, 140, 50)]
+	# Beaten, its skull rests on the ground: seal it there.
+	d.core = Rect2(-90, -120, 180, 120)
 
 	var raised := Vector2(0, -330)
 	var left := MonsterDefinition.Part.new("left hand", Rect2(-270, -70, 140, 70), 1.0, 450, true)
@@ -59,9 +73,14 @@ static func definition() -> MonsterDefinition:
 	skull.rest_offset = Vector2(0, -330)
 	d.parts = [left, right, skull]
 
+	var mouth := MonsterDefinition.Attack.new()
+	mouth.move = _move({id = &"jaws", startup = 50, active = 8, recovery = 60,
+		damage = 140, knockdown = 55, knockback = 6.0, hitstop = 16, height = H.HIGH_LOW,
+		hitboxes = [Rect2(-80, -240, 160, 240)]})
+	mouth.exposes = ["skull"]
+
 	var attacks: Array = []
-	for hand in [["left", -1, Rect2(-270, -260, 140, 260), O.EDGE_LEFT],
-			["right", 1, Rect2(130, -260, 140, 260), O.EDGE_RIGHT]]:
+	for hand in [["left", -1, Rect2(-270, -260, 140, 260)], ["right", 1, Rect2(130, -260, 140, 260)]]:
 		var slam := MonsterDefinition.Attack.new()
 		slam.move = _move({id = StringName("%s_slam" % hand[0]), startup = 40, active = 6, recovery = 70,
 			damage = 110, knockdown = 50, knockback = 8.0, hitstop = 12, height = H.HIGH,
@@ -73,25 +92,26 @@ static func definition() -> MonsterDefinition:
 		slam.requires = ["%s hand" % hand[0]]
 		attacks.append(slam)
 
-		var sweep := MonsterDefinition.Attack.new()
-		sweep.move = _move({id = StringName("%s_sweep" % hand[0]), startup = 40, active = 2, recovery = 40,
-			spawn_origin = hand[3],
-			spawn = _move({id = &"bone_wall", startup = 0, active = 200, recovery = 0, motion = Vector2(10, 0),
-				stops_at_centre = true, damage = 80, knockdown = 45, knockback = 8.0, hitstop = 10,
-				height = H.HIGH_LOW, hitboxes = [Rect2(-60, -420, 120, 420)]})})
-		sweep.weight = 1.5
-		sweep.crippled_weight = 1.5
-		sweep.stage_half = hand[1]
-		sweep.requires = ["%s hand" % hand[0]]
-		attacks.append(sweep)
+		var grab := MonsterDefinition.Attack.new()
+		grab.move = _move({id = StringName("%s_grab" % hand[0]), startup = 30, active = 2, recovery = 50,
+			spawn_offsets = [Vector2(hand[1] * REACH, 0)],
+			spawn = _move({id = &"grasping_hand", startup = 0, active = 120, recovery = 0, motion = Vector2(11, 0),
+				converges = true, grabs = true, pushes_on_guard = true, damage = 30, blockstun = 12,
+				height = H.MID, hitboxes = [Rect2(-60, -200, 120, 200)]})})
+		grab.weight = 1.5
+		grab.crippled_weight = 1.5
+		grab.side = hand[1]
+		grab.requires = ["%s hand" % hand[0]]
+		grab.follow_up = mouth
+		attacks.append(grab)
 
 	for clap in [["high_clap", Rect2(-50, -175, 100, 70), H.HIGH], ["low_clap", Rect2(-50, -55, 100, 55), H.LOW]]:
 		var a := MonsterDefinition.Attack.new()
-		a.move = _move({id = StringName(clap[0]), startup = 36, active = 2, recovery = 36,
-			spawn_origin = O.EDGES_BOTH,
-			spawn = _move({id = &"clapping_hand", startup = 0, active = 200, recovery = 0, motion = Vector2(9, 0),
-				stops_at_centre = true, damage = 70, knockdown = 40, knockback = 6.0, hitstop = 10,
-				height = clap[2], hitboxes = [clap[1]]})})
+		a.move = _move({id = StringName(clap[0]), startup = 36, active = 2, recovery = 40,
+			spawn_offsets = [Vector2(-REACH, 0), Vector2(REACH, 0)],
+			spawn = _move({id = &"clapping_hand", startup = 0, active = 90, recovery = 0, motion = Vector2(10, 0),
+				converges = true, pushes_on_guard = true, damage = 70, knockdown = 40, knockback = 6.0,
+				blockstun = 12, hitstop = 10, height = clap[2], hitboxes = [clap[1]]})})
 		a.weight = 1.5
 		a.requires = ["left hand", "right hand"]
 		attacks.append(a)
@@ -106,8 +126,9 @@ static func definition() -> MonsterDefinition:
 	bite.exposes = ["skull"]
 	attacks.append(bite)
 
-	# Three bones, 90 wide with 70 between them (a fighter is 60 wide),
-	# starting at different heights so they land one after another.
+	# Three bones, 90 wide with 70 between them on Normal (a fighter is 60
+	# wide; easier settings spread them further), starting at different
+	# heights so they land one after another.
 	var rain := MonsterDefinition.Attack.new()
 	rain.move = _move({id = &"bone_rain", startup = 30, active = 2, recovery = 40,
 		spawn_origin = O.TARGET,

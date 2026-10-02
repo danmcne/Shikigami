@@ -11,9 +11,23 @@ const GREY := Color(0.82, 0.82, 0.82)
 
 
 static func draw(ci: CanvasItem, bout: Bout, names: Array[String], show_boxes: bool) -> void:
-	ci.draw_set_transform(ORIGIN)
-	ci.draw_rect(Rect2(Bout.STAGE_LEFT, 0, Bout.STAGE_RIGHT - Bout.STAGE_LEFT, 60), Color(0.18, 0.16, 0.14))
-	ci.draw_line(Vector2(Bout.STAGE_LEFT, 0), Vector2(Bout.STAGE_RIGHT, 0), Color(0.5, 0.45, 0.4), 2.0)
+	if bout.arena_length > 0.0:
+		# A circular arena: the view follows the first fighter, the floor runs
+		# on, and pillars mark the way round.
+		var cx := bout.fighters[0].position.x
+		ci.draw_set_transform(Vector2(ORIGIN.x - cx, ORIGIN.y))
+		ci.draw_rect(Rect2(cx - 700, 0, 1400, 60), Color(0.16, 0.15, 0.17))
+		ci.draw_line(Vector2(cx - 700, 0), Vector2(cx + 700, 0), Color(0.45, 0.42, 0.5), 2.0)
+		var spacing := bout.arena_length / 8.0
+		var first := floorf((cx - 700) / spacing) * spacing
+		var x := first
+		while x < cx + 700:
+			ci.draw_rect(Rect2(x - 12, -420, 24, 420), Color(0.3, 0.27, 0.32, 0.6))
+			x += spacing
+	else:
+		ci.draw_set_transform(ORIGIN)
+		ci.draw_rect(Rect2(Bout.STAGE_LEFT, 0, Bout.STAGE_RIGHT - Bout.STAGE_LEFT, 60), Color(0.18, 0.16, 0.14))
+		ci.draw_line(Vector2(Bout.STAGE_LEFT, 0), Vector2(Bout.STAGE_RIGHT, 0), Color(0.5, 0.45, 0.4), 2.0)
 	for i in 2:
 		if bout.fighters[i] is Monster:
 			_monster(ci, bout.fighters[i], show_boxes)
@@ -76,7 +90,7 @@ static func _monster(ci: CanvasItem, m: Monster, show_boxes: bool) -> void:
 			ci.draw_rect(Rect2(box.position.x, box.end.y + 4, box.size.x * frac, 4), Color(0.9, 0.6, 0.2))
 	if m.state == Fighter.State.MOVE:
 		var mv := m.move
-		var warning := _edge_warning(mv)
+		var warning := _converge_warning(mv, m)
 		if warning.has_area() and m.state_frame < mv.startup:
 			var urgency := float(m.state_frame) / maxf(mv.startup, 1.0)
 			ci.draw_rect(warning, Color(1.0, 0.1, 0.1, 0.1 + 0.2 * urgency))
@@ -89,6 +103,11 @@ static func _monster(ci: CanvasItem, m: Monster, show_boxes: bool) -> void:
 				ci.draw_rect(box, Color(1.0, 0.2, 0.2, 0.8), false, 2.0)
 			elif mv.is_active_on(m.state_frame):
 				ci.draw_rect(box, Color(1.0, 0.3, 0.1, 0.85))
+	if m.state == Fighter.State.DAZED and m.monster.core.has_area():
+		var core := m.to_world(m.monster.core)
+		var pulse := 0.5 + 0.4 * sin(m.state_frame * 0.2)
+		ci.draw_rect(core, Color(0.7, 0.9, 1.0, 0.35 + 0.3 * pulse))
+		ci.draw_rect(core, Color(0.8, 1.0, 1.0, 0.9), false, 3.0)
 	var top := m.to_world(m.definition.stand_hurtbox)
 	ci.draw_string(font, Vector2(top.position.x, top.position.y - 26), m.definition.display_name,
 			HORIZONTAL_ALIGNMENT_CENTER, top.size.x, 16, Color(1, 1, 1, 0.8))
@@ -104,26 +123,20 @@ static func _monster(ci: CanvasItem, m: Monster, show_boxes: bool) -> void:
 			ci.draw_rect(box, Color.RED, false, 2.0)
 
 
-## Where an attack released from the stage edges will sweep: the band its
-## pieces occupy, across the half (or whole) of the stage they cross.
-static func _edge_warning(m: MoveDefinition) -> Rect2:
-	if m.spawn == null or m.spawn.hitboxes.is_empty():
+## Where a monster's converging pieces will sweep: the band they occupy, from
+## where they start to its centreline.
+static func _converge_warning(mv: MoveDefinition, m: Monster) -> Rect2:
+	if mv.spawn == null or not mv.spawn.converges or mv.spawn.hitboxes.is_empty():
 		return Rect2()
-	var O := MoveDefinition.SpawnOrigin
-	var left := Bout.STAGE_LEFT
-	var right := Bout.STAGE_RIGHT
-	match m.spawn_origin:
-		O.EDGE_LEFT:
-			right = 0.0 if m.spawn.stops_at_centre else right
-		O.EDGE_RIGHT:
-			left = 0.0 if m.spawn.stops_at_centre else left
-		O.EDGES_BOTH:
-			pass
-		_:
-			return Rect2()
+	var offsets: Array[Vector2] = mv.spawn_offsets if not mv.spawn_offsets.is_empty() else [mv.spawn_offset]
+	var left := m.position.x
+	var right := m.position.x
+	for o in offsets:
+		left = minf(left, m.position.x + m.facing * o.x)
+		right = maxf(right, m.position.x + m.facing * o.x)
 	var top := INF
 	var bottom := -INF
-	for box in m.spawn.hitboxes:
+	for box in mv.spawn.hitboxes:
 		top = minf(top, box.position.y)
 		bottom = maxf(bottom, box.end.y)
 	return Rect2(left, top, right - left, bottom - top)
@@ -291,5 +304,7 @@ static func move_list(f: Fighter, prefix: String) -> Array[String]:
 		rows.append("%s   %s" % [ControlsText.describe(pattern, f.facing, prefix), name])
 	rows.append("Escape a throw: %s+%s as you are grabbed." % [light, heavy])
 	if d.finisher_move:
-		rows.append("Finisher (beaten foe you can bind): %s" % ControlsText.describe(Fighter.FINISHER_COMMAND, f.facing, prefix))
+		rows.append("Finisher (beaten foe you can bind, or a beaten giant): %s" % ControlsText.describe(Fighter.FINISHER_COMMAND, f.facing, prefix))
+	if f.free_facing:
+		rows.append("Free facing: tap %s twice to turn round; hold it to turn and run. Guard covers only the side you face." % away)
 	return rows

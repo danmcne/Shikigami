@@ -40,6 +40,8 @@ static func definition() -> MonsterDefinition:
 	d.stagger = 70
 	d.close_gap = 60.0
 	d.turn_delay = 60
+	# Beaten, it sinks onto its belly; its core is under the shell.
+	d.core = Rect2(-120, -150, 240, 150)
 
 	# The head's top is low enough for the heaviest fighters' jump, and the
 	# back is one jump above it.

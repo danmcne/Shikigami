@@ -12,6 +12,13 @@ var frame := 0
 var spent := false
 ## Released by a spirit: only spirit guard stops it.
 var from_spirit := false
+## For a converging piece: the centreline it travels to, and whether it has
+## arrived.
+var centre_x := 0.0
+var arrived := false
+## A fighter this piece has seized and carries, or is pushing while they guard.
+var holding: Fighter = null
+var pushing: Fighter = null
 
 
 func _init(m: MoveDefinition, source: Fighter, index: int) -> void:
@@ -25,12 +32,18 @@ func _init(m: MoveDefinition, source: Fighter, index: int) -> void:
 
 func step() -> void:
 	frame += 1
-	position += Vector2(facing * move.motion.x, move.motion.y)
+	if not arrived:
+		position += Vector2(facing * move.motion.x, move.motion.y)
+		if move.converges and (centre_x - position.x) * facing <= 0.0:
+			position.x = centre_x
+			arrived = true
 	if frame >= move.total_frames():
 		spent = true
-	# Moving toward the centre from an edge, it stops there.
-	if move.stops_at_centre and position.x * facing >= 0.0:
-		spent = true
+
+
+## How far it moved along x on its last step (zero once arrived).
+func last_step_x() -> float:
+	return 0.0 if arrived else facing * move.motion.x
 
 
 func active_hitboxes() -> Array[Rect2]:

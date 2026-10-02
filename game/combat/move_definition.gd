@@ -11,12 +11,9 @@ extends Resource
 ## high and low together.
 enum Height { HIGH, MID, LOW, HIGH_LOW }
 
-## Where a move's spawn appears. PERFORMER and TARGET place it at each spawn
-## offset from the performer (mirrored by facing) or from its opponent. The
-## edge origins place it at a stage edge, moving back across the stage:
-## EDGE_BEYOND is the edge beyond the opponent; EDGES_BOTH releases one from
-## each edge.
-enum SpawnOrigin { PERFORMER, TARGET, EDGE_BEYOND, EDGE_LEFT, EDGE_RIGHT, EDGES_BOTH }
+## Where a move's spawn appears: at each spawn offset from the performer
+## (mirrored by facing) or from its opponent.
+enum SpawnOrigin { PERFORMER, TARGET }
 
 @export var id: StringName
 ## Frames before the first active frame.
@@ -53,10 +50,17 @@ enum SpawnOrigin { PERFORMER, TARGET, EDGE_BEYOND, EDGE_LEFT, EDGE_RIGHT, EDGES_
 @export var spawn_offset: Vector2 = Vector2.ZERO
 @export var spawn_origin: SpawnOrigin = SpawnOrigin.PERFORMER
 ## Several pieces at once, one at each offset; empty means [spawn_offset].
-## For edge origins only the offsets' heights are used.
 @export var spawn_offsets: Array[Vector2] = []
-## For a spawned move: it is spent on reaching the stage centre.
-@export var stops_at_centre: bool = false
+## For a spawned move: it travels toward the performer's centreline, from
+## whichever side it started on, and stops there for the rest of its life (a
+## giant's hand sweeping in to just under its head).
+@export var converges: bool = false
+## For a spawned move: an unguarded target is seized and carried along,
+## held until something else strikes them or the piece expires.
+@export var grabs: bool = false
+## For a spawned move: a guarded target is not released but pushed along in
+## front of it, until it stops.
+@export var pushes_on_guard: bool = false
 ## Health restored on the first active frame: to the performer, or, for a
 ## spirit, to the fighter who summoned it.
 @export var heal: int = 0

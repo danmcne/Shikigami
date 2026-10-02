@@ -107,8 +107,13 @@ func _init() -> void:
 	print("monster pace, Gashadokuro")
 	_test_monster_pace_follows_difficulty()
 	_test_gashadokuro_hands_open_after_slams()
-	_test_gashadokuro_sweep_walls_one_half()
-	_test_gashadokuro_claps()
+	_test_gashadokuro_hands_converge_from_half_a_stage()
+	_test_gashadokuro_grab_unguarded()
+	_test_gashadokuro_grab_guarded_and_escaped()
+	_test_gashadokuro_clap_into_the_other_hand()
+	_test_free_facing_turns_by_input()
+	_test_circular_arena()
+	_test_bone_rain_wider_when_easier()
 	_test_gashadokuro_rain_has_gaps()
 	_test_gashadokuro_broken_hand()
 	_test_gashadokuro_has_no_body()
@@ -1195,15 +1200,24 @@ func _test_monster_leg_break_cripples() -> void:
 
 
 func _test_monster_bout_rules() -> void:
-	var b := _monster_bout(200.0)
-	var oni: Monster = b.fighters[1]
+	# A beaten giant must be sealed: missing the seal brings it back; landing it ends the fight.
+	var missed := _monster_bout(200.0)
+	var oni: Monster = missed.fighters[1]
 	oni.health = 1
 	var throwable := oni.throwable()
 	var bindable := def.binds(oni.definition) or Roster.by_id(&"kitsune").binds(oni.definition)
-	_run(b, 30, _at({0: [2, "A"]}, 2))
-	_check("a monster can't be thrown or bound, and is fought in one round",
-			not throwable and not bindable and b.phase == Bout.Phase.BOUT_OVER and b.winner() == 0 and not b.bound,
-			"phase %d winner %d" % [b.phase, b.winner()])
+	_run(missed, 30, _at({0: [2, "A"]}, 2))
+	var must_seal := missed.phase == Bout.Phase.FINISH and oni.state == Fighter.State.DAZED
+	_run(missed, missed.finish_frames + 5, _at({}))
+	var reformed := missed.phase == Bout.Phase.FIGHT and oni.health == roundi(oni.definition.max_health * oni.monster.reform_fraction)
+	var sealed := _monster_bout(200.0)
+	(sealed.fighters[1] as Monster).health = 1
+	_run(sealed, 30, _at({0: [2, "A"]}, 2))
+	_run(sealed, 80, _at({0: [4, ""], 1: [6, "D"]}))
+	_check("a monster can't be thrown or bound; beaten, it must be sealed, or its core reforms",
+			not throwable and not bindable and must_seal and reformed and sealed.phase == Bout.Phase.BOUT_OVER
+			and sealed.winner() == 0,
+			"seal %s reformed %s sealed phase %d" % [must_seal, reformed, sealed.phase])
 
 
 func _test_monster_fights_on_its_own() -> void:
@@ -1449,39 +1463,6 @@ func _gasha_case(id: StringName, x: float, hold: int, held: String) -> int:
 	return _taken(b, 0)
 
 
-func _test_gashadokuro_sweep_walls_one_half() -> void:
-	var caught := _gasha_case(&"left_sweep", -300, 5, "G")        # guarding in the left half
-	var safe := _gasha_case(&"left_sweep", 300, 5, "")             # standing in the right half
-	var low_guard := _gasha_case(&"left_sweep", -300, 2, "G")
-	var b := _gasha_bout(400.0)
-	_gasha_perform(b.fighters[1], &"left_sweep")
-	var spawned := [INF]
-	var last_x := [-INF]
-	_run(b, 140, _at({}), null, func(x: Bout) -> void:
-		for e in x.entities:
-			if spawned[0] == INF:
-				spawned[0] = e.position.x
-			last_x[0] = maxf(last_x[0], e.position.x))
-	_check("a sweep is a wall from one edge to the centre: no guard stops it, the other half is safe",
-			caught > 0 and low_guard > 0 and safe == 0 and spawned[0] == Bout.STAGE_LEFT and last_x[0] <= 10.0,
-			"caught %d, low guard %d, safe %d, from %.0f to %.0f" % [caught, low_guard, safe, spawned[0], last_x[0]])
-
-
-func _test_gashadokuro_claps() -> void:
-	var high_standing := _gasha_case(&"high_clap", -300, 5, "")
-	var high_crouching := _gasha_case(&"high_clap", -300, 2, "")
-	var low_standing := _gasha_case(&"low_clap", -300, 5, "")
-	var low_guarded := _gasha_case(&"low_clap", -300, 2, "G")
-	var b := _gasha_bout(400.0)
-	_gasha_perform(b.fighters[1], &"high_clap")
-	var count := [0]
-	_run(b, 40, _at({}), null, func(x: Bout) -> void: count[0] = maxi(count[0], x.entities.size()))
-	_check("claps come from both edges: crouch under the high one, guard the low one low",
-			count[0] == 2 and high_standing > 0 and high_crouching == 0 and low_standing > 0 and low_guarded == 0,
-			"pieces %d; high: standing %d crouching %d; low: standing %d guarded %d" % [count[0],
-					high_standing, high_crouching, low_standing, low_guarded])
-
-
 func _test_gashadokuro_rain_has_gaps() -> void:
 	var b := _gasha_bout(200.0)
 	_gasha_perform(b.fighters[1], &"bone_rain")
@@ -1507,16 +1488,16 @@ func _test_gashadokuro_broken_hand() -> void:
 	g._rest = 10
 	g.health = 99999
 	b.fighters[0].invincible = true
-	g.part_health[1] = 0  # the right hand broken; the fighter stays in the left half
+	g.part_health[1] = 0  # the right hand broken; the fighter stays on its left
 	var used := {}
 	_run(b, 2500, _at({}), null, func(x: Bout) -> void:
 		var m: Monster = x.fighters[1]
 		if m.state == Fighter.State.MOVE:
 			used[m.move.id] = true)
 	var no_clap := not used.has(&"high_clap") and not used.has(&"low_clap")
-	var no_right := not used.has(&"right_slam") and not used.has(&"right_sweep")
-	_check("with its right hand broken: no claps and nothing from that hand, but the left still sweeps; bones rain",
-			no_clap and no_right and used.has(&"left_sweep") and used.has(&"bone_rain"), "used %s" % [used.keys()])
+	var no_right := not used.has(&"right_slam") and not used.has(&"right_grab")
+	_check("with its right hand broken: no claps and nothing from that hand, but the left still grabs; bones rain",
+			no_clap and no_right and used.has(&"left_grab") and used.has(&"bone_rain"), "used %s" % [used.keys()])
 
 
 func _test_gashadokuro_has_no_body() -> void:
@@ -1525,3 +1506,131 @@ func _test_gashadokuro_has_no_body() -> void:
 	_run(b, 60, func(n: int) -> Array: return [6 if w.facing == 1 else 4, ""])
 	_check("you can walk straight beneath Gashadokuro", w.position.x > b.fighters[1].position.x + 50.0,
 			"walker at %.0f, skeleton at %.0f" % [w.position.x, b.fighters[1].position.x])
+
+
+# --- Gashadokuro 10.2: grabs, claps, free facing, the circular arena ----------
+
+## A fighter at `x` facing `face`, Gashadokuro at 0 with one attack begun.
+func _gasha_scene(id: StringName, x: float, face: int, fighter: FighterDefinition = def) -> Bout:
+	var b := Bout.versus_monster(fighter, [], Monster.new(Bestiary.by_id(&"gashadokuro"), 8))
+	b.fighters[0].position.x = x
+	b.fighters[0].facing = face
+	b.fighters[1].position.x = 0
+	(b.fighters[1] as Monster).health = 99999
+	(b.fighters[1] as Monster)._rest = 100000
+	if id != &"":
+		_gasha_perform(b.fighters[1], id)
+	return b
+
+
+func _test_gashadokuro_hands_converge_from_half_a_stage() -> void:
+	var b := _gasha_scene(&"high_clap", -900, 1)
+	var starts := []
+	var ends := []
+	_run(b, 40, _at({}), null, func(x: Bout) -> void:
+		for e in x.entities:
+			if starts.size() < 2 and not e.position.x in starts:
+				starts.append(e.position.x))
+	_run(b, 80, _at({}), null, func(x: Bout) -> void:
+		ends = x.entities.map(func(e: Entity) -> float: return e.position.x))
+	starts.sort()
+	_check("its hands start half a stage from its centreline and meet beneath it",
+			starts == [-600.0, 600.0] and ends.all(func(v: float) -> bool: return is_equal_approx(v, 0.0)),
+			"start %s end %s" % [starts, ends])
+
+
+func _test_gashadokuro_grab_unguarded() -> void:
+	var b := _gasha_scene(&"left_grab", -300, 1)  # facing the skeleton, the hand comes from behind
+	var seized := [false]
+	_run(b, 240, _at({}, 5, "G"), null, func(x: Bout) -> void:
+		if x.fighters[0].state == Fighter.State.GRABBED:
+			seized[0] = true)
+	var g: Monster = b.fighters[1]
+	var expected: int = g.monster.attacks.filter(func(a: MonsterDefinition.Attack) -> bool:
+		return a.move.id == &"left_grab")[0].move.spawn.damage + g.monster.attacks.filter(
+		func(a: MonsterDefinition.Attack) -> bool: return a.move.id == &"left_grab")[0].follow_up.move.damage
+	_check("a grab from behind ignores your guard: you are carried beneath the skull and chewed",
+			seized[0] and _taken(b, 0) == expected, "seized %s took %d (want %d)" % [seized[0], _taken(b, 0), expected])
+
+
+func _test_gashadokuro_grab_guarded_and_escaped() -> void:
+	var b := _gasha_scene(&"left_grab", -300, -1)  # facing the incoming hand
+	var f := b.fighters[0]
+	var pushed_to := [INF]
+	var released := [false]
+	_run(b, 240, func(n: int) -> Array:
+		# Guard until the hand stops, then walk right out from under the skull.
+		if not released[0]:
+			return [5, "G"]
+		return [6 if f.facing == 1 else 4, ""], null, func(x: Bout) -> void:
+			for e in x.entities:
+				if e.arrived and not released[0]:
+					released[0] = true
+					pushed_to[0] = x.fighters[0].position.x)
+	_check("guarding a grab, facing it: pushed unhurt beneath the skull, then free to escape the jaws",
+			released[0] and absf(pushed_to[0]) < 120.0 and _taken(b, 0) == 0,
+			"pushed to %.0f, took %d" % [pushed_to[0], _taken(b, 0)])
+
+
+func _test_gashadokuro_clap_into_the_other_hand() -> void:
+	var guarded := _gasha_scene(&"low_clap", -300, -1)  # facing the left hand, guarding low
+	_run(guarded, 140, _at({}, 2, "G"))
+	var crouched := _gasha_scene(&"high_clap", -300, -1)
+	_run(crouched, 140, _at({}, 2, ""))
+	_check("guarding one clapping hand pushes you into the other, which strikes your back; crouch under the high clap",
+			_taken(guarded, 0) > 0 and _taken(crouched, 0) == 0,
+			"guarded took %d, crouched took %d" % [_taken(guarded, 0), _taken(crouched, 0)])
+
+
+func _test_free_facing_turns_by_input() -> void:
+	var musashi := _r(&"musashi")
+	# Walking past it, you keep facing the way you face.
+	var past := _gasha_scene(&"", -200, 1)
+	var walker := past.fighters[0]
+	_run(past, 120, _at({}, 6))
+	var kept := walker.facing == 1 and walker.position.x > 0.0
+	# Double tap back: turn round in place.
+	var tap := _gasha_scene(&"", -200, 1)
+	var start_x := tap.fighters[0].position.x
+	_run(tap, 6, _at({0: [4, ""], 1: [4, ""], 2: [5, ""], 3: [4, ""]}, 5))
+	var turned_in_place := tap.fighters[0].facing == -1 and absf(tap.fighters[0].position.x - start_x) < 12.0
+	# Hold back: turn and run that way.
+	var hold := _gasha_scene(&"", -200, 1)
+	var holder := hold.fighters[0]
+	_run(hold, 40, func(n: int) -> Array: return [4 if holder.facing == 1 else 6, ""])  # screen left, held
+	var turned_and_ran := hold.fighters[0].facing == -1 and hold.fighters[0].position.x < start_x - 60.0
+	# A quick back + special is still the away special.
+	var quick := _gasha_scene(&"", -200, 1, musashi)
+	_run(quick, 3, _at({0: [4, "C"]}, 5))
+	var m := quick.fighters[0].move
+	var special_ok := m != null and m.id == &"void_stance" and quick.fighters[0].facing == 1
+	_check("free facing: no turning to face it; double tap back turns, holding back turns and runs, back + special still works",
+			kept and turned_in_place and turned_and_ran and special_ok,
+			"kept %s tap %s hold %s special %s" % [kept, turned_in_place, turned_and_ran, special_ok])
+
+
+func _test_circular_arena() -> void:
+	var b := _gasha_scene(&"", 0, 1)
+	b.fighters[1].position.x = 2000  # further than half the circle: it is really 1600 to the left
+	_run(b, 1, _at({}))
+	var wrapped := absf(b.fighters[1].position.x + 1600.0) < 5.0  # allowing for its own drift
+	b.fighters[0].position.x = 3700
+	b.fighters[1].position.x = 3500
+	_run(b, 1, _at({}))
+	var relapped := absf(b.fighters[0].position.x - 100.0) < 1.0 and absf(b.fighters[1].position.x + 100.0) < 3.0
+	_check("in its circular arena, positions keep the shortest way round, and the lap resets",
+			wrapped and relapped, "wrapped %s (%.0f), relapped %s (%.0f, %.0f)" % [wrapped,
+					b.fighters[1].position.x, relapped, b.fighters[0].position.x, b.fighters[1].position.x])
+
+
+func _test_bone_rain_wider_when_easier() -> void:
+	var gaps := []
+	for level in [0, 2]:
+		var b := Bout.versus_monster(def, [], Monster.new(Bestiary.by_id(&"gashadokuro"), 8, CpuController.LEVELS[level][1]))
+		(b.fighters[1] as Monster)._rest = 100000
+		_gasha_perform(b.fighters[1], &"bone_rain")
+		_run(b, 34, _at({}))
+		var xs := b.entities.map(func(e: Entity) -> float: return e.position.x)
+		xs.sort()
+		gaps.append(xs[1] - xs[0])
+	_check("bone rain spreads wider on Practice than on Normal", gaps[0] > gaps[1], "spacing %s" % [gaps])

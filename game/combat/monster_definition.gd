@@ -61,6 +61,9 @@ class Attack:
 	## +1 right; 0 either), or in this half of the stage.
 	var side := 0
 	var stage_half := 0
+	## Performed straight after this one, without rest (the mouth that comes
+	## down after a hand has swept its catch beneath it).
+	var follow_up: Attack = null
 
 
 ## The body as a fighter sees it: name, kind MONSTER, health, pushbox, and a
@@ -83,3 +86,12 @@ var colour := Color(0.55, 0.3, 0.2)
 ## stage's, and it drifts toward its opponent either way.
 var turn_delay := 60
 var turns := true
+## Whoever fights it turns by input rather than to face it, and guard covers
+## only the side they face.
+var free_facing := false
+## Fought in a circular arena this long (no walls); zero for the walled stage.
+var arena_length := 0.0
+## Struck by the finisher while it lies beaten: where its core is.
+var core := Rect2()
+## If the seal is missed, the core reforms with this share of its health.
+var reform_fraction := 0.25
