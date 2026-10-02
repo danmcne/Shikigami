@@ -11,6 +11,13 @@ extends Resource
 ## high and low together.
 enum Height { HIGH, MID, LOW, HIGH_LOW }
 
+## Where a move's spawn appears. PERFORMER and TARGET place it at each spawn
+## offset from the performer (mirrored by facing) or from its opponent. The
+## edge origins place it at a stage edge, moving back across the stage:
+## EDGE_BEYOND is the edge beyond the opponent; EDGES_BOTH releases one from
+## each edge.
+enum SpawnOrigin { PERFORMER, TARGET, EDGE_BEYOND, EDGE_LEFT, EDGE_RIGHT, EDGES_BOTH }
+
 @export var id: StringName
 ## Frames before the first active frame.
 @export var startup: int = 5
@@ -44,9 +51,12 @@ enum Height { HIGH, MID, LOW, HIGH_LOW }
 ## a bound spirit later.
 @export var spawn: MoveDefinition
 @export var spawn_offset: Vector2 = Vector2.ZERO
-## Release the spawn at the stage edge beyond the opponent instead, moving
-## back across the stage toward the performer (a giant's hand sweeping in).
-@export var spawn_from_edge: bool = false
+@export var spawn_origin: SpawnOrigin = SpawnOrigin.PERFORMER
+## Several pieces at once, one at each offset; empty means [spawn_offset].
+## For edge origins only the offsets' heights are used.
+@export var spawn_offsets: Array[Vector2] = []
+## For a spawned move: it is spent on reaching the stage centre.
+@export var stops_at_centre: bool = false
 ## Health restored on the first active frame: to the performer, or, for a
 ## spirit, to the fighter who summoned it.
 @export var heal: int = 0

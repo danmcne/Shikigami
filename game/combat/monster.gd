@@ -32,7 +32,7 @@ func _init(def: MonsterDefinition, seed_value := 0, pace: Dictionary = {}) -> vo
 
 
 func reset(x: float, face: int) -> void:
-	super.reset(x, face)
+	super.reset(x, face if monster.turns else 1)
 	part_health.assign(monster.parts.map(func(p: MonsterDefinition.Part) -> int: return p.health))
 	attack = null
 	_rest = roundi(monster.rest * rest_scale)
@@ -43,7 +43,7 @@ func reset(x: float, face: int) -> void:
 func face_toward(x: float) -> void:
 	_target_x = x
 	var side := 1 if x > position.x else -1
-	if ridden or side == facing:
+	if not monster.turns or ridden or side == facing:
 		_behind = 0
 		return
 	if not can_turn():
@@ -178,8 +178,8 @@ func _think() -> void:
 	var ahead := (_target_x - position.x) * facing >= 0.0
 	_rest -= 1
 	if _rest > 0:
-		if gap > monster.close_gap and ahead and not ridden:
-			position.x += facing * monster.walk_speed * (0.5 if crippled() else 1.0)
+		if gap > monster.close_gap and (ahead or not monster.turns) and not ridden:
+			position.x += signf(_target_x - position.x) * monster.walk_speed * (0.5 if crippled() else 1.0)
 			_set_state(State.WALK)
 		else:
 			_set_state(State.STAND)
@@ -201,7 +201,12 @@ func _choose(gap: float, ahead: bool) -> MonsterDefinition.Attack:
 			continue
 		if not ridden and (gap < attack_def.min_gap or gap > attack_def.max_gap):
 			continue
-		if not ahead and not ridden and not attack_def.move.hitboxes.any(func(r: Rect2) -> bool: return r.position.x < 0.0):
+		if monster.turns and not ahead and not ridden \
+				and not attack_def.move.hitboxes.any(func(r: Rect2) -> bool: return r.position.x < 0.0):
+			continue
+		if attack_def.side != 0 and signf(_target_x - position.x) != attack_def.side:
+			continue
+		if attack_def.stage_half != 0 and signf(_target_x) != attack_def.stage_half:
 			continue
 		if attack_def.requires.any(func(name: String) -> bool: return broken(name)):
 			continue

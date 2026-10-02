@@ -129,7 +129,13 @@ Monsters are not scaled-up fighters. Each is a bespoke encounter, built from the
 - **Climbing.** Some parts can be stood on. A fighter lands on them, is carried as the monster moves, and faces the way it walks while on top. Strikes from on top hit the part underfoot. Walking off an edge drops you to the ground.
 - **Turning.** A monster turns round only after its opponent has stayed behind it for a while; until then it can use only attacks that reach behind it. It doesn't turn at all while ridden, and some attacks exist only to throw riders off.
 - **Teleports** land beyond the far edge of the target's body, so teleporting past a monster puts you behind it rather than inside it.
-- **Attacks from the stage edge.** An attack can release its projectile at the stage edge beyond the opponent, travelling back toward the monster: a giant's hand sweeping in from behind you.
+- **Where attacks come from.** An attack can release one or several pieces:
+  - from the monster;
+  - from above its opponent;
+  - from the left or right stage edge, or both at once, travelling back across the stage.
+
+  A piece can stop at the stage centre, so it covers one half, or meets its twin in the middle. While such an attack winds up, the band it will sweep is drawn in red. Falling pieces cast shadows where they will land.
+- **Monsters that don't turn.** A monster can keep facing one way, so its left and right parts are the stage's left and right. Its attacks can depend on which side of it, or which half of the stage, its opponent is on.
 - **Pace follows difficulty.** A monster's turning delay and its rest between attacks scale with the difficulty setting:
 
   | Setting | Turning delay | Rest between attacks |
@@ -145,7 +151,7 @@ Monsters are not scaled-up fighters. Each is a bespoke encounter, built from the
 | Monster | Legend | Encounter |
 |---|---|---|
 | Ushi-oni (built) | ox-headed, spider-bodied shore demon | Fills a third of the stage; its shell takes half damage. Leg Stab strikes both sides at once. Stomp is a low quake across the stage. Charge crosses the whole stage at speed, passing through you, and must be jumped. Poison Breath slows. Its legs can be broken with low attacks; once crippled it walks at half speed, can't stomp, and breathes more. Its head takes double damage but is open only after a charge, when it lowers to recover. Its head and back can be stood on: jump onto the head, then up onto the back, ride it, strike the shell, or drop off behind to reach its back legs. It turns round after a second, and Buck throws off riders. |
-| Gashadokuro (built) | giant skeleton of the unburied dead | Looms behind the stage with no body to bump into: you walk beneath it, and it drifts to keep you under one hand. Nothing of it can be struck at rest. Hand Slam comes down from above on whoever stands under the hand, an overhead. Far Slam is the other hand, for those who slip past. Skull Bite comes down at its centre. Bone Sweep is a hand sweeping in along the floor from the stage edge behind you. After a slam the hand lies open and can be broken; after a bite the skull stays low, taking double damage. Break a hand and it rains bones from above instead of using that hand. |
+| Gashadokuro (built) | giant skeleton of the unburied dead | Looms behind the stage with no body to bump into: you walk beneath it. It doesn't turn, so its left and right hands are the stage's left and right, and it drifts to keep you under one of them. Nothing of it can be struck at rest. A slam comes down from above with the hand on your side, an overhead; the hand then lies open and can be broken. Skull Bite comes down at its centre; the skull then stays low, taking double damage. Each hand sweeps a wall of bone, high and low at once, across its own half of the stage. Claps sweep both hands in from both edges to meet in the middle, at head height (crouch under) or at the ankles (jump over); clapping needs both hands. Once a hand is broken, three bones rain around you as well, at staggered heights, with gaps barely wide enough to stand in. |
 | Nue | chimera (monkey face, tanuki body, tiger limbs, snake tail) in a thundercloud; shot down by Minamoto no Yorimasa | Flies around the arena out of normal reach. Lightning strikes marked spots on the floor, the snake tail strikes from behind, and dives are overheads. It is vulnerable when it dives, and to anti-air projectiles. Bringing it down grounds it for a final phase. |
 | Ōmukade (candidate) | the giant centipede shot by Tawara Tōda | A segmented body that crosses the stage in waves; segments are parts. |
 | Yamata no Orochi (candidate) | eight-headed serpent | Several heads as parts, each with its own attack. |
@@ -245,12 +251,14 @@ In versus, press F7 past Ushi-oni. In a run, it may be the ninth fight.
 
 - **What you see.** Its ribs and spine loom faintly behind the stage. Its hands and skull are outlines high above when they can't be struck, and solid bone when they can.
 - **Its attacks and their answers:**
-  - Hand Slam, on whoever is under its near hand: step out of the red, or guard standing. Then strike the hand while it lies open.
-  - Far Slam, on the far side, if you slipped under it: the same answer.
+  - Left / Right Slam, the hand on your side, from above: step out of the red, or guard standing. Then strike the hand while it lies open.
   - Skull Bite, at its centre: step out, then strike the skull while it stays low, for double damage.
-  - Bone Sweep, along the floor from the stage edge behind you: jump it, or guard low.
-  - Bone Rain, once a hand is broken: guard standing, or keep moving.
-- **Moving.** You can walk straight under it; it turns round to follow, after its turning delay.
+  - Left / Right Sweep, a wall from one edge to the centre: no guard stops it, so be in the other half when it arrives. The red shows which half.
+  - High Clap, both hands at head height meeting in the middle: crouch under it, or guard standing.
+  - Low Clap, the same at the ankles: jump over it, or guard low.
+  - Bone Rain, once a hand is broken: three bones with shadows beneath them; stand in a gap, or guard standing.
+- **A broken hand** takes its slam and its sweep with it, and ends the claps.
+- **Moving.** You can walk straight under it. It drifts to follow, keeping you under a hand.
 
 ### Tournament
 
@@ -290,7 +298,8 @@ These are results from the Hard computer playing itself, with the caveats above.
 ### What changed
 
 - **Gashadokuro**, the second monster (above).
-- **Attacks from the stage edge,** a new monster capability.
+- **Revised after your first look.** True left and right hands. Sweeps are walls that cover one half of the stage. New high and low claps from both edges need both hands. Bone rain is three staggered bones with narrow gaps.
+- **New engine capabilities:** spawn origins (monster, target, either or both edges), several pieces per attack, pieces that stop at the centre, monsters that don't turn, attacks chosen by side or stage half, red warning bands for edge attacks, and shadows under falling pieces.
 - **A body without a pushbox now blocks nothing.** Before, a zero-size pushbox still counted as overlapping whatever contained it.
 - **Monster pace follows difficulty.** On Easy, Ushi-oni takes twice as long to turn round as on Normal; on Practice, three times.
 - **Yuki-onna** has a little more health (950, from 900) and a quicker frost breath (recharges in 1.7 s, from 2 s).
@@ -351,12 +360,18 @@ godot --headless --path . --import          # once, to build the class cache
 godot --headless --path . --script res://tests/selftest.gd
 ```
 
-There are 93 checks. Prototypes 9 and 10 added checks for:
+There are 96 checks. Prototypes 9 and 10 added checks for:
 
 - Ushi-oni: its hidden head, open after a charge; its charge passing through; damage by part; a broken leg staggering and crippling it; one-round bouts; no throws or binding; using its attacks unprompted.
 - Climbing it: onto the head, then the back; every fighter's jump clearing the head; striking from on top; dropping off behind; being carried by its charge; being bucked off; its slow turning; and a teleport landing behind it.
 - Monster pace by difficulty.
-- Gashadokuro: nothing to strike at rest; a slam hitting whoever is under the hand, which then lies open; the sweep coming from the stage edge behind you; walking beneath it; bone rain once a hand is broken.
+- Gashadokuro:
+  - nothing to strike at rest; a slam hitting whoever is under the hand, which then lies open;
+  - a sweep walling off one half, unstoppable by any guard;
+  - both claps, from both edges: crouching under the high one, guarding the low one;
+  - the rain's three staggered bones and their gaps;
+  - a broken hand ending the claps and its own attacks while the other still sweeps;
+  - walking beneath it.
 - The computer drinking its sake when hurt and safe, at the easiest and hardest levels.
 - A spirit's recharge.
 - The tournament engine.

@@ -57,6 +57,10 @@ class Attack:
 	var requires: Array[String] = []
 	## Used only while someone stands on the monster (to throw them off).
 	var ridden_only := false
+	## Used only with the opponent on this side of the monster (-1 left,
+	## +1 right; 0 either), or in this half of the stage.
+	var side := 0
+	var stage_half := 0
 
 
 ## The body as a fighter sees it: name, kind MONSTER, health, pushbox, and a
@@ -74,5 +78,8 @@ var close_gap := 80.0
 ## and the colour of its parts.
 var backdrop: Array[Rect2] = []
 var colour := Color(0.55, 0.3, 0.2)
-## Frames an opponent must stay behind it before it turns round.
+## Frames an opponent must stay behind it before it turns round. A monster
+## that doesn't turn keeps facing right, so its parts' left and right are the
+## stage's, and it drifts toward its opponent either way.
 var turn_delay := 60
+var turns := true

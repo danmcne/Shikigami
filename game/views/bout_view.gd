@@ -22,6 +22,10 @@ static func draw(ci: CanvasItem, bout: Bout, names: Array[String], show_boxes: b
 	for s in bout.spirits:
 		_fighter(ci, s, Color(COLORS[s.summoner].lightened(0.5), 0.4), show_boxes)
 	for e in bout.entities:
+		# Something falling casts a shadow where it will land.
+		if e.move.motion.y > 0.0 and e.position.y < -20.0:
+			for box in e.active_hitboxes():
+				ci.draw_rect(Rect2(box.position.x, -6, box.size.x, 6), Color(0, 0, 0, 0.45))
 		for box in e.active_hitboxes():
 			ci.draw_rect(box, COLORS[e.owner_index].lightened(0.4))
 			ci.draw_rect(box, Color.RED if show_boxes else Color.WHITE, false, 2.0)
@@ -72,6 +76,11 @@ static func _monster(ci: CanvasItem, m: Monster, show_boxes: bool) -> void:
 			ci.draw_rect(Rect2(box.position.x, box.end.y + 4, box.size.x * frac, 4), Color(0.9, 0.6, 0.2))
 	if m.state == Fighter.State.MOVE:
 		var mv := m.move
+		var warning := _edge_warning(mv)
+		if warning.has_area() and m.state_frame < mv.startup:
+			var urgency := float(m.state_frame) / maxf(mv.startup, 1.0)
+			ci.draw_rect(warning, Color(1.0, 0.1, 0.1, 0.1 + 0.2 * urgency))
+			ci.draw_rect(warning, Color(1.0, 0.2, 0.2, 0.7), false, 2.0)
 		for local in mv.hitboxes:
 			var box := m.to_world(local)
 			if m.state_frame < mv.startup:
@@ -93,6 +102,31 @@ static func _monster(ci: CanvasItem, m: Monster, show_boxes: bool) -> void:
 			ci.draw_rect(m.pushbox(), Color.YELLOW, false, 1.0)
 		for box in m.active_hitboxes():
 			ci.draw_rect(box, Color.RED, false, 2.0)
+
+
+## Where an attack released from the stage edges will sweep: the band its
+## pieces occupy, across the half (or whole) of the stage they cross.
+static func _edge_warning(m: MoveDefinition) -> Rect2:
+	if m.spawn == null or m.spawn.hitboxes.is_empty():
+		return Rect2()
+	var O := MoveDefinition.SpawnOrigin
+	var left := Bout.STAGE_LEFT
+	var right := Bout.STAGE_RIGHT
+	match m.spawn_origin:
+		O.EDGE_LEFT:
+			right = 0.0 if m.spawn.stops_at_centre else right
+		O.EDGE_RIGHT:
+			left = 0.0 if m.spawn.stops_at_centre else left
+		O.EDGES_BOTH:
+			pass
+		_:
+			return Rect2()
+	var top := INF
+	var bottom := -INF
+	for box in m.spawn.hitboxes:
+		top = minf(top, box.position.y)
+		bottom = maxf(bottom, box.end.y)
+	return Rect2(left, top, right - left, bottom - top)
 
 
 static func _fighter(ci: CanvasItem, f: Fighter, base: Color, show_boxes: bool) -> void:

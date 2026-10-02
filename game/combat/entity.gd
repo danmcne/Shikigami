@@ -28,6 +28,9 @@ func step() -> void:
 	position += Vector2(facing * move.motion.x, move.motion.y)
 	if frame >= move.total_frames():
 		spent = true
+	# Moving toward the centre from an edge, it stops there.
+	if move.stops_at_centre and position.x * facing >= 0.0:
+		spent = true
 
 
 func active_hitboxes() -> Array[Rect2]:

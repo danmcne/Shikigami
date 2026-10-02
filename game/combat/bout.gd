@@ -196,6 +196,41 @@ func _spirit_threatens(index: int) -> bool:
 	return false
 
 
+## The pieces a move releases, placed by its spawn origin and offsets.
+func _release(f: Fighter, side: int) -> Array[Entity]:
+	var m := f.move
+	var target := fighters[1 - side]
+	var offsets: Array[Vector2] = m.spawn_offsets.duplicate()
+	if offsets.is_empty():
+		offsets.append(m.spawn_offset)
+	var out: Array[Entity] = []
+	for offset in offsets:
+		var places: Array = []  # [position, facing]
+		match m.spawn_origin:
+			MoveDefinition.SpawnOrigin.PERFORMER:
+				places.append([f.position + Vector2(f.facing * offset.x, offset.y), f.facing])
+			MoveDefinition.SpawnOrigin.TARGET:
+				places.append([target.position + offset, f.facing])
+			MoveDefinition.SpawnOrigin.EDGE_BEYOND:
+				var toward := signf(target.position.x - f.position.x)
+				if toward == 0.0:
+					toward = f.facing
+				places.append([Vector2(STAGE_RIGHT if toward > 0.0 else STAGE_LEFT, offset.y), -int(toward)])
+			MoveDefinition.SpawnOrigin.EDGE_LEFT:
+				places.append([Vector2(STAGE_LEFT, offset.y), 1])
+			MoveDefinition.SpawnOrigin.EDGE_RIGHT:
+				places.append([Vector2(STAGE_RIGHT, offset.y), -1])
+			MoveDefinition.SpawnOrigin.EDGES_BOTH:
+				places.append([Vector2(STAGE_LEFT, offset.y), 1])
+				places.append([Vector2(STAGE_RIGHT, offset.y), -1])
+		for place in places:
+			var e := Entity.new(f.pending_spawn, f, side)
+			e.position = place[0]
+			e.facing = place[1]
+			out.append(e)
+	return out
+
+
 ## Each fighter's floor: the stage, or the top of a monster part beneath its
 ## feet. A monster learns whether it is being ridden.
 func _update_surfaces() -> void:
@@ -252,14 +287,7 @@ func _spawn() -> void:
 	for f in performers:
 		var side := f.summoner if f.summoner >= 0 else fighters.find(f)
 		if f.pending_spawn:
-			var e := Entity.new(f.pending_spawn, f, side)
-			if f.move.spawn_from_edge:
-				var toward := signf(fighters[1 - side].position.x - f.position.x)
-				if toward == 0.0:
-					toward = f.facing
-				e.position.x = STAGE_RIGHT if toward > 0.0 else STAGE_LEFT
-				e.facing = -int(toward)
-			entities.append(e)
+			entities.append_array(_release(f, side))
 		if f.pending_heal > 0:
 			fighters[side].heal(f.pending_heal)
 		if f.pending_armor > 0:

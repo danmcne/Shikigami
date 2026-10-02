@@ -107,8 +107,11 @@ func _init() -> void:
 	print("monster pace, Gashadokuro")
 	_test_monster_pace_follows_difficulty()
 	_test_gashadokuro_hands_open_after_slams()
-	_test_gashadokuro_sweep_from_behind_and_no_body()
-	_test_gashadokuro_broken_hand_rains_bones()
+	_test_gashadokuro_sweep_walls_one_half()
+	_test_gashadokuro_claps()
+	_test_gashadokuro_rain_has_gaps()
+	_test_gashadokuro_broken_hand()
+	_test_gashadokuro_has_no_body()
 	print("CPU, run, calibration")
 	_test_cpu_enters_motions()
 	_test_cpu_attacks()
@@ -1397,10 +1400,12 @@ func _test_monster_pace_follows_difficulty() -> void:
 
 
 func _gasha_bout(distance := 200.0) -> Bout:
+	# The fighter on the left, the skeleton on the right: the fighter stands
+	# under its left hand when they are 200 apart.
 	var b := Bout.versus_monster(def, [], Monster.new(Bestiary.by_id(&"gashadokuro"), 8))
 	b.fighters[0].position.x = -distance / 2.0
 	b.fighters[1].position.x = distance / 2.0
-	b.fighters[1].facing = -1
+	(b.fighters[1] as Monster)._rest = 100000
 	return b
 
 
@@ -1413,10 +1418,10 @@ func _gasha_perform(g: Monster, id: StringName) -> MonsterDefinition.Attack:
 
 
 func _test_gashadokuro_hands_open_after_slams() -> void:
-	var b := _gasha_bout(200.0)  # the fighter stands under its near hand
+	var b := _gasha_bout(200.0)
 	var g: Monster = b.fighters[1]
 	var nothing_at_rest := g.hurtboxes().is_empty()
-	var slam := _gasha_perform(g, &"hand_slam")
+	var slam := _gasha_perform(g, &"left_slam")
 	var open_during_recovery := false
 	var open_before := false
 	for n in slam.move.total_frames():
@@ -1427,44 +1432,96 @@ func _test_gashadokuro_hands_open_after_slams() -> void:
 			open_before = true
 		if open:
 			open_during_recovery = true
-	_check("Gashadokuro: nothing to strike at rest; a slam hits whoever is under the hand, which then lies open",
-			nothing_at_rest and open_during_recovery and not open_before and _taken(b, 0) == slam.move.damage,
+	_check("Gashadokuro: nothing to strike at rest; its left hand slams whoever is under it, then lies open",
+			nothing_at_rest and open_during_recovery and not open_before and _taken(b, 0) == slam.move.damage
+			and g.facing == 1,
 			"rest %s open %s early %s took %d" % [nothing_at_rest, open_during_recovery, open_before, _taken(b, 0)])
 
 
-func _test_gashadokuro_sweep_from_behind_and_no_body() -> void:
+## Damage taken by a fighter at `x`, holding `script`, from one Gashadokuro attack.
+func _gasha_case(id: StringName, x: float, hold: int, held: String) -> int:
+	var b := Bout.versus_monster(def, [], Monster.new(Bestiary.by_id(&"gashadokuro"), 8))
+	b.fighters[0].position.x = x
+	b.fighters[1].position.x = 0
+	(b.fighters[1] as Monster)._rest = 100000
+	_gasha_perform(b.fighters[1], id)
+	_run(b, 140, _at({}, hold, held))
+	return _taken(b, 0)
+
+
+func _test_gashadokuro_sweep_walls_one_half() -> void:
+	var caught := _gasha_case(&"left_sweep", -300, 5, "G")        # guarding in the left half
+	var safe := _gasha_case(&"left_sweep", 300, 5, "")             # standing in the right half
+	var low_guard := _gasha_case(&"left_sweep", -300, 2, "G")
 	var b := _gasha_bout(400.0)
-	var g: Monster = b.fighters[1]
-	_gasha_perform(g, &"bone_sweep")
-	var spawned_at := [INF]
-	var heading := [0]
-	_run(b, 60, _at({}), null, func(x: Bout) -> void:
+	_gasha_perform(b.fighters[1], &"left_sweep")
+	var spawned := [INF]
+	var last_x := [-INF]
+	_run(b, 140, _at({}), null, func(x: Bout) -> void:
 		for e in x.entities:
-			if spawned_at[0] == INF:
-				spawned_at[0] = e.position.x
-				heading[0] = e.facing)
-	# Walk straight through where its body is.
-	var walker := _gasha_bout(100.0)
-	(walker.fighters[1] as Monster).health = 99999
-	(walker.fighters[1] as Monster)._rest = 100000
-	var w := walker.fighters[0]
-	_run(walker, 60, func(n: int) -> Array: return [6 if w.facing == 1 else 4, ""])
-	_check("the sweep starts at the stage edge behind you and comes toward it; you can walk beneath it",
-			spawned_at[0] == Bout.STAGE_LEFT and heading[0] == 1 and walker.fighters[0].position.x > walker.fighters[1].position.x,
-			"spawned at %.0f heading %d; walker at %.0f" % [spawned_at[0], heading[0], walker.fighters[0].position.x])
+			if spawned[0] == INF:
+				spawned[0] = e.position.x
+			last_x[0] = maxf(last_x[0], e.position.x))
+	_check("a sweep is a wall from one edge to the centre: no guard stops it, the other half is safe",
+			caught > 0 and low_guard > 0 and safe == 0 and spawned[0] == Bout.STAGE_LEFT and last_x[0] <= 10.0,
+			"caught %d, low guard %d, safe %d, from %.0f to %.0f" % [caught, low_guard, safe, spawned[0], last_x[0]])
 
 
-func _test_gashadokuro_broken_hand_rains_bones() -> void:
+func _test_gashadokuro_claps() -> void:
+	var high_standing := _gasha_case(&"high_clap", -300, 5, "")
+	var high_crouching := _gasha_case(&"high_clap", -300, 2, "")
+	var low_standing := _gasha_case(&"low_clap", -300, 5, "")
+	var low_guarded := _gasha_case(&"low_clap", -300, 2, "G")
 	var b := _gasha_bout(400.0)
+	_gasha_perform(b.fighters[1], &"high_clap")
+	var count := [0]
+	_run(b, 40, _at({}), null, func(x: Bout) -> void: count[0] = maxi(count[0], x.entities.size()))
+	_check("claps come from both edges: crouch under the high one, guard the low one low",
+			count[0] == 2 and high_standing > 0 and high_crouching == 0 and low_standing > 0 and low_guarded == 0,
+			"pieces %d; high: standing %d crouching %d; low: standing %d guarded %d" % [count[0],
+					high_standing, high_crouching, low_standing, low_guarded])
+
+
+func _test_gashadokuro_rain_has_gaps() -> void:
+	var b := _gasha_bout(200.0)
+	_gasha_perform(b.fighters[1], &"bone_rain")
+	_run(b, 34, _at({}))
+	var boxes := []
+	var heights := {}
+	for e in b.entities:
+		boxes.append(e.active_hitboxes()[0])
+		heights[roundi(e.position.y)] = true
+	boxes.sort_custom(func(p: Rect2, q: Rect2) -> bool: return p.position.x < q.position.x)
+	var fighter_width: float = def.stand_hurtbox.size.x
+	var gaps_ok := boxes.size() == 3
+	for k in boxes.size() - 1:
+		var gap: float = boxes[k + 1].position.x - boxes[k].end.x
+		gaps_ok = gaps_ok and gap >= fighter_width and gap <= fighter_width + 20.0
+	_check("bone rain: three bones at different heights, with gaps just wide enough to stand in",
+			gaps_ok and heights.size() == 3, "%d bones, %d heights" % [boxes.size(), heights.size()])
+
+
+func _test_gashadokuro_broken_hand() -> void:
+	var b := _gasha_bout(200.0)
 	var g: Monster = b.fighters[1]
+	g._rest = 10
 	g.health = 99999
 	b.fighters[0].invincible = true
-	g.part_health[0] = 0  # the near hand broken
+	g.part_health[1] = 0  # the right hand broken; the fighter stays in the left half
 	var used := {}
-	_run(b, 1500, _at({}), null, func(x: Bout) -> void:
+	_run(b, 2500, _at({}), null, func(x: Bout) -> void:
 		var m: Monster = x.fighters[1]
 		if m.state == Fighter.State.MOVE:
 			used[m.move.id] = true)
-	_check("with its near hand broken it rains bones and no longer slams or sweeps with it",
-			used.has(&"bone_rain") and not used.has(&"hand_slam") and not used.has(&"bone_sweep"),
-			"used %s" % [used.keys()])
+	var no_clap := not used.has(&"high_clap") and not used.has(&"low_clap")
+	var no_right := not used.has(&"right_slam") and not used.has(&"right_sweep")
+	_check("with its right hand broken: no claps and nothing from that hand, but the left still sweeps; bones rain",
+			no_clap and no_right and used.has(&"left_sweep") and used.has(&"bone_rain"), "used %s" % [used.keys()])
+
+
+func _test_gashadokuro_has_no_body() -> void:
+	var b := _gasha_bout(100.0)
+	var w := b.fighters[0]
+	_run(b, 60, func(n: int) -> Array: return [6 if w.facing == 1 else 4, ""])
+	_check("you can walk straight beneath Gashadokuro", w.position.x > b.fighters[1].position.x + 50.0,
+			"walker at %.0f, skeleton at %.0f" % [w.position.x, b.fighters[1].position.x])
