@@ -61,6 +61,16 @@ enum SpawnOrigin { PERFORMER, TARGET }
 ## For a spawned move: a guarded target is not released but pushed along in
 ## front of it, until it stops.
 @export var pushes_on_guard: bool = false
+## For a spawned move: downward acceleration each frame, so it flies in an
+## arc; it ends when it reaches the ground.
+@export var gravity: float = 0.0
+## For a spawned move: it is part of its performer (Rokurokubi's head on its
+## neck). It is drawn joined to them; a strike on it is a strike on them; and
+## it is withdrawn the moment they stop performing the move that sent it.
+@export var tethered: bool = false
+## For a spawned move: what it leaves on the ground where it lands or strikes
+## (a thrown lantern's fire).
+@export var leaves: MoveDefinition
 ## Health restored on the first active frame: to the performer, or, for a
 ## spirit, to the fighter who summoned it.
 @export var heal: int = 0

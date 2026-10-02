@@ -279,8 +279,7 @@ func _choose(gap: float, ahead: bool) -> MonsterDefinition.Attack:
 			continue
 		if not ridden and (gap < attack_def.min_gap or gap > attack_def.max_gap):
 			continue
-		if monster.turns and not ahead and not ridden \
-				and not attack_def.move.hitboxes.any(func(r: Rect2) -> bool: return r.position.x < 0.0):
+		if monster.turns and not ahead and not ridden and not _reaches_behind(attack_def.move):
 			continue
 		if attack_def.side != 0 and signf(_target_x - position.x) != attack_def.side:
 			continue
@@ -297,6 +296,13 @@ func _choose(gap: float, ahead: bool) -> MonsterDefinition.Attack:
 	if usable.is_empty():
 		return null
 	return usable[rng.rand_weighted(weights)]
+
+
+## Whether a move strikes past the monster's back edge, not just behind its
+## centre (a charge's body is not an attack behind it).
+func _reaches_behind(m: MoveDefinition) -> bool:
+	var back := definition.stand_hurtbox.position.x
+	return m.hitboxes.any(func(r: Rect2) -> bool: return r.position.x < back)
 
 
 ## The part a strike landed on: the exposed part whose box holds the contact's

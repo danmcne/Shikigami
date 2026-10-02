@@ -18,7 +18,8 @@ class Part:
 	var damage_scale := 1.0
 	var health := 0
 	var hidden := false
-	## Its top edge is a surface fighters can land and stand on.
+	## Its top edge is a surface fighters can land and stand on. Keep the
+	## monster's pushbox below it, or it shoves off anyone landing there.
 	var standable := false
 	## How far above its box it can still be struck, so that a fighter
 	## standing on it hits what it stands on.

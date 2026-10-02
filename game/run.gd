@@ -40,6 +40,8 @@ var opponent: FighterDefinition
 var opponent_spirits: Array[SpiritBinding] = []
 ## In the monster tier, the monster being fought (its body is `opponent`).
 var monster: MonsterDefinition = null
+## Everyone faced so far: no one is fought twice, and never one's own fighter.
+var faced: Array[StringName] = []
 ## Bindings on offer after a capture, and a chosen binding waiting for a slot.
 var offer: Array[SpiritBinding] = []
 var pending: SpiritBinding = null
@@ -122,6 +124,7 @@ func to_dict() -> Dictionary:
 	return {
 		character = String(character.id), fight = fight, rng_seed = rng.seed, rng_state = rng.state,
 		spirits = _pairs(spirits), opponent = String(opponent.id), opponent_spirits = _pairs(opponent_spirits),
+		faced = faced.map(func(id: StringName) -> String: return String(id)),
 	}
 
 
@@ -143,6 +146,7 @@ static func restore(state: Dictionary, all: Array[FighterDefinition]) -> Run:
 	run.fight = state.fight
 	run.rng.state = state.rng_state
 	run.monster = beasts.get(opponent_id)
+	run.faced.assign(state.get("faced", []).map(func(id: Variant) -> StringName: return StringName(str(id))))
 	run.opponent = run.monster.body if run.monster else by_id[opponent_id]
 	for field in ["spirits", "opponent_spirits"]:
 		var bindings: Array[SpiritBinding] = []
@@ -179,8 +183,15 @@ func _draw_opponent() -> void:
 		opponent = monster.body
 		return
 	var own := tier() == 0
-	var pool := roster.filter(func(d: FighterDefinition) -> bool: return (d.kind == character.kind) == own)
+	var pool := roster.filter(func(d: FighterDefinition) -> bool:
+		return (d.kind == character.kind) == own and d.id != character.id and not d.id in faced)
+	if pool.is_empty():
+		# Everyone of this kind has been faced (not possible in a normal run):
+		# allow repeats, though still never one's own fighter.
+		pool = roster.filter(func(d: FighterDefinition) -> bool:
+			return (d.kind == character.kind) == own and d.id != character.id)
 	opponent = pool[rng.randi() % pool.size()]
+	faced.append(opponent.id)
 	var candidates: Array[FighterDefinition] = []
 	candidates.assign(roster.filter(func(d: FighterDefinition) -> bool: return opponent.binds(d)))
 	opponent_spirits.clear()

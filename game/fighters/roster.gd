@@ -86,7 +86,7 @@ static func _table() -> Array:
 					spawn = {id = &"shuriken_star", startup = 0, active = 70, recovery = 0, motion = Vector2(11, 0),
 						damage = 35, hitstun = 12, blockstun = 8, knockback = 3.0, hitstop = 3,
 						hitboxes = [Rect2(-10, -8, 20, 16)]}}]},
-		{id = &"monk", name = "Buddhist Monk", kind = HUMAN,
+		{id = &"monk", name = "En no Gyōja", kind = HUMAN,
 			p = {health = 1100, size = 1.0, speed = 0.9, jump = 1.0, power = 0.9, tempo = 0},
 			# Meditation, after Yoshimitsu: still and exposed, then restored.
 			# Like the sake: long, exposed, generous, and slow to return.
@@ -94,7 +94,7 @@ static func _table() -> Array:
 				{id = &"sutra_palm", startup = 8, active = 4, recovery = 18, cooldown = 60,
 					damage = 60, hitstun = 18, blockstun = 14, knockback = 20.0, hitstop = 10,
 					hitboxes = [Rect2(20, -130, 70, 70)]}]},
-		{id = &"miko", name = "Shinto Miko", kind = HUMAN,
+		{id = &"miko", name = "Izumo no Okuni", kind = HUMAN,
 			p = {health = 900, size = 0.9, speed = 1.0, jump = 1.0, power = 0.9, tempo = 0},
 			# Ofuda: paper talismans thrown, or laid on the ground as a ward.
 			specials = [{id = &"ofuda", startup = 10, active = 1, recovery = 20, cooldown = 60,
@@ -108,7 +108,7 @@ static func _table() -> Array:
 					spawn = {id = &"warding_seal_trap", startup = 0, active = 300, recovery = 0,
 						damage = 10, paralyse = 70, hitstop = 8, height = H.HIGH_LOW,
 						hitboxes = [Rect2(-25, -12, 50, 12)]}}]},
-		{id = &"onmyoji", name = "Onmyōji", kind = HUMAN,
+		{id = &"onmyoji", name = "Abe no Seimei", kind = HUMAN,
 			p = {health = 900, size = 0.95, speed = 0.9, jump = 1.0, power = 0.9, tempo = 0},
 			# Paper shikigami: birds released low that climb gently as they fly.
 			specials = [{id = &"paper_birds", startup = 10, active = 1, recovery = 20, cooldown = 60, air = true,
@@ -143,12 +143,10 @@ static func _table() -> Array:
 					invulnerable = 16, teleport_frame = 14, teleport_distance = 45.0,
 					damage = 70, hitstun = 18, blockstun = 12, knockback = 7.0, hitstop = 8,
 					hitboxes = [Rect2(10, -120, 70, 50)]},
-				# Kitsune-bi.
-				{id = &"foxfire", startup = 12, active = 2, recovery = 24, cooldown = 45,
-					spawn_offset = Vector2(45, -95),
-					spawn = {id = &"foxfire_flame", startup = 0, active = 100, recovery = 0, motion = Vector2(7, 0),
-						damage = 50, hitstun = 16, blockstun = 12, knockback = 5.0, hitstop = 5,
-						hitboxes = [Rect2(-15, -15, 30, 30)]}}]},
+				# A sweep of many tails, low and mid at once.
+				{id = &"nine_tails", startup = 8, active = 6, recovery = 18, cooldown = 60,
+					damage = 65, knockdown = 30, knockback = 6.0, hitstop = 8, height = H.LOW,
+					hitboxes = [Rect2(15, -40, 100, 30), Rect2(15, -120, 70, 40)]}]},
 		{id = &"tengu", name = "Tengu", kind = YOKAI,
 			p = {health = 1000, size = 1.05, speed = 1.1, jump = 1.15, power = 1.0, tempo = 0},
 			# The feather fan: a gust that hurls more than it hurts.
@@ -162,7 +160,7 @@ static func _table() -> Array:
 					height = H.HIGH, hitboxes = [Rect2(0, -120, 80, 60)]}]},
 		{id = &"kappa", name = "Kappa", kind = YOKAI,
 			# Child-sized, so hard to hit; it pays for that in health and power,
-			# as the nekomata does.
+			# as small, quick fighters must.
 			p = {health = 900, size = 0.8, speed = 0.9, jump = 1.0, power = 1.0, tempo = 0},
 			# Kappa challenge travellers to sumo.
 			specials = [{id = &"sumo_grab", startup = 10, active = 3, recovery = 28, cooldown = 180, throw = true,
@@ -198,15 +196,29 @@ static func _table() -> Array:
 				{id = &"ceiling_drop", startup = 20, active = 12, recovery = 18, cooldown = 120, invulnerable = 18,
 					motion = Vector2(4, -20), damage = 90, knockdown = 40, knockback = 6.0, hitstop = 10,
 					height = H.HIGH, hitboxes = [Rect2(-20, -40, 80, 50)]}]},
-		{id = &"nekomata", name = "Nekomata", kind = YOKAI,
-			p = {health = 900, size = 0.8, speed = 1.4, jump = 1.15, power = 0.95, tempo = -1},
-			specials = [{id = &"pounce", startup = 6, active = 16, recovery = 14, cooldown = 75,
-					motion = Vector2(10, -12), damage = 70, hitstun = 18, knockback = 6.0, hitstop = 8,
-					height = H.HIGH, hitboxes = [Rect2(0, -90, 80, 60)]},
-				# Two tails, low and mid at once.
-				{id = &"twin_tails", startup = 8, active = 6, recovery = 18, cooldown = 60,
-					damage = 65, knockdown = 30, knockback = 6.0, hitstop = 8, height = H.LOW,
-					hitboxes = [Rect2(15, -40, 90, 30), Rect2(15, -120, 60, 40)]}]},
+		{id = &"rokurokubi", name = "Rokurokubi", kind = YOKAI,
+			p = {health = 900, size = 1.0, speed = 0.95, jump = 1.0, power = 0.95, tempo = 0},
+			# By night her neck stretches: her head flies out in a long arc and comes
+			# down on you from above. It stays joined to her, so a blow to the head is a
+			# blow to her, and it snaps back the moment she is struck.
+			# Her recovery lasts the whole flight; the head is withdrawn when it ends.
+			specials = [{id = &"long_neck", startup = 12, active = 1, recovery = 68, cooldown = 120,
+					spawn_offset = Vector2(20, -150),
+					spawn = {id = &"flying_head", startup = 0, active = 80, recovery = 0,
+						motion = Vector2(7, -12), gravity = 0.45, tethered = true,
+						damage = 80, hitstun = 20, blockstun = 12, knockback = 6.0, hitstop = 9, height = H.HIGH,
+						hitboxes = [Rect2(-25, -25, 50, 50)]}},
+				# The lantern whose oil she licks by night, thrown in an arc; where it
+				# breaks, a small fire burns a moment.
+				{id = &"lantern", startup = 12, active = 1, recovery = 22, cooldown = 120, air = true,
+					spawn_offset = Vector2(30, -110),
+					spawn = {id = &"thrown_lantern", startup = 0, active = 120, recovery = 0,
+						motion = Vector2(6, -9), gravity = 0.4,
+						damage = 30, hitstun = 14, blockstun = 10, knockback = 4.0, hitstop = 5, height = H.MID,
+						hitboxes = [Rect2(-15, -30, 30, 30)],
+						leaves = {id = &"lantern_fire", startup = 0, active = 90, recovery = 0,
+							damage = 40, hitstun = 18, blockstun = 12, knockback = 4.0, hitstop = 6, height = H.MID,
+							hitboxes = [Rect2(-55, -60, 110, 60)]}}}]},
 		{id = &"tanuki", name = "Tanuki", kind = YOKAI,
 			p = {health = 1100, size = 0.9, speed = 0.9, jump = 1.0, power = 0.95, tempo = 0},
 			# Hara-tsuzumi, the belly drum: a low shockwave to both sides.
@@ -236,11 +248,11 @@ static func _build(e: Dictionary) -> FighterDefinition:
 	return d
 
 
-## A MoveDefinition from a dictionary; nested `counter` and `spawn`
+## A MoveDefinition from a dictionary; nested `counter`, `spawn` and `leaves`
 ## dictionaries become moves too.
 static func _special(props: Dictionary) -> MoveDefinition:
 	var flat := props.duplicate()
-	for key in ["counter", "spawn"]:
+	for key in ["counter", "spawn", "leaves"]:
 		if flat.has(key):
 			flat[key] = _special(flat[key])
 	return PrototypeRect._move(flat)

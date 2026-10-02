@@ -174,9 +174,22 @@ func _fight_step(intents: Array[Intent]) -> void:
 	_push_apart()
 	_resolve_hits()
 	for e in entities:
+		# A tethered piece is withdrawn once its performer stops the move.
+		if e.move.tethered:
+			var performer := fighters[e.owner_index]
+			if performer.state != Fighter.State.MOVE or performer.move == null or performer.move.spawn != e.move:
+				if not e.from_spirit:
+					e.spent = true
 		if e.spent and e.holding:
 			e.holding.release_hold()
+	# What spent pieces leave behind on the ground.
+	var left_behind: Array[Entity] = []
+	for e in entities:
+		if e.spent and e.move.leaves:
+			left_behind.append(Entity.new(e.move.leaves, Vector2(e.position.x, Fighter.FLOOR_Y),
+					e.facing, e.owner_index, e.from_spirit))
 	entities.assign(entities.filter(func(e: Entity) -> bool: return not e.spent))
+	entities.append_array(left_behind)
 	spirits.assign(spirits.filter(func(s: Fighter) -> bool: return s.state == Fighter.State.MOVE))
 	_wrap()
 	if time_limit > 0 and round_frame >= time_limit:
@@ -223,11 +236,10 @@ func _release(f: Fighter, side: int) -> Array[Entity]:
 	var spread: float = (f as Monster).spread_scale if f is Monster else 1.0
 	var out: Array[Entity] = []
 	for offset in offsets:
-		var e := Entity.new(f.pending_spawn, f, side)
+		var at := f.position + Vector2(f.facing * offset.x, offset.y)
 		if m.spawn_origin == MoveDefinition.SpawnOrigin.TARGET:
-			e.position = target.position + Vector2(offset.x * spread, offset.y)
-		else:
-			e.position = f.position + Vector2(f.facing * offset.x, offset.y)
+			at = target.position + Vector2(offset.x * spread, offset.y)
+		var e := Entity.new(f.pending_spawn, at, f.facing, side, f.summoner >= 0)
 		if f.pending_spawn.converges:
 			e.centre_x = f.position.x
 			e.facing = 1 if e.centre_x > e.position.x else -1
@@ -255,19 +267,20 @@ func _update_surfaces() -> void:
 
 
 ## The monster's position before this frame's steps, if there is one.
-func _monster_x() -> float:
+func _monster_x() -> Vector2:
 	for f in fighters:
 		if f is Monster:
-			return f.position.x
-	return 0.0
+			return f.position
+	return Vector2.ZERO
 
 
-## Whoever stands on a monster moves with it.
-func _carry_riders(before: float) -> void:
+## Whoever stands on a monster moves with it, up as well as along.
+func _carry_riders(before: Vector2) -> void:
 	for i in 2:
 		var other := fighters[1 - i]
 		if other is Monster and fighters[i].on_raised_ground():
-			fighters[i].position.x += other.position.x - before
+			fighters[i].position += other.position - before
+			fighters[i].floor_y = fighters[i].position.y
 
 
 func _threatens(index: int) -> bool:
@@ -387,8 +400,11 @@ func _resolve_hits() -> void:
 		if target.invulnerable():
 			continue
 		# A monster's body is several hurtboxes; where a strike lands decides
-		# which part it hits.
+		# which part it hits. A piece tethered to the target is part of it.
 		var hurt := target.hurtboxes()
+		for e in entities:
+			if e.owner_index == 1 - i and e.move.tethered and not e.from_spirit and not e.spent:
+				hurt.append_array(e.active_hitboxes())
 		var f := fighters[i]
 		var contact := _contact(f.active_hitboxes(), hurt)
 		if contact.has_area():
@@ -471,10 +487,13 @@ func _resolve_hits() -> void:
 		_grab_input_start = target.input.frame
 
 
-## Opposing entities that touch destroy each other.
+## Opposing entities that touch destroy each other, except tethered pieces,
+## which are part of their performer and are struck instead.
 func _clash_entities() -> void:
 	for a in entities:
 		for b in entities:
+			if a.move.tethered or b.move.tethered:
+				continue
 			if a.owner_index < b.owner_index and not a.spent and not b.spent:
 				for box in a.active_hitboxes():
 					if _any_hit(b.active_hitboxes(), box):

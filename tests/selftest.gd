@@ -124,6 +124,14 @@ func _init() -> void:
 	_test_nue_lightning_marks_then_strikes()
 	_test_nue_dives_and_lies_open()
 	_test_nue_grounded_when_cloud_breaks()
+	print("v12: circular arenas, riding Nue, the run, Rokurokubi")
+	_test_all_giants_fought_in_circles()
+	_test_ride_nue_into_the_air()
+	_test_nue_thrashes_riders_off()
+	_test_run_never_repeats()
+	_test_rokurokubi_long_neck()
+	_test_rokurokubi_head_is_vulnerable()
+	_test_lantern_leaves_fire()
 	print("CPU, run, calibration")
 	_test_cpu_enters_motions()
 	_test_cpu_attacks()
@@ -391,25 +399,25 @@ func _test_knockdown_is_invulnerable() -> void:
 	_check("a knocked-down fighter cannot be hit", _taken(b, 1) == 0, "took %d" % _taken(b, 1))
 
 
-func _kitsune_bout(distance: float) -> Bout:
-	var b := Bout.new(Roster.by_id(&"kitsune"), def)
+func _kappa_bout(distance: float) -> Bout:
+	var b := Bout.new(Roster.by_id(&"kappa"), def)
 	b.fighters[0].position.x = -distance / 2.0
 	b.fighters[1].position.x = distance / 2.0
 	return b
 
 
 func _test_projectile_travels_and_hits() -> void:
-	var b := _kitsune_bout(400.0)
+	var b := _kappa_bout(400.0)
 	_run(b, 90, _at({0: [4, "C"]}))
-	_check("the kitsune.s foxfire crosses the stage and hits",
-			_taken(b, 1) == Roster.by_id(&"kitsune").moves[&"foxfire"].spawn.damage, "took %d" % _taken(b, 1))
+	_check("the kappa's water jet crosses the stage and hits",
+			_taken(b, 1) == Roster.by_id(&"kappa").moves[&"water_jet"].spawn.damage, "took %d" % _taken(b, 1))
 
 
 func _test_one_projectile_at_a_time() -> void:
-	var b := _kitsune_bout(900.0)
+	var b := _kappa_bout(900.0)
 	var most := [0]
-	var twice := _at({0: [4, "C"], 40: [4, "C"]})
-	_run(b, 80, twice, null, func(x: Bout) -> void: most[0] = maxi(most[0], x.entities.size()))
+	var twice := _at({0: [4, "C"], 65: [4, "C"]})  # after its recharge, while the first is in flight
+	_run(b, 100, twice, null, func(x: Bout) -> void: most[0] = maxi(most[0], x.entities.size()))
 	_check("only one projectile at a time", most[0] == 1, "saw %d" % most[0])
 
 
@@ -499,14 +507,14 @@ func _test_spirit_with_motion() -> void:
 
 
 func _test_spirit_releases_projectile_for_summoner() -> void:
-	var kitsune := _r(&"kitsune")
-	var b := _spirit_bout(SpiritBinding.new(kitsune, &"foxfire"), 500.0)
+	var kappa := _r(&"kappa")
+	var b := _spirit_bout(SpiritBinding.new(kappa, &"water_jet"), 500.0)
 	var owners := {}
 	_run(b, 120, _at({0: [5, "D"]}), null, func(x: Bout) -> void:
 		for e in x.entities:
 			owners[e.owner_index] = true)
 	_check("a spirit's projectile belongs to the summoner and hits",
-			owners.keys() == [0] and _taken(b, 1) == kitsune.moves[&"foxfire"].spawn.damage,
+			owners.keys() == [0] and _taken(b, 1) == kappa.moves[&"water_jet"].spawn.damage,
 			"owners %s, took %d" % [owners.keys(), _taken(b, 1)])
 
 
@@ -574,7 +582,7 @@ func _test_chord_window_is_per_player() -> void:
 
 func _test_unavailable_spirit_does_not_fall_through() -> void:
 	var bound: Array[SpiritBinding] = [SpiritBinding.new(_r(&"shuten"), &"kanabo_quake"),
-			SpiritBinding.new(_r(&"kitsune"), &"foxfire")]
+			SpiritBinding.new(_r(&"kappa"), &"water_jet")]
 	var b := Bout.new(def, def, bound, [])
 	b.fighters[0].position.x = -400
 	b.fighters[1].position.x = 400
@@ -583,7 +591,7 @@ func _test_unavailable_spirit_does_not_fall_through() -> void:
 		for s in x.spirits:
 			sources[s.definition.id] = true)
 	_check("down+spirit on cooldown summons nothing, not the other slot",
-			sources.keys() == [&"kitsune"], "summoned %s" % [sources.keys()])
+			sources.keys() == [&"kappa"], "summoned %s" % [sources.keys()])
 
 
 # --- kinds, spirit throws, finishers -----------------------------------------
@@ -1092,7 +1100,7 @@ func _test_time_limit() -> void:
 
 
 func _test_finisher_captures_from_own_kind() -> void:
-	var carrying: Array[SpiritBinding] = [SpiritBinding.new(_r(&"kitsune"), &"foxfire")]
+	var carrying: Array[SpiritBinding] = [SpiritBinding.new(_r(&"kappa"), &"water_jet")]
 	var b := Bout.new(def, def, [], carrying)
 	b.fighters[0].position.x = -50
 	b.fighters[1].position.x = 50
@@ -1378,7 +1386,7 @@ func _test_ushi_oni_turns_slowly() -> void:
 	b.fighters[0].position.x = 520
 	b.fighters[0].invincible = true
 	var turned_at := [-1]
-	_run(b, 300, _at({}), null, func(x: Bout) -> void:
+	_run(b, 300, _at({}, 2, "G"), null, func(x: Bout) -> void:
 		if turned_at[0] < 0 and (x.fighters[1] as Monster).facing == 1:
 			turned_at[0] = x.phase_frame)
 	_check("with you behind it, Ushi-oni turns, but only after its turn delay",
@@ -1764,3 +1772,141 @@ func _test_nue_grounded_when_cloud_breaks() -> void:
 	var no_air_moves := not used.has(&"dive") and not used.has(&"lightning")
 	_check("breaking Nue's thundercloud grounds it for good, and it fights on as a beast",
 			on_ground and ground_moves and no_air_moves and not nue.flying(), "used %s" % [used.keys()])
+
+
+# --- v12: circular arenas, riding Nue, the run, Rokurokubi ---------------------
+
+func _test_all_giants_fought_in_circles() -> void:
+	var walled := Bestiary.all().filter(func(m: MonsterDefinition) -> bool: return m.arena_length <= 0.0)
+	_check("every giant is fought in a circular arena, so none can corner you", walled.is_empty(),
+			"walled: %s" % [walled.map(func(m: MonsterDefinition) -> String: return m.body.display_name)])
+
+
+## Nue on the ground at x = 200, idle, with a fighter standing on its back.
+func _nue_ridden(rest := 100000) -> Bout:
+	var b := Bout.versus_monster(def, [], Monster.new(Bestiary.by_id(&"nue"), 4))
+	var nue: Monster = b.fighters[1]
+	nue.position = Vector2(200, 0)
+	nue.health = 99999
+	nue._rest = rest
+	nue.state = Fighter.State.MOVE  # holds it on the ground while the fighter lands
+	nue.move = MoveDefinition.new()
+	nue.move.recovery = 30
+	_airborne(b.fighters[0], Vector2(200, -200))
+	_run(b, 30, _at({}))
+	return b
+
+
+func _test_ride_nue_into_the_air() -> void:
+	var b := _nue_ridden()
+	var f := b.fighters[0]
+	var nue: Monster = b.fighters[1]
+	var landed := f.on_raised_ground()
+	# Release it to fly, kept from thrashing (that is tested separately).
+	nue.move = null
+	nue.state = Fighter.State.STAND
+	nue._rest = 100000
+	_run(b, 120, _at({}))
+	var carried_up := f.on_raised_ground() and nue.position.y < -200.0 and f.position.y < nue.position.y - 80.0
+	_check("you can land on Nue's back on the ground and ride it up into the air",
+			landed and carried_up, "landed %s, Nue at %.0f, rider at %.0f" % [landed, nue.position.y, f.position.y])
+
+
+func _test_nue_thrashes_riders_off() -> void:
+	var b := _nue_ridden(10)
+	var thrown := [false]
+	_run(b, 300, _at({}), null, func(x: Bout) -> void:
+		if not x.fighters[0].on_raised_ground() and x.fighters[0].state in [Fighter.State.KNOCKDOWN, Fighter.State.HITSTUN]:
+			thrown[0] = true)
+	_check("Nue thrashes a rider off its back", thrown[0])
+
+
+func _test_run_never_repeats() -> void:
+	var all := Roster.all()
+	var ok := true
+	for seed_number in range(1, 6):
+		var r := Run.new(all[seed_number], all, seed_number)
+		var seen := [r.opponent.id]
+		var resumed := false
+		while r.advance():
+			if r.fight == 3 and not resumed:
+				r = Run.restore(r.to_dict(), all)
+				resumed = true
+			seen.append(r.opponent.id)
+		var fighters := seen.slice(0, Run.FIGHTS_PER_TIER * Run.TIERS)
+		var unique := {}
+		for id in fighters:
+			unique[id] = true
+		ok = ok and unique.size() == fighters.size() and not r.character.id in fighters
+	_check("a run never pits you against your own fighter or anyone twice, even after resuming", ok)
+
+
+func _test_rokurokubi_long_neck() -> void:
+	var roku := _r(&"rokurokubi")
+	var b := Bout.new(roku, def)
+	b.fighters[0].position.x = -250
+	b.fighters[1].position.x = 150
+	var peak := [0.0]
+	_run(b, 70, _at({0: [5, "C"]}), null, func(x: Bout) -> void:
+		for e in x.entities:
+			peak[0] = minf(peak[0], e.position.y))
+	var arced: bool = peak[0] < -250.0
+	var landed_far: bool = _taken(b, 1) == roku.moves[&"long_neck"].spawn.damage
+	_check("Long Neck: her head arcs high and comes down far away; it stays part of her",
+			arced and landed_far, "peak %.0f, took %d" % [peak[0], _taken(b, 1)])
+
+
+func _test_rokurokubi_head_is_vulnerable() -> void:
+	var roku := _r(&"rokurokubi")
+	var b := Bout.new(roku, def)
+	b.fighters[0].position.x = -200
+	b.fighters[1].position.x = 300
+	_run(b, 20, _at({0: [5, "C"]}))
+	var head: Entity = null
+	for e in b.entities:
+		if e.move.tethered:
+			head = e
+	var ok := head != null
+	var before := b.fighters[0].health
+	if ok:
+		# A strike from the opponent, right where the head is.
+		var blow := MoveDefinition.new()
+		blow.damage = 50
+		blow.hitstun = 15
+		blow.startup = 0
+		blow.active = 10
+		blow.hitboxes.assign([Rect2(-30, -30, 60, 60)])
+		b.entities.append(Entity.new(blow, head.position, -1, 1))
+		_run(b, 3, _at({}))
+		ok = b.fighters[0].health == before - 50 \
+				and not b.entities.any(func(e: Entity) -> bool: return e.move.tethered)
+	_check("striking Rokurokubi's flying head hurts her and snaps it back", ok,
+			"head %s, health %d -> %d" % [head != null, before, b.fighters[0].health])
+
+
+func _test_lantern_leaves_fire() -> void:
+	var roku := _r(&"rokurokubi")
+	var b := Bout.new(roku, def)
+	b.fighters[0].position.x = -300
+	b.fighters[1].position.x = 300
+	var fire_seen := [false]
+	var fire_x := [0.0]
+	_run(b, 70, _at({0: [4, "C"]}, 4), null, func(x: Bout) -> void:
+		for e in x.entities:
+			if e.move.id == &"lantern_fire":
+				fire_seen[0] = true
+				fire_x[0] = e.position.x)
+	# Now walk someone into the fire.
+	var burned := Bout.new(roku, def)
+	burned.fighters[0].position.x = -300
+	burned.fighters[1].position.x = 600
+	_run(burned, 80, _at({0: [4, "C"]}, 4))  # until it has landed
+	var fx := 0.0
+	for e in burned.entities:
+		if e.move.id == &"lantern_fire":
+			fx = e.position.x
+	burned.fighters[1].position.x = fx + 10
+	_run(burned, 10, _at({}, 5))
+	_check("the lantern lands in an arc and leaves a fire that burns whoever stands in it",
+			fire_seen[0] and _taken(burned, 1) == roku.moves[&"lantern"].spawn.leaves.damage,
+			"fire %s at %.0f; burned %d" % [fire_seen[0], fire_x[0], _taken(burned, 1)])

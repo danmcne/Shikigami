@@ -40,6 +40,8 @@ static func definition() -> MonsterDefinition:
 	d.stagger = 70
 	d.close_gap = 60.0
 	d.turn_delay = 60
+	# A circular arena two stage-lengths round: no corner to be pinned in.
+	d.arena_length = 2400.0
 	# Beaten, it sinks onto its belly; its core is under the shell.
 	d.core = Rect2(-120, -150, 240, 150)
 

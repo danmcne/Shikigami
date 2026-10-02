@@ -9,12 +9,17 @@ extends RefCounted
 ## takes those blows from below; break the cloud and Nue falls, grounded for
 ## good, and fights on as a beast: faster, closer, and within reach.
 ##
+## Its back can be stood on: jump onto it while it is on the ground (grounded,
+## or after a dive), ride it, strike it, or cross over it. If you are on it
+## when it takes off, it carries you up; it thrashes to throw riders off.
+##
 ## Attacks, each telegraphed:
 ##   Lightning     three bolts strike marked spots around you after a warning;
 ##                 stand clear of the marks, or guard
 ##   Dive          it drops on you claws first, an overhead: step aside or
 ##                 guard standing; then it lies on the ground a moment, open
 ##   Tail Strike   the snake tail lashes down behind it, at whoever slips under
+##   Thrash        throws off a rider
 ## Grounded:
 ##   Claw          a quick swipe ahead
 ##   Tail Lash     low, to both sides
@@ -34,7 +39,8 @@ static func definition() -> MonsterDefinition:
 	body.stand_hurtbox = Rect2(-110, -100, 220, 100)
 	body.crouch_hurtbox = body.stand_hurtbox
 	body.air_hurtbox = body.stand_hurtbox
-	body.pushbox = Rect2(-100, -100, 200, 100)
+	# The pushbox stays below the back, or it would shove off anyone landing on it.
+	body.pushbox = Rect2(-100, -85, 200, 85)
 	d.body = body
 	d.colour = Color(0.42, 0.33, 0.45)
 	d.walk_speed = 2.0
@@ -42,6 +48,8 @@ static func definition() -> MonsterDefinition:
 	d.stagger = 70
 	d.close_gap = 40.0
 	d.turn_delay = 40
+	# A circular arena two stage-lengths round: no corner to be pinned in.
+	d.arena_length = 2400.0
 	# Its cloud's underside is just above an ordinary jump's reach, and within
 	# reach of a rising anti-air. (Tengu and the nekomata jump high enough to
 	# touch it.)
@@ -50,7 +58,7 @@ static func definition() -> MonsterDefinition:
 	d.core = Rect2(-90, -90, 180, 90)
 
 	d.parts = [
-		MonsterDefinition.Part.new("body", Rect2(-100, -90, 200, 90), 1.0),
+		MonsterDefinition.Part.new("body", Rect2(-100, -90, 200, 90), 1.0, 0, false, true, 170.0),
 		MonsterDefinition.Part.new("face", Rect2(90, -120, 50, 50), 1.5),
 		MonsterDefinition.Part.new("tail", Rect2(-170, -80, 70, 40), 1.0),
 		MonsterDefinition.Part.new("thundercloud", Rect2(-130, 0, 260, 40), 1.0, 450),
@@ -111,11 +119,18 @@ static func definition() -> MonsterDefinition:
 	pounce.travel = Vector2(13, 0)
 	pounce.needs_broken = ["thundercloud"]
 
+	var thrash := MonsterDefinition.Attack.new()
+	thrash.move = _move({id = &"thrash", startup = 22, active = 8, recovery = 26,
+		damage = 40, knockdown = 40, knockback = 13.0, hitstop = 10, height = H.MID,
+		hitboxes = [Rect2(-120, -280, 240, 190)]})
+	thrash.weight = 6.0
+	thrash.ridden_only = true
+
 	# While flying, nothing it does is "crippled"; grounded, the weights apply
 	# through needs_broken instead, so the two weights are the same.
-	for a in [lightning, dive, tail]:
+	for a in [lightning, dive, tail, thrash]:
 		a.crippled_weight = a.weight
-	d.attacks = [lightning, dive, tail, claw, lash, pounce]
+	d.attacks = [lightning, dive, tail, claw, lash, pounce, thrash]
 	return d
 
 

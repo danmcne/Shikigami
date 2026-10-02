@@ -10,6 +10,8 @@ var position: Vector2
 var facing: int
 var frame := 0
 var spent := false
+## Current velocity: x along its facing, y downward.
+var velocity := Vector2.ZERO
 ## Released by a spirit: only spirit guard stops it.
 var from_spirit := false
 ## For a converging piece: the centreline it travels to, and whether it has
@@ -21,29 +23,32 @@ var holding: Fighter = null
 var pushing: Fighter = null
 
 
-func _init(m: MoveDefinition, source: Fighter, index: int) -> void:
+func _init(m: MoveDefinition, at: Vector2, face: int, index: int, spirit := false) -> void:
 	move = m
 	owner_index = index
-	facing = source.facing
-	var offset := source.move.spawn_offset
-	position = source.position + Vector2(facing * offset.x, offset.y)
-	from_spirit = source.summoner >= 0
+	position = at
+	facing = face
+	from_spirit = spirit
+	velocity = m.motion
 
 
 func step() -> void:
 	frame += 1
 	if not arrived:
-		position += Vector2(facing * move.motion.x, move.motion.y)
+		position += Vector2(facing * velocity.x, velocity.y)
+		velocity.y += move.gravity
 		if move.converges and (centre_x - position.x) * facing <= 0.0:
 			position.x = centre_x
 			arrived = true
 	if frame >= move.total_frames():
 		spent = true
+	if move.gravity > 0.0 and position.y >= 0.0:
+		spent = true
 
 
 ## How far it moved along x on its last step (zero once arrived).
 func last_step_x() -> float:
-	return 0.0 if arrived else facing * move.motion.x
+	return 0.0 if arrived else facing * velocity.x
 
 
 func active_hitboxes() -> Array[Rect2]:
