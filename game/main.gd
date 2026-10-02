@@ -3,6 +3,7 @@ extends Node2D
 ##
 ##   MENU       1 new run   2 continue run   3 versus   4 calibrate timing
 ##              5 difficulty   6 game speed   7 invincibility (player 1)
+##              8 unlock the yokai without completing a campaign (practice)
 ##   SELECT     A / D or arrows to choose a fighter, Enter or J to confirm
 ##   RUN        you against the CPU; finish beaten foes you can bind
 ##   BIND       choose which special the bound spirit performs (1 / 2),
@@ -100,18 +101,23 @@ func _unhandled_input(event: InputEvent) -> void:
 					Settings.set_option("speed", (Settings.speed() + 1) % Settings.SPEEDS.size())
 				6:
 					Settings.set_option("invincible", not Settings.invincible())
+				7:
+					Settings.set_option("yokai_unlocked", not Settings.yokai_unlocked())
+					selected = 0
+					versus_choice = [0, 1]
 		Screen.SELECT:
 			match key:
 				KEY_A, KEY_LEFT, KEY_W, KEY_UP:
-					selected = (selected - 1 + roster.size()) % roster.size()
+					selected = (selected - 1 + _playable().size()) % _playable().size()
 				KEY_D, KEY_RIGHT, KEY_S, KEY_DOWN:
-					selected = (selected + 1) % roster.size()
+					selected = (selected + 1) % _playable().size()
 				KEY_ENTER, KEY_KP_ENTER, KEY_J:
-					run = Run.new(roster[selected], roster, Time.get_ticks_usec())
+					run = Run.new(_playable()[selected], roster, Time.get_ticks_usec())
 					_start_fight()
 		Screen.BIND:
-			if run.sealed and number >= 0 and number < run.sealed.specials.size():
-				if not run.choose_special(number):
+			if not run.offer.is_empty() and number >= 0 and number <= run.offer.size():
+				# The last number releases the offer.
+				if not run.choose_offer(number if number < run.offer.size() else -1):
 					_next_fight()
 			elif run.pending and number >= 0 and number <= Run.SLOTS:
 				run.choose_slot(number if number < Run.SLOTS else -1)
@@ -133,7 +139,7 @@ func _unhandled_input(event: InputEvent) -> void:
 					bout.restart()
 				KEY_F6, KEY_F7:
 					var i := 0 if key == KEY_F6 else 1
-					versus_choice[i] = (versus_choice[i] + 1) % roster.size()
+					versus_choice[i] = (versus_choice[i] + 1) % _playable().size()
 					_start_versus()
 
 
@@ -143,6 +149,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _start_fight() -> void:
 	Settings.save_run(run.to_dict())
 	bout = _make_bout(run.character, run.opponent, run.spirits, run.opponent_spirits)
+	bout.offer_finisher = not run.grants_on_victory()
 	cpu = _cpu(run.rng.randi())
 	screen = Screen.RUN
 
@@ -152,8 +159,7 @@ func _after_fight() -> void:
 		end_text = ["Defeated in fight %d of %d." % [run.fight + 1, Run.length()]]
 		_end_run()
 		return
-	if bout.bound:
-		run.seal(run.opponent)
+	if run.after_victory(bout.bound):
 		screen = Screen.BIND
 	else:
 		_next_fight()
@@ -164,6 +170,9 @@ func _next_fight() -> void:
 		_start_fight()
 	else:
 		end_text = ["Run complete: %d fights won." % Run.length()]
+		if not Settings.yokai_unlocked():
+			Settings.set_option("yokai_unlocked", true)
+			end_text.append("The yokai are now unlocked, for their own campaign and for versus.")
 		_end_run()
 
 
@@ -175,7 +184,7 @@ func _end_run() -> void:
 
 
 func _start_versus() -> void:
-	var defs := versus_choice.map(func(c: int) -> FighterDefinition: return roster[c])
+	var defs := versus_choice.map(func(c: int) -> FighterDefinition: return _playable()[c % _playable().size()])
 	var loadouts: Array = []
 	for d in defs:
 		# In versus each fighter carries two spirits it could bind, each with
@@ -222,6 +231,7 @@ func _draw() -> void:
 				"5   Computer difficulty: %s" % CpuController.LEVELS[Settings.difficulty()][0],
 				"6   Game speed: %d%%" % roundi(Settings.SPEEDS[Settings.speed()] * 100),
 				"7   Player 1 invincible: %s" % ("on" if Settings.invincible() else "off"),
+				"8   Yokai: %s" % ("unlocked" if Settings.yokai_unlocked() else "locked until a campaign is completed (8 unlocks them for practice)"),
 				"",
 			]
 			for i in 2:
@@ -235,11 +245,16 @@ func _draw() -> void:
 		Screen.RUN, Screen.VERSUS:
 			_draw_fight()
 		Screen.BIND:
-			if run.sealed:
-				BoutView.message(self, "%s's spirit is sealed" % run.sealed.display_name, 220, 40)
-				var rows: Array[String] = ["Which of its specials will the spirit perform?"]
-				for k in run.sealed.specials.size():
-					rows.append("%d   %s" % [k + 1, _special_line(run.sealed, run.sealed.specials[k])])
+			if not run.offer.is_empty():
+				var sealed_itself := run.offer[0].source == run.opponent
+				BoutView.message(self, ("%s's spirit is sealed" % run.opponent.display_name) if sealed_itself
+						else ("%s's spirits are yours to take" % run.opponent.display_name), 220, 40)
+				var rows: Array[String] = ["Which will you take?" if not sealed_itself
+						else "Which of its specials will the spirit perform?"]
+				for k in run.offer.size():
+					var b := run.offer[k]
+					rows.append("%d   %s: %s" % [k + 1, b.source.display_name, _special_line(b.source, b.move)])
+				rows.append("%d   neither: release it" % (run.offer.size() + 1))
 				BoutView.lines(self, Vector2(0, 300), rows, 1280, HORIZONTAL_ALIGNMENT_CENTER, 22)
 			else:
 				BoutView.message(self, "Both slots are full", 220, 40)
@@ -256,17 +271,27 @@ func _draw() -> void:
 			_draw_calibration()
 
 
+## Humans always; yokai once a campaign has been completed (or unlocked from
+## the menu for practice).
+func _playable() -> Array[FighterDefinition]:
+	var out: Array[FighterDefinition] = []
+	out.assign(roster.filter(func(d: FighterDefinition) -> bool:
+		return d.kind == FighterDefinition.Kind.HUMAN or Settings.yokai_unlocked()))
+	return out
+
+
 func _draw_select() -> void:
 	BoutView.message(self, "Choose your fighter", 70, 36)
 	var humans: Array[String] = []
 	var yokai: Array[String] = []
-	for k in roster.size():
-		var d := roster[k]
-		var row := (">  " if k == selected else "    ") + d.display_name
+	var playable := _playable()
+	for d in roster:
+		var k := playable.find(d)
+		var row := (">  " if k == selected else "    ") + d.display_name + ("" if k >= 0 else "   (locked)")
 		(humans if d.kind == FighterDefinition.Kind.HUMAN else yokai).append(row)
 	BoutView.lines(self, Vector2(200, 130), ["HUMANS", ""] + humans, 400, HORIZONTAL_ALIGNMENT_LEFT, 20)
 	BoutView.lines(self, Vector2(700, 130), ["YOKAI", ""] + yokai, 400, HORIZONTAL_ALIGNMENT_LEFT, 20)
-	var d := roster[selected]
+	var d := playable[selected]
 	var info: Array[String] = [
 		"%s, %s.   Health %d, walking speed %.1f." % [d.display_name, KIND_NAMES[d.kind], d.max_health, d.walk_forward],
 		"Special:  %s" % _special_line(d, d.specials[0]),

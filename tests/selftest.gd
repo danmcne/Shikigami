@@ -79,7 +79,15 @@ func _init() -> void:
 	_test_armour_counter_slow_pull_air()
 	_test_roster_data_and_every_special_runs()
 	_test_binding_chooses_a_special()
+	_test_combo_scaling_juggles_and_wakeup()
+	_test_spirit_counter_guards_summoner()
+	_test_warding_seal_paralyses()
+	_test_time_limit()
+	_test_finisher_captures_from_own_kind()
 	_test_run_tiers_and_saving()
+	_test_kanabo_quake()
+	_test_hard_cpu_fights()
+	_test_low_projectile_read()
 	print("CPU, run, calibration")
 	_test_cpu_enters_motions()
 	_test_cpu_attacks()
@@ -428,13 +436,12 @@ func _test_spirit_strikes() -> void:
 	var b := _spirit_bout(SpiritBinding.new(shuten, &"sake"), 600.0)
 	b.fighters[0].health = 500
 	_run(b, 80, _at({0: [5, "D"]}))
-	_check("an oni spirit bound with Sake heals its summoner and gives them armour",
-			b.fighters[0].health == 500 + shuten.moves[&"sake"].heal and b.fighters[0].armor_frames > 0,
-			"health %d, armour %d" % [b.fighters[0].health, b.fighters[0].armor_frames])
+	_check("an oni spirit bound with Sake heals its summoner",
+			b.fighters[0].health == 500 + shuten.moves[&"sake"].heal, "health %d" % b.fighters[0].health)
 
 
 func _test_spirit_cooldown() -> void:
-	var b := _spirit_bout(SpiritBinding.new(_r(&"shuten"), &"kanabo"), 600.0)
+	var b := _spirit_bout(SpiritBinding.new(_r(&"shuten"), &"kanabo_quake"), 600.0)
 	var seen := {}
 	_run(b, 120, _at({0: [5, "D"], 60: [5, "D"]}), null, func(x: Bout) -> void:
 		for s in x.spirits:
@@ -530,7 +537,7 @@ func _test_chord_window_is_per_player() -> void:
 
 
 func _test_unavailable_spirit_does_not_fall_through() -> void:
-	var bound: Array[SpiritBinding] = [SpiritBinding.new(_r(&"shuten"), &"kanabo"),
+	var bound: Array[SpiritBinding] = [SpiritBinding.new(_r(&"shuten"), &"kanabo_quake"),
 			SpiritBinding.new(_r(&"kitsune"), &"foxfire")]
 	var b := Bout.new(def, def, bound, [])
 	b.fighters[0].position.x = -400
@@ -639,26 +646,33 @@ func _test_run_rules() -> void:
 	for k in 300:
 		for s in run.opponent_spirits:
 			kinds_ok = kinds_ok and run.opponent.binds(s.source) and s.move in s.source.specials
-		counts_ok = counts_ok and run.opponent_spirits.size() <= Run.SLOTS
+		counts_ok = counts_ok and run.opponent_spirits.size() == Run.CARRIED[run.place_in_tier()]
+		run.fight = k % Run.length()
 		run._draw_opponent()
-	var r := Run.new(all[0], all, 3)
-	var yokai := all.filter(func(d: FighterDefinition) -> bool: return d.kind == FighterDefinition.Kind.YOKAI)
-	r.seal(yokai[0])
-	var first := r.choose_special(0)
-	r.seal(yokai[1])
-	var second := r.choose_special(1)
-	r.seal(yokai[2])
-	var third := r.choose_special(0)
-	r.choose_slot(0)
-	var fights := 0
-	while r.advance():
-		fights += 1
-	_check("opponent spirits follow the kind rule, at most two, with one of their own specials",
+	_check("opponents carry 0, 1, 2, 2 spirits through each tier, of the kind they can bind",
 			kinds_ok and counts_ok)
-	_check("binding fills free slots, then asks; a run lasts its length",
-			not first and not second and third and r.spirits[0].source == yokai[2]
-			and r.spirits[1].move == yokai[1].specials[1] and fights == Run.length() - 1,
-			"%s %s %s fights %d" % [first, second, third, fights])
+	# Walk a run: grant at fight 2, captures from humans, seals of yokai.
+	var r := Run.new(_r(&"musashi"), all, 3)
+	var granted_ok := true
+	var offers_ok := true
+	while true:
+		var before := r.spirits.size()
+		if r.grants_on_victory():
+			r.after_victory(false)
+			granted_ok = granted_ok and r.spirits.size() == before + 1
+		elif r.place_in_tier() >= 2:
+			var choice := r.after_victory(true)
+			var own_kind := r.tier() == 0
+			for b in r.offer:
+				offers_ok = offers_ok and (b.source.kind != r.character.kind)
+				offers_ok = offers_ok and (b.source == r.opponent) != own_kind
+			if choice:
+				if r.choose_offer(0):
+					r.choose_slot(1)
+		if not r.advance():
+			break
+	_check("the second fight's spirit is granted; humans' carried spirits and yokai themselves are offered",
+			granted_ok and offers_ok and r.spirits.size() == Run.SLOTS, "spirits %d" % r.spirits.size())
 
 
 func _test_calibration() -> void:
@@ -887,13 +901,12 @@ func _test_command_grab_reaches_further() -> void:
 
 
 func _test_armour_counter_slow_pull_air() -> void:
-	# Armour: Shuten-dōji drinks; a light lands during the drink but does not interrupt it.
-	var shuten := _r(&"shuten")
-	var armoured := Bout.new(shuten, def)
+	# Armour: Benkei's Standing Death takes a light without being interrupted.
+	var armoured := Bout.new(_r(&"benkei"), def)
 	armoured.fighters[0].position.x = -40
-	armoured.fighters[1].position.x = 60
+	armoured.fighters[1].position.x = 70
 	var interrupted := [false]
-	_run(armoured, 30, _at({0: [5, "C"]}), _at({5: [5, "A"]}), func(x: Bout) -> void:
+	_run(armoured, 30, _at({3: [5, "C"]}), _at({0: [5, "A"]}), func(x: Bout) -> void:
 		if x.fighters[0].state == Fighter.State.HITSTUN:
 			interrupted[0] = true)
 	var armour_ok: bool = _taken(armoured, 0) > 0 and not interrupted[0]
@@ -962,7 +975,138 @@ func _test_roster_data_and_every_special_runs() -> void:
 func _test_binding_chooses_a_special() -> void:
 	var all := Roster.all()
 	var r := Run.new(_r(&"musashi"), all, 9)
-	r.seal(_r(&"shuten"))
-	r.choose_special(1)
-	_check("binding records which special the spirit will perform", r.spirits[0].move == &"kanabo",
-			"got %s" % r.spirits[0].move)
+	r.fight = Run.FIGHTS_PER_TIER + 2
+	r.opponent = _r(&"shuten")
+	r.after_victory(true)
+	var offered := r.offer.map(func(b: SpiritBinding) -> StringName: return b.move)
+	r.choose_offer(1)
+	var kept := r.spirits.size() == 1 and r.spirits[0].move == &"kanabo_quake"
+	r.opponent = _r(&"kitsune")
+	r.after_victory(true)
+	r.choose_offer(-1)
+	_check("sealing offers both specials, records the choice, and can be declined",
+			offered == [&"sake", &"kanabo_quake"] and kept and r.spirits.size() == 1,
+			"offered %s" % [offered])
+
+
+func _test_combo_scaling_juggles_and_wakeup() -> void:
+	# A light landing as the fourth hit of a combo.
+	var scaled := _bout()
+	var a := scaled.fighters[0]
+	a.perform(&"stand_light")
+	a.state_frame = a.move.startup
+	scaled.combo[1] = 3
+	scaled._resolve_hits()
+	var scale_ok := _taken(scaled, 1) == roundi(_dmg(&"stand_light") * (1.0 - 3 * Bout.COMBO_STEP))
+	var f := Fighter.new(def)
+	f.reset(0, 1)
+	f.airborne = true
+	f.state = Fighter.State.KNOCKDOWN
+	var falling_hittable := not f.invulnerable()
+	f.juggle_hits = Fighter.JUGGLE_LIMIT
+	var juggle_capped := f.invulnerable()
+	var g := Fighter.new(def)
+	g.reset(0, 1)
+	g.state = Fighter.State.KNOCKDOWN
+	g.stun = 1
+	g.record(Intent.new())
+	g.step()
+	var woke_safe := g.state == Fighter.State.STAND and g.invulnerable()
+	for k in Fighter.WAKE_FRAMES:
+		g.record(Intent.new())
+		g.step()
+	var then_open := not g.invulnerable()
+	_check("combo damage scales; falling foes can be juggled up to a limit; rising is briefly safe",
+			scale_ok and falling_hittable and juggle_capped and woke_safe and then_open,
+			"scale %s falling %s capped %s woke %s open %s" % [scale_ok, falling_hittable, juggle_capped, woke_safe, then_open])
+
+
+func _test_spirit_counter_guards_summoner() -> void:
+	var bound: Array[SpiritBinding] = [SpiritBinding.new(_r(&"tanuki"), &"leaf_disguise")]
+	var b := Bout.new(def, def, bound, [])
+	b.fighters[0].position.x = -50
+	b.fighters[1].position.x = 50
+	_run(b, 50, _at({0: [5, "D"]}), _at({8: [5, "A"]}))
+	_check("a spirit's counter stance takes a strike for its summoner and answers it",
+			_taken(b, 0) == 0 and _taken(b, 1) > 0, "summoner took %d, attacker took %d" % [_taken(b, 0), _taken(b, 1)])
+
+
+func _test_warding_seal_paralyses() -> void:
+	var b := Bout.new(_r(&"miko"), def)
+	b.fighters[0].position.x = -150
+	b.fighters[1].position.x = 150
+	var held := [0]
+	_run(b, 160, _at({0: [4, "C"]}, 4), _at({}, 6), func(x: Bout) -> void:
+		var d := x.fighters[1]
+		if d.state == Fighter.State.HITSTUN:
+			held[0] += 1)
+	var seal: MoveDefinition = _r(&"miko").moves[&"warding_seal"].spawn
+	_check("stepping on the warding seal holds the victim in place",
+			held[0] >= seal.paralyse - 2 and _taken(b, 1) == seal.damage,
+			"held %d frames, took %d" % [held[0], _taken(b, 1)])
+
+
+func _test_time_limit() -> void:
+	var b := _bout()
+	b.time_limit = 30
+	b.fighters[0].health = 900
+	_run(b, 40, _at({}))
+	_check("when time runs out, the larger share of health takes the round",
+			b.wins[1] == 1 and b.wins[0] == 0, "wins %s" % [b.wins])
+
+
+func _test_finisher_captures_from_own_kind() -> void:
+	var carrying: Array[SpiritBinding] = [SpiritBinding.new(_r(&"kitsune"), &"foxfire")]
+	var b := Bout.new(def, def, [], carrying)
+	b.fighters[0].position.x = -50
+	b.fighters[1].position.x = 50
+	b.wins[0] = 1
+	b.fighters[1].health = 10
+	_run(b, 20, _at({0: [5, "A"]}))
+	_check("a beaten human carrying a yokai spirit can be finished to capture it",
+			b.phase == Bout.Phase.FINISH, "phase %d" % b.phase)
+
+
+func _test_kanabo_quake() -> void:
+	var shuten := _r(&"shuten")
+	var results := []
+	# Opponent behind and standing; behind and guarding low; behind and in the air.
+	for case in [["", false], ["G", false], ["", true]]:
+		var b := Bout.new(shuten, def)
+		var a := b.fighters[0]
+		a.position.x = 0
+		b.fighters[1].position.x = 150
+		a.facing = -1
+		if case[1]:
+			_airborne(b.fighters[1], Vector2(150, -400))  # still falling when the quake passes
+		a.perform(&"kanabo_quake")
+		var downed := [false]
+		_run(b, 40, _at({}), _at({}, 2 if case[0] == "G" else 5, case[0]), func(x: Bout) -> void:
+			if x.fighters[1].state == Fighter.State.KNOCKDOWN:
+				downed[0] = true)
+		results.append(downed[0])
+	_check("the quake knocks down a standing foe behind the oni, not one guarding low or in the air",
+			results == [true, false, false], "knocked down: %s" % [results])
+
+
+func _test_hard_cpu_fights() -> void:
+	var a := _r(&"musashi")
+	var b := Bout.new(a, _r(&"shuten"))
+	var cpus := [CpuController.new(CpuController.HARD, 1), CpuController.new(CpuController.HARD, 2)]
+	for n in 3000:
+		var f := b.fighters
+		var intents: Array[Intent] = [cpus[0].read(f[0], f[1]), cpus[1].read(f[1], f[0])]
+		b.step(intents)
+	_check("two Hard computers fight each other and both land hits",
+			b.fighters[0].health < b.fighters[0].definition.max_health or b.wins[1] > 0,
+			"healths %d / %d" % [b.fighters[0].health, b.fighters[1].health])
+
+
+func _test_low_projectile_read() -> void:
+	var kappa := _r(&"kappa")
+	var b := Bout.new(kappa, def)
+	b.fighters[0].position.x = -250
+	b.fighters[1].position.x = 250
+	_run(b, 90, _at({0: [4, "C"]}, 4), DummyController.new(DummyController.Mode.FULL_GUARD))
+	_check("full guard reads a low projectile in flight and guards it crouching", _taken(b, 1) == 0,
+			"took %d" % _taken(b, 1))

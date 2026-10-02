@@ -66,12 +66,12 @@ static func _table() -> Array:
 					damage = 75, knockdown = 40, knockback = 6.0, hitstop = 9, height = H.LOW,
 					hitboxes = [Rect2(20, -35, 170, 30)]}]},
 		{id = &"benkei", name = "Benkei", kind = HUMAN,
-			p = {health = 1250, size = 1.25, speed = 0.75, jump = 0.9, power = 1.25, tempo = 2},
+			p = {health = 1250, size = 1.25, speed = 0.75, jump = 0.9, power = 1.25, tempo = 1},
 			# He died standing on the bridge, still blocking it: armour while he advances.
 			specials = [{id = &"standing_death", startup = 4, active = 40, recovery = 20, cooldown = 240,
 					armor = 64, motion = Vector2(5, 0), damage = 90, hitstun = 20, blockstun = 14,
 					knockback = 10.0, hitstop = 10, hitboxes = [Rect2(10, -170, 90, 150)]},
-				{id = &"seven_weapons", startup = 8, active = 3, recovery = 30, cooldown = 60, throw = true,
+				{id = &"seven_weapons", startup = 8, active = 3, recovery = 30, cooldown = 180, throw = true,
 					damage = 170, knockdown = 60, knockback = 10.0, hitstop = 14,
 					hitboxes = [Rect2(10, -170, 100, 150)]}]},
 		{id = &"hanzo", name = "Hattori Hanzō", kind = HUMAN,
@@ -103,15 +103,16 @@ static func _table() -> Array:
 						hitboxes = [Rect2(-12, -18, 24, 36)]}},
 				{id = &"warding_seal", startup = 12, active = 1, recovery = 18, cooldown = 240,
 					spawn_offset = Vector2(120, 0),
+					# A trap holds rather than hurts; no guard height stops it, only not stepping on it.
 					spawn = {id = &"warding_seal_trap", startup = 0, active = 300, recovery = 0,
-						damage = 70, knockdown = 40, knockback = 4.0, hitstop = 8, height = H.LOW,
+						damage = 10, paralyse = 70, hitstop = 8, height = H.HIGH_LOW,
 						hitboxes = [Rect2(-25, -12, 50, 12)]}}]},
 		{id = &"onmyoji", name = "Onmyōji", kind = HUMAN,
 			p = {health = 900, size = 0.95, speed = 0.9, jump = 1.0, power = 0.9, tempo = 0},
-			# Paper shikigami: birds that climb as they fly.
+			# Paper shikigami: birds released low that climb gently as they fly.
 			specials = [{id = &"paper_birds", startup = 10, active = 1, recovery = 20, cooldown = 60, air = true,
-					spawn_offset = Vector2(40, -120),
-					spawn = {id = &"paper_bird", startup = 0, active = 80, recovery = 0, motion = Vector2(6, -4),
+					spawn_offset = Vector2(40, -70),
+					spawn = {id = &"paper_bird", startup = 0, active = 80, recovery = 0, motion = Vector2(7, -1.8),
 						damage = 50, hitstun = 16, blockstun = 12, knockback = 5.0, hitstop = 5,
 						hitboxes = [Rect2(-15, -10, 30, 20)]}},
 				# A five-element seal: stops projectiles, repels whoever walks into it.
@@ -123,14 +124,15 @@ static func _table() -> Array:
 
 		# --- yokai ----------------------------------------------------------
 		{id = &"shuten", name = "Shuten-dōji", kind = YOKAI,
-			p = {health = 1300, size = 1.3, speed = 0.7, jump = 0.9, power = 1.3, tempo = 2},
-			# The sake-drinking oni: drinks unbothered, then fights on shrugging off blows.
-			specials = [{id = &"sake", startup = 40, active = 1, recovery = 20, cooldown = 480,
-					heal = 100, armor = 220},
-				# The iron club: slow, overhead, armoured while it comes down.
-				{id = &"kanabo", startup = 22, active = 5, recovery = 26, cooldown = 120, armor = 26,
-					damage = 150, knockdown = 55, knockback = 12.0, hitstop = 14, height = H.HIGH,
-					hitboxes = [Rect2(20, -90, 130, 90)]}]},
+			p = {health = 1400, size = 1.3, speed = 0.8, jump = 0.9, power = 1.3, tempo = 1},
+			# The sake-drinking oni: a long, exposed drink that restores health.
+			specials = [{id = &"sake", startup = 40, active = 1, recovery = 20, cooldown = 480, heal = 120},
+				# The iron club driven into the ground: a quake along the floor to both
+				# sides. Little damage, but it knocks down anyone standing; jump it or
+				# guard low.
+				{id = &"kanabo_quake", startup = 20, active = 6, recovery = 24, cooldown = 150,
+					damage = 60, knockdown = 50, knockback = 3.0, hitstop = 12, height = H.LOW,
+					hitboxes = [Rect2(-230, -18, 460, 18)]}]},
 		{id = &"kitsune", name = "Kitsune", kind = YOKAI,
 			p = {health = 850, size = 0.85, speed = 1.35, jump = 1.06, power = 0.8, tempo = -1},
 			# Fox illusion: gone, then behind you.
@@ -156,10 +158,12 @@ static func _table() -> Array:
 					motion = Vector2(11, -7), damage = 80, knockdown = 35, knockback = 8.0, hitstop = 9,
 					height = H.HIGH, hitboxes = [Rect2(0, -120, 80, 60)]}]},
 		{id = &"kappa", name = "Kappa", kind = YOKAI,
-			p = {health = 1000, size = 0.8, speed = 0.9, jump = 1.0, power = 1.1, tempo = 0},
+			# Child-sized, so hard to hit; it pays for that in health and power,
+			# as the nekomata does.
+			p = {health = 900, size = 0.8, speed = 0.9, jump = 1.0, power = 1.0, tempo = 0},
 			# Kappa challenge travellers to sumo.
-			specials = [{id = &"sumo_grab", startup = 8, active = 3, recovery = 28, cooldown = 60, throw = true,
-					damage = 150, knockdown = 55, knockback = 14.0, hitstop = 14,
+			specials = [{id = &"sumo_grab", startup = 10, active = 3, recovery = 28, cooldown = 180, throw = true,
+					damage = 130, knockdown = 55, knockback = 14.0, hitstop = 14,
 					hitboxes = [Rect2(10, -140, 85, 140)]},
 				# Water from the dish on its head, along the ground: a low projectile.
 				{id = &"water_jet", startup = 10, active = 1, recovery = 20, cooldown = 60,
@@ -192,7 +196,7 @@ static func _table() -> Array:
 					motion = Vector2(4, -20), damage = 90, knockdown = 40, knockback = 6.0, hitstop = 10,
 					height = H.HIGH, hitboxes = [Rect2(-20, -40, 80, 50)]}]},
 		{id = &"nekomata", name = "Nekomata", kind = YOKAI,
-			p = {health = 800, size = 0.8, speed = 1.4, jump = 1.15, power = 0.85, tempo = -1},
+			p = {health = 900, size = 0.8, speed = 1.4, jump = 1.15, power = 0.95, tempo = -1},
 			specials = [{id = &"pounce", startup = 6, active = 16, recovery = 14, cooldown = 75,
 					motion = Vector2(10, -12), damage = 70, hitstun = 18, knockback = 6.0, hitstop = 8,
 					height = H.HIGH, hitboxes = [Rect2(0, -90, 80, 60)]},

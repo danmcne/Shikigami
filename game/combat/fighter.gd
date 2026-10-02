@@ -20,6 +20,9 @@ const FINISHER := &"finisher"
 ## The finisher's input, the same for every fighter: away, toward, spirit.
 const FINISHER_COMMAND := "46D"
 const NOTICE_FRAMES := 60
+const JUGGLE_LIMIT := 3
+const WAKE_FRAMES := 12
+const GLOW_FRAMES := 45
 
 var definition: FighterDefinition
 var input := InputHistory.new()
@@ -27,9 +30,16 @@ var input := InputHistory.new()
 var chord_window := InputHistory.DEFAULT_CHORD
 ## A practice cheat: hits still land and stun, but take no health.
 var invincible := false
-## Status effects, in frames remaining.
+## Status effects, in frames remaining. `wake_frames` is the brief
+## invulnerability after getting up from a knockdown; `glow_frames` only
+## shows a heal.
 var armor_frames := 0
 var slow_frames := 0
+var wake_frames := 0
+var glow_frames := 0
+## Hits taken in the air during the current combo; past JUGGLE_LIMIT the
+## fighter cannot be hit again until landing.
+var juggle_hits := 0
 ## A short message shown over the fighter ("+100", "COUNTER"), for the view.
 var notice := ""
 var notice_frames := 0
@@ -142,6 +152,9 @@ func reset(x: float, face: int) -> void:
 	spirit_threatened = false
 	armor_frames = 0
 	slow_frames = 0
+	wake_frames = 0
+	glow_frames = 0
+	juggle_hits = 0
 	notice_frames = 0
 	cooldowns.assign(spirits.map(func(_s: SpiritBinding) -> int: return 0))
 	_summon_slot = -1
@@ -165,6 +178,7 @@ func spirit_guard_held() -> bool:
 
 func heal(amount: int) -> void:
 	health = mini(health + amount, definition.max_health)
+	glow_frames = GLOW_FRAMES
 	show_notice("+%d" % amount)
 
 
@@ -212,6 +226,8 @@ func step() -> void:
 	pending_teleport = 0.0
 	armor_frames = maxi(armor_frames - 1, 0)
 	slow_frames = maxi(slow_frames - 1, 0)
+	wake_frames = maxi(wake_frames - 1, 0)
+	glow_frames = maxi(glow_frames - 1, 0)
 	notice_frames = maxi(notice_frames - 1, 0)
 	for slot in cooldowns.size():
 		cooldowns[slot] = maxi(cooldowns[slot] - 1, 0)
@@ -236,6 +252,7 @@ func step() -> void:
 			if not airborne:
 				stun -= 1
 				if stun <= 0:
+					wake_frames = WAKE_FRAMES
 					_set_state(State.STAND)
 		State.GRABBED, State.DAZED, State.SEALED, State.KO:
 			pass
@@ -258,10 +275,10 @@ func step() -> void:
 ## `from_spirit`: the hit comes from a spirit or a spirit's projectile. Only
 ## spirit guard stops those, and spirit guard stops nothing else, so a
 ## defender must choose which threat to guard against.
-func receive(m: MoveDefinition, from_facing: int, from_spirit := false) -> void:
-	if state == State.MOVE and move.counter and move.is_active_on(state_frame) and not m.throw:
-		show_notice("COUNTER")
-		_begin(move.counter)
+## `scale` reduces damage later in a combo.
+func receive(m: MoveDefinition, from_facing: int, from_spirit := false, scale := 1.0) -> void:
+	if counter_ready() and not m.throw:
+		trigger_counter()
 		return
 	var held := spirit_guard_held() if from_spirit else (guard_held() and not spirit_guard_held())
 	var guarding := not m.throw and not airborne and held \
@@ -278,9 +295,10 @@ func receive(m: MoveDefinition, from_facing: int, from_spirit := false) -> void:
 	if m.slows > 0:
 		slow_frames = maxi(slow_frames, m.slows)
 		show_notice("SLOWED")
+	var damage := roundi(m.damage * scale)
 	if armor_frames > 0 and not m.throw:
 		if not invincible:
-			health = maxi(health - m.damage, 0)
+			health = maxi(health - damage, 0)
 		if health == 0:
 			_halt()
 			_set_state(State.KO, true)
@@ -288,8 +306,15 @@ func receive(m: MoveDefinition, from_facing: int, from_spirit := false) -> void:
 	move = null
 	_started_rank = -1
 	if not invincible:
-		health = maxi(health - m.damage, 0)
+		health = maxi(health - damage, 0)
+	if m.paralyse > 0 and health > 0:
+		slide = 0.0
+		stun = m.paralyse
+		show_notice("HELD")
+		_set_state(State.HITSTUN, true)
+		return
 	if airborne:
+		juggle_hits += 1
 		velocity = Vector2(from_facing * m.knockback * 0.5, minf(velocity.y, -6.0))
 	else:
 		slide = from_facing * m.knockback
@@ -334,9 +359,38 @@ func collapse() -> void:
 	_set_state(State.KO, true)
 
 
+## Whether what this fighter is sending at its opponent must be guarded low:
+## the move it is performing, what that move releases, or a projectile of its
+## still in flight. For controllers deciding a guard height.
+func threatens_low() -> bool:
+	var low := MoveDefinition.Height.LOW
+	if state == State.MOVE:
+		var m := move.spawn if move.spawn else move
+		if m.height == low:
+			return true
+	return live_spawns.any(func(m: MoveDefinition) -> bool: return m.height == low)
+
+
+## Whether this fighter's own counter stance is waiting for a strike.
+func counter_ready() -> bool:
+	return state == State.MOVE and move.counter != null and move.is_active_on(state_frame)
+
+
+func trigger_counter() -> void:
+	show_notice("COUNTER")
+	_begin(move.counter)
+
+
+## Lying after a knockdown, just risen, juggled to the limit, dazed or sealed:
+## nothing connects. A fighter knocked down but still falling can be hit.
 func invulnerable() -> bool:
-	return state in [State.KNOCKDOWN, State.DAZED, State.SEALED] \
-			or (state == State.MOVE and state_frame < move.invulnerable)
+	if state in [State.DAZED, State.SEALED] or wake_frames > 0:
+		return true
+	if state == State.KNOCKDOWN and not airborne:
+		return true
+	if airborne and juggle_hits >= JUGGLE_LIMIT and state in [State.HITSTUN, State.KNOCKDOWN, State.KO]:
+		return true
+	return state == State.MOVE and state_frame < move.invulnerable
 
 
 func throwable() -> bool:
@@ -552,6 +606,7 @@ func _integrate() -> void:
 			position.y = FLOOR_Y
 			velocity = Vector2.ZERO
 			airborne = false
+			juggle_hits = 0
 			_on_land()
 	else:
 		position.x += slide

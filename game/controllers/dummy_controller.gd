@@ -25,8 +25,8 @@ func read(me: Fighter, them: Fighter) -> Intent:
 		var against_spirit := mode == Mode.FULL_GUARD and me.spirit_threatened
 		i.held = Intent.SPIRIT_GUARD if against_spirit else Intent.GUARD
 	i.down = mode == Mode.CROUCH or mode == Mode.CROUCH_GUARD
-	if mode == Mode.FULL_GUARD and them.state == Fighter.State.MOVE:
-		i.down = them.move.height == MoveDefinition.Height.LOW
+	if mode == Mode.FULL_GUARD:
+		i.down = them.threatens_low()
 	if guards and me.state == Fighter.State.GRABBED:
 		i.light = true
 		i.heavy = true

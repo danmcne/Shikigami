@@ -51,6 +51,10 @@ static func invincible() -> bool:
 	return _read("game", "invincible", false)
 
 
+static func yokai_unlocked() -> bool:
+	return _read("game", "yokai_unlocked", false)
+
+
 static func set_option(key: String, value: Variant) -> void:
 	_write("game", key, value)
 

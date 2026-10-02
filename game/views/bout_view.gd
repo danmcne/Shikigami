@@ -65,6 +65,8 @@ static func _fighter(ci: CanvasItem, f: Fighter, base: Color, show_boxes: bool) 
 	ci.draw_rect(body, color)
 	if f.armor_frames > 0:
 		ci.draw_rect(body.grow(3), Color(1.0, 0.8, 0.2, 0.9), false, 3.0)
+	if f.glow_frames > 0:
+		ci.draw_rect(body.grow(5), Color(0.4, 1.0, 0.5, f.glow_frames / float(Fighter.GLOW_FRAMES)), false, 4.0)
 	if f.summoner < 0:
 		ci.draw_string(ThemeDB.fallback_font, Vector2(body.position.x - 60, body.position.y - 26),
 				f.definition.display_name, HORIZONTAL_ALIGNMENT_CENTER, body.size.x + 120, 13, Color(1, 1, 1, 0.75))
@@ -122,6 +124,11 @@ static func _hud(ci: CanvasItem, bout: Bout, names: Array[String]) -> void:
 			ci.draw_rect(Rect2(pip_x, 62, 16, 16), Color.GOLD if w < bout.wins[i] else Color(0.3, 0.3, 0.3))
 		var align := HORIZONTAL_ALIGNMENT_LEFT if left else HORIZONTAL_ALIGNMENT_RIGHT
 		ci.draw_string(font, Vector2(bar.position.x, 76), names[i], align, bar.size.x, 16)
+		# Hits landed on the other fighter in the current combo, on the attacker's side.
+		var chain := bout.combo[1 - i]
+		if chain >= 2:
+			ci.draw_string(font, Vector2(bar.position.x, 300), "%d HITS" % chain, align, bar.size.x, 30,
+					Color(1.0, 0.85, 0.3))
 		_slots(ci, f, i, bar, left)
 
 	match bout.phase:

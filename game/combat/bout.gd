@@ -25,6 +25,8 @@ const BACK_THROW_DISTANCE := 60.0
 ## window (or just before it) escapes.
 const TECH_WINDOW := 10
 const TECH_PREBUFFER := 3
+const COMBO_STEP := 0.1
+const COMBO_FLOOR := 0.3
 
 var fighters: Array[Fighter] = []
 var entities: Array[Entity] = []
@@ -38,6 +40,15 @@ var phase_frame := 0
 ## Index of the last round's winner, or -1 for a double KO.
 var round_winner := -1
 var hitstop := 0
+## Consecutive hits each fighter has taken without recovering. Each further
+## hit deals less damage, down to COMBO_FLOOR of its full value.
+var combo: Array[int] = [0, 0]
+## Frames per round before time runs out (0: no limit), and frames elapsed.
+var time_limit := 0
+var round_frame := 0
+## Whether the deciding KO may lead to a finisher at all (a run turns it off
+## where a spirit is granted without one).
+var offer_finisher := true
 ## True once a finisher has sealed the loser's spirit.
 var bound := false
 ## While positive, a throw is holding its victim and the fight is frozen. The
@@ -64,6 +75,8 @@ func start_round() -> void:
 	hitstop = 0
 	grab_frames = 0
 	grab_thrower = null
+	combo = [0, 0]
+	round_frame = 0
 
 
 func restart() -> void:
@@ -111,9 +124,12 @@ func _fight_step(intents: Array[Intent]) -> void:
 	if hitstop > 0:
 		hitstop -= 1
 		return
+	round_frame += 1
 	for i in 2:
 		var me := fighters[i]
 		var them := fighters[1 - i]
+		if not me.state in [Fighter.State.HITSTUN, Fighter.State.KNOCKDOWN, Fighter.State.GRABBED]:
+			combo[i] = 0
 		me.face_toward(them.position.x)
 		me.threatened = _threatens(1 - i)
 		me.spirit_threatened = _spirit_threatens(1 - i)
@@ -131,7 +147,26 @@ func _fight_step(intents: Array[Intent]) -> void:
 	_resolve_hits()
 	entities.assign(entities.filter(func(e: Entity) -> bool: return not e.spent))
 	spirits.assign(spirits.filter(func(s: Fighter) -> bool: return s.state == Fighter.State.MOVE))
+	if time_limit > 0 and round_frame >= time_limit:
+		_time_up()
 	_check_ko()
+
+
+## Time out: whoever has the smaller share of their health falls; equal
+## shares fall together.
+func _time_up() -> void:
+	var share := fighters.map(func(f: Fighter) -> float: return float(f.health) / f.definition.max_health)
+	for i in 2:
+		if share[i] <= share[1 - i]:
+			fighters[i].collapse()
+
+
+## A spirit of `index` standing in a counter stance, if any.
+func _spirit_counter(index: int) -> Fighter:
+	for s in spirits:
+		if s.summoner == index and s.counter_ready():
+			return s
+	return null
 
 
 func _spirit_threatens(index: int) -> bool:
@@ -273,13 +308,27 @@ func _resolve_hits() -> void:
 	var struck := [false, false]
 	for s in strikes:
 		var m: MoveDefinition = s[1]
-		var target := fighters[1 - s[0]]
-		target.receive(m, s[2], s[4])
-		struck[1 - s[0]] = true
-		hitstop = maxi(hitstop, m.hitstop)
+		var side: int = 1 - s[0]
+		var target := fighters[side]
 		var attacker: Fighter = s[3]
+		hitstop = maxi(hitstop, m.hitstop)
 		if attacker:
 			attacker.move_connected = true
+		# A bound spirit in a counter stance takes the strike for its summoner
+		# and answers from where the summoner stands.
+		var guardian := _spirit_counter(side)
+		if guardian:
+			guardian.position = target.position
+			guardian.facing = target.facing
+			guardian.trigger_counter()
+			target.show_notice("COUNTER")
+			continue
+		var scale := maxf(COMBO_FLOOR, 1.0 - COMBO_STEP * combo[side])
+		target.receive(m, s[2], s[4], scale)
+		struck[side] = true
+		if target.state in [Fighter.State.HITSTUN, Fighter.State.KNOCKDOWN, Fighter.State.KO]:
+			combo[side] += 1
+		if attacker:
 			# A cornered defender cannot slide back, so the attacker recoils instead.
 			if _against_wall(target, attacker.facing) and not attacker.airborne:
 				attacker.slide = -attacker.facing * m.knockback
@@ -382,14 +431,21 @@ func _check_ko() -> void:
 		return
 	var w := fighters[round_winner]
 	var loser := fighters[1 - round_winner]
-	# A spirit already held cannot be sealed again.
-	var held := w.spirits.any(func(b: SpiritBinding) -> bool: return b.source.id == loser.definition.id)
-	if w.definition.binds(loser.definition) and w.definition.finisher_move and not held:
+	if offer_finisher and w.definition.finisher_move and finisher_would_gain(w, loser):
 		loser.daze()
 		w.awaiting_finisher = true
 		_enter(Phase.FINISH)
 	else:
 		_enter(Phase.BOUT_OVER)
+
+
+## Whether sealing `loser` would give `winner` anything: the loser's own
+## spirit if the winner can bind its kind, or any spirit the loser carries
+## that the winner could bind. Spirits the winner already holds don't count.
+static func finisher_would_gain(winner: Fighter, loser: Fighter) -> bool:
+	var held := winner.spirits.map(func(b: SpiritBinding) -> StringName: return b.source.id)
+	var new_to := func(d: FighterDefinition) -> bool: return winner.definition.binds(d) and not d.id in held
+	return new_to.call(loser.definition) or loser.spirits.any(func(b: SpiritBinding) -> bool: return new_to.call(b.source))
 
 
 func _enter(p: Phase) -> void:

@@ -60,6 +60,9 @@ enum Height { HIGH, MID, LOW, HIGH_LOW }
 ## On a hit that is not guarded, slows the target's walking and jumping for
 ## this many frames.
 @export var slows: int = 0
+## On a hit, holds the target in place, unable to act, for this many frames
+## instead of the usual hitstun and knockback (a trap).
+@export var paralyse: int = 0
 ## A counter stance: if struck by a strike while this move is active, the hit
 ## is ignored and the performer does `counter` instead.
 @export var counter: MoveDefinition
