@@ -21,8 +21,11 @@ extends RefCounted
 ## generator, so a saved run resumes with the same opponents.
 
 const SLOTS := 2
+const Bestiary := preload("res://game/monsters/bestiary.gd")
 const FIGHTS_PER_TIER := 4
 const TIERS := 2
+## The monster tier that follows: this many fights against monsters.
+const MONSTER_FIGHTS := 1
 ## Spirits carried by the opponents of each tier, in order.
 const CARRIED := [0, 1, 2, 2]
 ## In the own-kind tier, the fight whose single spirit is simply granted.
@@ -35,6 +38,8 @@ var spirits: Array[SpiritBinding] = []
 var fight := 0
 var opponent: FighterDefinition
 var opponent_spirits: Array[SpiritBinding] = []
+## In the monster tier, the monster being fought (its body is `opponent`).
+var monster: MonsterDefinition = null
 ## Bindings on offer after a capture, and a chosen binding waiting for a slot.
 var offer: Array[SpiritBinding] = []
 var pending: SpiritBinding = null
@@ -42,7 +47,7 @@ var rng := RandomNumberGenerator.new()
 
 
 static func length() -> int:
-	return FIGHTS_PER_TIER * TIERS
+	return FIGHTS_PER_TIER * TIERS + MONSTER_FIGHTS
 
 
 func _init(chosen: FighterDefinition, all: Array[FighterDefinition], seed_value: int) -> void:
@@ -53,8 +58,9 @@ func _init(chosen: FighterDefinition, all: Array[FighterDefinition], seed_value:
 
 
 ## 0 for the own-kind tier, 1 for the other kind.
+## 0 for the own-kind tier, 1 for the other kind, 2 for monsters.
 func tier() -> int:
-	return floori(float(fight) / FIGHTS_PER_TIER)
+	return mini(floori(float(fight) / FIGHTS_PER_TIER), TIERS)
 
 
 func place_in_tier() -> int:
@@ -127,12 +133,17 @@ static func restore(state: Dictionary, all: Array[FighterDefinition]) -> Run:
 	var by_id := {}
 	for d in all:
 		by_id[String(d.id)] = d
-	if not (by_id.has(str(state.get("character"))) and by_id.has(str(state.get("opponent")))):
+	var beasts := {}
+	for m in Bestiary.all():
+		beasts[String(m.body.id)] = m
+	var opponent_id := str(state.get("opponent"))
+	if not by_id.has(str(state.get("character"))) or not (by_id.has(opponent_id) or beasts.has(opponent_id)):
 		return null
 	var run := Run.new(by_id[state.character], all, state.rng_seed)
 	run.fight = state.fight
 	run.rng.state = state.rng_state
-	run.opponent = by_id[state.opponent]
+	run.monster = beasts.get(opponent_id)
+	run.opponent = run.monster.body if run.monster else by_id[opponent_id]
 	for field in ["spirits", "opponent_spirits"]:
 		var bindings: Array[SpiritBinding] = []
 		for pair in state.get(field, []):
@@ -160,6 +171,13 @@ func _holds(source: FighterDefinition) -> bool:
 
 
 func _draw_opponent() -> void:
+	opponent_spirits.clear()
+	monster = null
+	if tier() == TIERS:
+		var beasts := Bestiary.all()
+		monster = beasts[rng.randi() % beasts.size()]
+		opponent = monster.body
+		return
 	var own := tier() == 0
 	var pool := roster.filter(func(d: FighterDefinition) -> bool: return (d.kind == character.kind) == own)
 	opponent = pool[rng.randi() % pool.size()]

@@ -34,6 +34,8 @@ var entities: Array[Entity] = []
 ## move. They strike but have no hurtbox or pushbox.
 var spirits: Array[Fighter] = []
 var wins: Array[int] = [0, 0]
+## Rounds needed to win the bout; a monster is fought in one long round.
+var rounds_to_win := ROUNDS_TO_WIN
 var round_number := 1
 var phase := Phase.FIGHT
 var phase_frame := 0
@@ -63,6 +65,16 @@ func _init(a: FighterDefinition, b: FighterDefinition,
 		spirits_a: Array[SpiritBinding] = [], spirits_b: Array[SpiritBinding] = []) -> void:
 	fighters.assign([Fighter.new(a, spirits_a), Fighter.new(b, spirits_b)])
 	start_round()
+
+
+## A bout between a fighter and a monster, in one long round.
+static func versus_monster(a: FighterDefinition, spirits_a: Array[SpiritBinding], monster: Monster) -> Bout:
+	var bout := Bout.new(a, monster.definition, spirits_a, [])
+	bout.fighters[1] = monster
+	bout.rounds_to_win = 1
+	bout.offer_finisher = false
+	bout.start_round()
+	return bout
 
 
 func start_round() -> void:
@@ -108,9 +120,9 @@ func step(intents: Array[Intent]) -> void:
 
 
 func winner() -> int:
-	if wins[0] >= ROUNDS_TO_WIN:
+	if wins[0] >= rounds_to_win:
 		return 0
-	if wins[1] >= ROUNDS_TO_WIN:
+	if wins[1] >= rounds_to_win:
 		return 1
 	return -1
 
@@ -286,23 +298,30 @@ func _resolve_hits() -> void:
 		var target := fighters[1 - i]
 		if target.invulnerable():
 			continue
-		var hurt := target.hurtbox()
+		# A monster's body is several hurtboxes; where a strike lands decides
+		# which part it hits.
+		var hurt := target.hurtboxes()
 		var f := fighters[i]
-		if _any_hit(f.active_hitboxes(), hurt):
+		var contact := _contact(f.active_hitboxes(), hurt)
+		if contact.has_area():
 			if f.move.throw:
 				throwers.append(f)
 			else:
-				strikes.append([i, f.move, f.facing, f, false])
+				strikes.append([i, f.move, f.facing, f, false, contact])
 		for e in entities:
-			if e.owner_index == i and _any_hit(e.active_hitboxes(), hurt):
-				strikes.append([i, e.move, e.facing, null, e.from_spirit])
+			contact = _contact(e.active_hitboxes(), hurt) if e.owner_index == i else Rect2()
+			if contact.has_area():
+				strikes.append([i, e.move, e.facing, null, e.from_spirit, contact])
 				e.spent = true
 		for s in spirits:
-			if s.summoner == i and s.state == Fighter.State.MOVE and _any_hit(s.active_hitboxes(), hurt):
+			if s.summoner != i or s.state != Fighter.State.MOVE:
+				continue
+			contact = _contact(s.active_hitboxes(), hurt)
+			if contact.has_area():
 				if s.move.throw:
 					throwers.append(s)
 				else:
-					strikes.append([i, s.move, s.facing, null, true])
+					strikes.append([i, s.move, s.facing, null, true, contact])
 					s.move_connected = true
 
 	var struck := [false, false]
@@ -324,7 +343,7 @@ func _resolve_hits() -> void:
 			target.show_notice("COUNTER")
 			continue
 		var scale := maxf(COMBO_FLOOR, 1.0 - COMBO_STEP * combo[side])
-		target.receive(m, s[2], s[4], scale)
+		target.receive(m, s[2], s[4], scale, s[5])
 		struck[side] = true
 		if target.state in [Fighter.State.HITSTUN, Fighter.State.KNOCKDOWN, Fighter.State.KO]:
 			combo[side] += 1
@@ -362,6 +381,16 @@ func _clash_entities() -> void:
 						a.spent = true
 						b.spent = true
 						break
+
+
+## Where any of `boxes` first overlaps any of `targets`; an empty rect if
+## nowhere.
+func _contact(boxes: Array[Rect2], targets: Array[Rect2]) -> Rect2:
+	for box in boxes:
+		for t in targets:
+			if box.intersects(t):
+				return box.intersection(t)
+	return Rect2()
 
 
 func _any_hit(boxes: Array[Rect2], target: Rect2) -> bool:
@@ -426,7 +455,7 @@ func _check_ko() -> void:
 		wins[round_winner] += 1
 	entities.clear()
 	spirits.clear()
-	if round_winner < 0 or wins[round_winner] < ROUNDS_TO_WIN:
+	if round_winner < 0 or wins[round_winner] < rounds_to_win:
 		_enter(Phase.ROUND_OVER)
 		return
 	var w := fighters[round_winner]

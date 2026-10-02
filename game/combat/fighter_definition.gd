@@ -6,8 +6,9 @@ extends Resource
 ## Boxes use the same local space as MoveDefinition. The pushbox is assumed
 ## symmetric about x = 0.
 
-## Humans bind yokai spirits and yokai bind human spirits, never their own kind.
-enum Kind { HUMAN, YOKAI }
+## Humans bind yokai spirits and yokai bind human spirits, never their own
+## kind. Monsters are neither and are never bound.
+enum Kind { HUMAN, YOKAI, MONSTER }
 
 @export var id: StringName
 @export var display_name: String
@@ -52,4 +53,4 @@ enum Kind { HUMAN, YOKAI }
 
 
 func binds(other: FighterDefinition) -> bool:
-	return kind != other.kind
+	return (kind == Kind.HUMAN and other.kind == Kind.YOKAI) or (kind == Kind.YOKAI and other.kind == Kind.HUMAN)

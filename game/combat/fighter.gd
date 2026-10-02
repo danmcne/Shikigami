@@ -265,7 +265,10 @@ func step() -> void:
 			pending_spawn = move.spawn
 		if _summon_slot >= 0:
 			pending_summon = _summon_slot
-			cooldowns[_summon_slot] = spirits[_summon_slot].source.spirit_cooldown
+			# A spirit never recharges faster than the special it performs.
+			var binding := spirits[_summon_slot]
+			var special: MoveDefinition = binding.source.moves[binding.move]
+			cooldowns[_summon_slot] = maxi(binding.source.spirit_cooldown, special.cooldown)
 		pending_heal = move.heal
 	if state == State.MOVE and state_frame == move.teleport_frame:
 		pending_teleport = move.teleport_distance
@@ -275,8 +278,10 @@ func step() -> void:
 ## `from_spirit`: the hit comes from a spirit or a spirit's projectile. Only
 ## spirit guard stops those, and spirit guard stops nothing else, so a
 ## defender must choose which threat to guard against.
-## `scale` reduces damage later in a combo.
-func receive(m: MoveDefinition, from_facing: int, from_spirit := false, scale := 1.0) -> void:
+## `scale` reduces damage later in a combo; `contact` is where the strike
+## landed, which only a monster's parts care about.
+func receive(m: MoveDefinition, from_facing: int, from_spirit := false, scale := 1.0,
+		_contact := Rect2()) -> void:
 	if counter_ready() and not m.throw:
 		trigger_counter()
 		return
@@ -406,6 +411,13 @@ func threatening() -> bool:
 
 func performing_finisher() -> bool:
 	return state == State.MOVE and _finisher != null and move == _moves[FINISHER]
+
+
+## Every box this fighter can be struck on. One for a fighter; several for a
+## monster.
+func hurtboxes() -> Array[Rect2]:
+	var boxes: Array[Rect2] = [hurtbox()]
+	return boxes
 
 
 func hurtbox() -> Rect2:

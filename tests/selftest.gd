@@ -88,6 +88,14 @@ func _init() -> void:
 	_test_kanabo_quake()
 	_test_hard_cpu_fights()
 	_test_low_projectile_read()
+	print("monsters, healing, tournament")
+	_test_monster_parts_and_weak_point()
+	_test_monster_leg_break_cripples()
+	_test_monster_bout_rules()
+	_test_monster_fights_on_its_own()
+	_test_cpu_drinks_when_safe()
+	_test_spirit_recharge_at_least_special()
+	_test_tournament_engine()
 	print("CPU, run, calibration")
 	_test_cpu_enters_motions()
 	_test_cpu_attacks()
@@ -1110,3 +1118,130 @@ func _test_low_projectile_read() -> void:
 	_run(b, 90, _at({0: [4, "C"]}, 4), DummyController.new(DummyController.Mode.FULL_GUARD))
 	_check("full guard reads a low projectile in flight and guards it crouching", _taken(b, 1) == 0,
 			"took %d" % _taken(b, 1))
+
+
+# --- monsters, healing, tournament -------------------------------------------
+
+const Bestiary := preload("res://game/monsters/bestiary.gd")
+
+
+func _monster_bout(distance := 400.0) -> Bout:
+	var b := Bout.versus_monster(def, [], Monster.new(Bestiary.by_id(&"ushi_oni"), 3))
+	b.fighters[0].position.x = -distance / 2.0
+	b.fighters[1].position.x = distance / 2.0
+	return b
+
+
+func _test_monster_parts_and_weak_point() -> void:
+	var b := _monster_bout()
+	var oni: Monster = b.fighters[1]
+	var head := 3
+	var hidden_at_rest := not oni.exposed(head)
+	var charge: MonsterDefinition.Attack = oni.monster.attacks.filter(
+			func(a: MonsterDefinition.Attack) -> bool: return a.move.id == &"charge")[0]
+	oni.attack = charge
+	oni._begin(charge.move)
+	var pushless_mid_charge := false
+	var head_open_after := false
+	for n in charge.move.total_frames():
+		var intents: Array[Intent] = [Intent.new(), Intent.new()]
+		b.fighters[0].health = def.max_health  # keep the fighter standing
+		b.step(intents)
+		if oni.state == Fighter.State.MOVE and oni.move.is_active_on(oni.state_frame) and not oni.pushbox().has_area():
+			pushless_mid_charge = true
+		if oni.exposed(head):
+			head_open_after = true
+	# Damage by part: a shell hit is halved, a leg hit full.
+	var shell_hit := MoveDefinition.new()
+	shell_hit.damage = 100
+	var before := oni.health
+	oni.receive(shell_hit, 1, false, 1.0, oni.to_world(oni.monster.parts[0].box).grow(-10))
+	var shell_loss := before - oni.health
+	before = oni.health
+	oni.receive(shell_hit, 1, false, 1.0, oni.to_world(oni.monster.parts[1].box).grow(-10))
+	var leg_loss := before - oni.health
+	_check("Ushi-oni: head hidden at rest and open after a charge, charge passes through, shell halves damage",
+			hidden_at_rest and head_open_after and pushless_mid_charge and shell_loss == 50 and leg_loss == 100,
+			"hidden %s open %s pushless %s shell %d leg %d" % [hidden_at_rest, head_open_after, pushless_mid_charge, shell_loss, leg_loss])
+
+
+func _test_monster_leg_break_cripples() -> void:
+	var oni := Monster.new(Bestiary.by_id(&"ushi_oni"), 4)
+	oni.reset(0, -1)
+	var hit := MoveDefinition.new()
+	hit.damage = 400
+	oni.receive(hit, 1, false, 1.0, oni.to_world(oni.monster.parts[1].box).grow(-10))
+	var stomp_left := oni.monster.attacks.any(func(a: MonsterDefinition.Attack) -> bool:
+		return a.move.id == &"stomp" and not a.requires.any(func(n: String) -> bool: return oni.broken(n)))
+	_check("breaking a leg staggers and cripples it, and it can no longer stomp",
+			oni.state == Fighter.State.HITSTUN and oni.crippled() and not stomp_left and oni.notice.contains("BROKEN"),
+			"state %s crippled %s" % [Fighter.State.keys()[oni.state], oni.crippled()])
+
+
+func _test_monster_bout_rules() -> void:
+	var b := _monster_bout(200.0)
+	var oni: Monster = b.fighters[1]
+	oni.health = 1
+	var throwable := oni.throwable()
+	var bindable := def.binds(oni.definition) or Roster.by_id(&"kitsune").binds(oni.definition)
+	_run(b, 30, _at({0: [2, "A"]}, 2))
+	_check("a monster can't be thrown or bound, and is fought in one round",
+			not throwable and not bindable and b.phase == Bout.Phase.BOUT_OVER and b.winner() == 0 and not b.bound,
+			"phase %d winner %d" % [b.phase, b.winner()])
+
+
+func _test_monster_fights_on_its_own() -> void:
+	var b := _monster_bout()
+	var used := {}
+	for n in 2400:
+		var intents: Array[Intent] = [Intent.new(), Intent.new()]
+		b.fighters[0].health = def.max_health
+		b.step(intents)
+		var oni: Monster = b.fighters[1]
+		if oni.state == Fighter.State.MOVE:
+			used[oni.move.id] = true
+	_check("left alone, Ushi-oni walks in and uses several of its attacks", used.size() >= 3,
+			"used %s" % [used.keys()])
+
+
+func _test_cpu_drinks_when_safe() -> void:
+	# A hurt oni starting far from an idle opponent: how many of eight seeded
+	# computers drink before closing in, at the easiest and hardest levels.
+	var counts := []
+	for level in [0, 3]:
+		var drinks := 0
+		for seed_number in range(1, 9):
+			var b := Bout.new(_r(&"shuten"), def)
+			b.fighters[0].position.x = -400
+			b.fighters[1].position.x = 400
+			b.fighters[0].health = 500
+			var cpu := CpuController.new(CpuController.LEVELS[level][1], seed_number)
+			for n in 600:
+				var f := b.fighters
+				var intents: Array[Intent] = [cpu.read(f[0], f[1]), Intent.new()]
+				b.step(intents)
+				if f[0].state == Fighter.State.MOVE and f[0].move.id == &"sake":
+					drinks += 1
+					break
+		counts.append(drinks)
+	_check("the computer drinks its sake when hurt and safe: most of the time, at every difficulty",
+			counts[0] >= 4 and counts[1] >= 6, "drank in %d / 8 (Practice) and %d / 8 (Hard)" % counts)
+
+
+func _test_spirit_recharge_at_least_special() -> void:
+	var b := _spirit_bout(SpiritBinding.new(_r(&"shuten"), &"sake"), 600.0)
+	_run(b, 20, _at({0: [5, "D"]}))
+	_check("a bound spirit recharges no faster than the special it performs",
+			b.fighters[0].cooldowns[0] > _r(&"shuten").spirit_cooldown, "cooldown %d" % b.fighters[0].cooldowns[0])
+
+
+func _test_tournament_engine() -> void:
+	var two: Array[FighterDefinition] = [_r(&"musashi"), _r(&"shuten")]
+	var t := Tournament.new(two, 3, 1, false, 9)
+	while not t.step(1000):
+		pass
+	var lines := t.report()
+	_check("the tournament engine plays every pairing and reports win rates and special use",
+			t.bouts_done == 2 and lines.any(func(l: String) -> bool: return l.begins_with("Overall"))
+			and lines.any(func(l: String) -> bool: return l.contains("sake")),
+			"%d bouts" % t.bouts_done)

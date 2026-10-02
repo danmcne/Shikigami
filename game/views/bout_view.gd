@@ -15,7 +15,10 @@ static func draw(ci: CanvasItem, bout: Bout, names: Array[String], show_boxes: b
 	ci.draw_rect(Rect2(Bout.STAGE_LEFT, 0, Bout.STAGE_RIGHT - Bout.STAGE_LEFT, 60), Color(0.18, 0.16, 0.14))
 	ci.draw_line(Vector2(Bout.STAGE_LEFT, 0), Vector2(Bout.STAGE_RIGHT, 0), Color(0.5, 0.45, 0.4), 2.0)
 	for i in 2:
-		_fighter(ci, bout.fighters[i], COLORS[i], show_boxes)
+		if bout.fighters[i] is Monster:
+			_monster(ci, bout.fighters[i], show_boxes)
+		else:
+			_fighter(ci, bout.fighters[i], COLORS[i], show_boxes)
 	for s in bout.spirits:
 		_fighter(ci, s, Color(COLORS[s.summoner].lightened(0.5), 0.4), show_boxes)
 	for e in bout.entities:
@@ -36,6 +39,57 @@ static func lines(ci: CanvasItem, at: Vector2, rows: Array, width: float,
 	for row in rows:
 		ci.draw_string(ThemeDB.fallback_font, Vector2(at.x, y), row, align, width, size, color)
 		y += size + 4
+
+
+## A monster: each part drawn by its state (shell, legs, a weak point open or
+## closed, broken parts greyed), its attacks' start-up shown in red as a
+## warning of where they will land.
+static func _monster(ci: CanvasItem, m: Monster, show_boxes: bool) -> void:
+	var font := ThemeDB.fallback_font
+	var tint := Color(1, 1, 1, 1)
+	if m.state == Fighter.State.HITSTUN:
+		tint = Color(1.4, 1.4, 1.4)
+	elif m.state == Fighter.State.KO:
+		tint = Color(0.4, 0.4, 0.4)
+	for k in m.monster.parts.size():
+		var part: MonsterDefinition.Part = m.monster.parts[k]
+		var box := m.to_world(part.box)
+		var color := Color(0.45, 0.22, 0.18)
+		if part.health > 0:
+			color = Color(0.35, 0.35, 0.35) if m.part_health[k] <= 0 else Color(0.55, 0.3, 0.2)
+		if part.hidden:
+			if not m.exposed(k):
+				ci.draw_rect(box, Color(0.6, 0.5, 0.2, 0.5), false, 2.0)
+				continue
+			color = Color(1.0, 0.85, 0.3)
+		ci.draw_rect(box, color * tint)
+		ci.draw_rect(box, Color(0, 0, 0, 0.6), false, 1.0)
+		if part.health > 0 and m.part_health[k] > 0:
+			var frac := float(m.part_health[k]) / part.health
+			ci.draw_rect(Rect2(box.position.x, box.end.y + 4, box.size.x * frac, 4), Color(0.9, 0.6, 0.2))
+	if m.state == Fighter.State.MOVE:
+		var mv := m.move
+		for local in mv.hitboxes:
+			var box := m.to_world(local)
+			if m.state_frame < mv.startup:
+				var urgency := float(m.state_frame) / maxf(mv.startup, 1.0)
+				ci.draw_rect(box, Color(1.0, 0.1, 0.1, 0.12 + 0.25 * urgency))
+				ci.draw_rect(box, Color(1.0, 0.2, 0.2, 0.8), false, 2.0)
+			elif mv.is_active_on(m.state_frame):
+				ci.draw_rect(box, Color(1.0, 0.3, 0.1, 0.85))
+	var top := m.to_world(m.definition.stand_hurtbox)
+	ci.draw_string(font, Vector2(top.position.x, top.position.y - 26), m.definition.display_name,
+			HORIZONTAL_ALIGNMENT_CENTER, top.size.x, 16, Color(1, 1, 1, 0.8))
+	if m.notice_frames > 0:
+		ci.draw_string(font, Vector2(top.position.x, top.position.y - 48), m.notice,
+				HORIZONTAL_ALIGNMENT_CENTER, top.size.x, 20, Color(1.0, 0.95, 0.5))
+	if show_boxes:
+		for box in m.hurtboxes():
+			ci.draw_rect(box, Color.CYAN, false, 1.0)
+		if m.pushbox().has_area():
+			ci.draw_rect(m.pushbox(), Color.YELLOW, false, 1.0)
+		for box in m.active_hitboxes():
+			ci.draw_rect(box, Color.RED, false, 2.0)
 
 
 static func _fighter(ci: CanvasItem, f: Fighter, base: Color, show_boxes: bool) -> void:
@@ -119,7 +173,7 @@ static func _hud(ci: CanvasItem, bout: Bout, names: Array[String]) -> void:
 			fill.position.x = bar.end.x - fill.size.x
 		ci.draw_rect(fill, COLORS[i])
 		ci.draw_rect(bar, Color.WHITE, false, 2.0)
-		for w in Bout.ROUNDS_TO_WIN:
+		for w in bout.rounds_to_win:
 			var pip_x := bar.end.x - 20 - w * 26 if left else bar.position.x + 4 + w * 26
 			ci.draw_rect(Rect2(pip_x, 62, 16, 16), Color.GOLD if w < bout.wins[i] else Color(0.3, 0.3, 0.3))
 		var align := HORIZONTAL_ALIGNMENT_LEFT if left else HORIZONTAL_ALIGNMENT_RIGHT

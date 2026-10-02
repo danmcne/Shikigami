@@ -89,7 +89,8 @@ static func _table() -> Array:
 		{id = &"monk", name = "Buddhist Monk", kind = HUMAN,
 			p = {health = 1100, size = 1.0, speed = 0.9, jump = 1.0, power = 0.9, tempo = 0},
 			# Meditation, after Yoshimitsu: still and exposed, then restored.
-			specials = [{id = &"meditation", startup = 45, active = 1, recovery = 15, cooldown = 420, heal = 150},
+			# Like the sake: long, exposed, generous, and slow to return.
+			specials = [{id = &"meditation", startup = 55, active = 1, recovery = 15, cooldown = 1200, heal = 220},
 				{id = &"sutra_palm", startup = 8, active = 4, recovery = 18, cooldown = 60,
 					damage = 60, hitstun = 18, blockstun = 14, knockback = 20.0, hitstop = 10,
 					hitboxes = [Rect2(20, -130, 70, 70)]}]},
@@ -125,8 +126,10 @@ static func _table() -> Array:
 		# --- yokai ----------------------------------------------------------
 		{id = &"shuten", name = "Shuten-dōji", kind = YOKAI,
 			p = {health = 1400, size = 1.3, speed = 0.8, jump = 0.9, power = 1.3, tempo = 1},
-			# The sake-drinking oni: a long, exposed drink that restores health.
-			specials = [{id = &"sake", startup = 40, active = 1, recovery = 20, cooldown = 480, heal = 120},
+			# The sake-drinking oni: a long, exposed drink that restores a great deal,
+			# with a very slow recharge, so when to drink is a decision, not a habit.
+			# A hit during the drink spills it; the recharge is spent either way.
+			specials = [{id = &"sake", startup = 50, active = 1, recovery = 20, cooldown = 1500, heal = 260},
 				# The iron club driven into the ground: a quake along the floor to both
 				# sides. Little damage, but it knocks down anyone standing; jump it or
 				# guard low.

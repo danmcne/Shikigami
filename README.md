@@ -4,7 +4,7 @@ A 2D fighting game set in a fantasy Japan, in the lineage of Street Fighter and 
 
 The guiding principle: **the fighting is the game; the campaign exists to produce unusual fights.** There are no levels, stat sheets or grinding.
 
-This repository contains Prototype 8: sixteen humans and yokai, still drawn as rectangles, each with two specials from its legend; the human campaign with its spirit captures; combos; a Hard computer; and a computer-against-computer tournament for balance. Everything below the "Prototype 8" heading describes that code. Everything above it describes the design.
+This repository contains Prototype 9: sixteen humans and yokai and the first monster, Ushi-oni, still drawn as rectangles; the full human campaign ending in the monster fight; combos; a computer at four difficulties; and a balance tournament runnable from the game or the command line. Everything below the "Prototype 9" heading describes that code. Everything above it describes the design.
 
 ## The design
 
@@ -30,10 +30,10 @@ Eight humans and eight yokai. Each has two specials: one on special, one on away
 | Tomoe Gozen | human | Naginata Wheel: a full circle, front and back; also in the air | Naginata Sweep: a long low sweep that knocks down |
 | Benkei | human | Standing Death: advances with armour, after his death standing on the bridge | Seven Weapons: a long-reach grapple, slow to recharge |
 | Hattori Hanzō | human | Kawarimi: a counter; struck, he vanishes and strikes from behind | Shuriken: a fast, light projectile; also in the air |
-| Buddhist monk | human | Meditation: long, exposed, then restores health | Sutra Palm: a strike that drives the opponent far back |
+| Buddhist monk | human | Meditation: long and exposed, restores a great deal, very slow to recharge | Sutra Palm: a strike that drives the opponent far back |
 | Shinto miko | human | Ofuda: a thrown paper talisman | Warding Seal: a talisman laid on the ground ahead; whoever steps on it is held for a second |
 | Onmyōji | human | Paper Birds: shikigami released low that climb gently as they fly | Five-Element Seal: a barrier that stops projectiles and repels whoever walks in |
-| Shuten-dōji | yokai | Sake: a long, exposed drink that restores health | Kanabō Quake: the club driven into the ground, a low quake to both sides that knocks down; jump it or guard low |
+| Shuten-dōji | yokai | Sake: a long, exposed drink that restores a great deal; very slow to recharge, and a hit spills it | Kanabō Quake: the club driven into the ground, a low quake to both sides that knocks down; jump it or guard low |
 | Kitsune | yokai | Fox Step: vanishes and reappears behind to strike | Foxfire: kitsune-bi, a projectile |
 | Tengu | yokai | Gale Fan: a gust that hurls more than it hurts | Flight: a gliding overhead strike; also in the air |
 | Kappa | yokai | Sumo Grab: kappa challenge travellers to sumo; slow to recharge | Water Jet: from the dish on its head, a low projectile |
@@ -47,7 +47,7 @@ Every fighter also shares a kit: six normals, a throw, two dashes, a rush (towar
 ### Spirits in combat
 
 - **The spirit's chosen special.** Summoning makes a translucent copy of the bound fighter, which performs the special you chose when you bound it, then vanishes. The copy has no hurtbox or pushbox, but otherwise behaves as the fighter would: a fox steps behind your opponent; a Jorōgumo's web reels them in. Effects a fighter gives itself (healing, armour) go to you, the summoner. No new animation is needed for any pairing, so art cost grows linearly with the roster.
-- **Two slots.** Spirit summons the first, down + spirit the second. Each has its own recharge; a slot that is recharging does nothing, and never falls through to the other.
+- **Two slots.** Spirit summons the first, down + spirit the second. Each has its own recharge, never shorter than that of the special the spirit performs, so a bound sake spirit can't heal you more often than the oni itself drinks. A slot that is recharging does nothing, and never falls through to the other.
 - **Counter stances as spirits.** Summoning a counter-stance spirit wraps you in it for the stance's duration. If you are struck in that time, the hit doesn't land: the spirit steps out of you and answers, from where you stand. Throws aren't countered.
 
 ### Controls
@@ -107,7 +107,7 @@ A run is a single climb through three tiers. Opponents are shuffled within each 
    - The second opponent's single spirit is simply yours when you win.
    - From the third and fourth, your finisher captures one of the spirits they carry.
 2. **Other-kind tier, 4 fights.** Again 0, 1, 2 and 2 spirits (now of your own kind, which you can't take). Your finisher seals the opponent itself, and you take one of its two specials.
-3. **Monster tier (1–2 fights).** Huge bosses under modified rules (below).
+3. **Monster tier.** A fight against a monster (now Ushi-oni) under its own rules (below).
 
 The run is saved before every fight, including the random generator's state, so it resumes exactly.
 
@@ -115,31 +115,36 @@ The run is saved before every fight, including the random generator's state, so 
 
 **Rising difficulty** (planned). Later opponents should be harder through some mix of more health, faster play and a better computer. The tiers already make this a matter of a table keyed by fight number.
 
-### Monsters: planning
+### Healing
 
-Bosses are not scaled-up fighters. Each is a bespoke encounter on a wider stage, built from the same frame-based combat but with several new capabilities. Shared rules:
+Two fighters heal: Shuten-dōji's sake and the monk's meditation. Both are long, exposed actions that restore a great deal (260 and 220 health) and recharge very slowly (25 and 20 seconds; recharges reset each round). Healing is therefore a decision made once or twice a round, not a habit. A hit during the drink or the prayer spills it, and the recharge is spent either way.
 
-- **One long round with phases**, not best of three. Damage to the boss is tracked against parts and a core.
-- **Parts.** A boss is several hurtboxes with their own health (legs, hands, heads). Breaking a part changes what the boss can do; the core ends the fight.
-- **Telegraphs.** Big attacks show where they will land before they land. The engine already has the mechanism: an entity whose start-up is long and whose hitbox appears later.
+### Monsters
+
+Monsters are not scaled-up fighters. Each is a bespoke encounter, built from the same frame-based combat. The engine for them exists, and Ushi-oni is the first. Shared rules:
+
+- **One long round**, not best of three.
+- **Parts.** A monster's body is several hurtboxes. Every hit lands on a part and costs the monster health, scaled by that part: a shell takes less, a weak point more. Some parts can be broken; breaking one staggers the monster and may cripple it, changing what it can do. Some parts are hidden and can be struck only while an attack exposes them.
+- **No flinching.** Monsters take damage without being interrupted, except when a part breaks.
+- **Telegraphs.** Every attack's start-up is drawn in red where its hitboxes will land, brightening as the attack approaches.
 - **Attacks from outside the fighting space.** Hands, tails and lightning arrive from beyond the stage edges or from above.
 - **No throws against a boss,** and a boss can't be bound. Spirits work normally against it. Boss strikes are guarded with plain guard, at the usual heights.
 
 | Monster | Legend | Encounter |
 |---|---|---|
-| Ushi-oni | ox-headed, spider-bodied shore demon | Fills a third of the stage. Leg stabs reach both sides at once; a charge crosses the whole stage and must be jumped; poison breath slows. Each leg is a part, and losing legs slows it. Its head is reachable only after a charge, when it lowers. |
+| Ushi-oni (built) | ox-headed, spider-bodied shore demon | Fills a third of the stage; its shell takes half damage. Leg Stab strikes both sides at once. Stomp is a low quake across the stage. Charge crosses the whole stage at speed, passing through you, and must be jumped. Poison Breath slows. Its legs can be broken with low attacks; once crippled it walks at half speed, can't stomp, and breathes more. Its head takes double damage but is reachable only after a charge, when it lowers to recover. |
 | Gashadokuro | giant skeleton of the unburied dead | Only its upper body is visible, rising behind the stage. Hands slam in from the stage edges and sweep across; the skull bites from above. The hands are parts. The skull is reachable only after a hand is broken, by jumping to its jaw. Breaking bones throws debris as projectiles. |
 | Nue | chimera (monkey face, tanuki body, tiger limbs, snake tail) in a thundercloud; shot down by Minamoto no Yorimasa | Flies around the arena out of normal reach. Lightning strikes marked spots on the floor, the snake tail strikes from behind, and dives are overheads. It is vulnerable when it dives, and to anti-air projectiles. Bringing it down grounds it for a final phase. |
 | Ōmukade (candidate) | the giant centipede shot by Tawara Tōda | A segmented body that crosses the stage in waves; segments are parts. |
 | Yamata no Orochi (candidate) | eight-headed serpent | Several heads as parts, each with its own attack. |
 
-Build order for bosses: Ushi-oni first (closest to a fighter: a large body on the ground), then Gashadokuro (attacks from off-stage), then Nue (flight). Engine work this needs, in order:
+A monster is data (`MonsterDefinition`):
 
-1. Bodies made of parts with their own health.
-2. A wider stage and a camera.
-3. Boss behaviour as phase tables of attack patterns (separate from the CPU opponent).
-4. Spawn positions relative to the stage, not only to the performer.
-5. Floor markers for telegraphs.
+- parts, each with a box, a damage scale, optional health, and whether it is hidden;
+- attacks, each an ordinary `MoveDefinition` with a weight (and a weight once crippled), the distances it is used at, a travel speed, whether it passes through, which hidden parts it exposes, and which parts it needs unbroken;
+- walking speed, rest between attacks, and stagger time.
+
+`Monster` interprets the data, so a new monster is mostly a new data file. Next: Gashadokuro, which needs attacks spawned relative to the stage, from beyond its edges; then Nue, which needs flight.
 
 ### Modes
 
@@ -165,8 +170,8 @@ Art comes after the systems it has to serve are proven on rectangles.
 4. **CPU and run loop.** *Done.*
 5. **Character.** Sixteen named fighters, two specials each, spirits performing a chosen special, exclusive guards. *Done.*
 6. **Campaign and balance tools.** The human campaign's capture structure, unlocks, combos, a Hard computer, and a computer-against-computer tournament. *Done in this repository.*
-7. **Balance by play,** guided by the tournament, then rising difficulty through the campaign.
-8. **Monsters.** The engine work above, then Ushi-oni.
+7. **Monsters.** The engine and Ushi-oni. *Done in this repository.* Next: Gashadokuro, then Nue.
+8. **Balance by play,** guided by the tournament, then rising difficulty through the campaign.
 9. **Art** for a first handful of fighters.
 10. **Presentation.** Menus, sound, story between fights.
 
@@ -178,7 +183,7 @@ Art comes after the systems it has to serve are proven on rectangles.
 
 ---
 
-## Prototype 8
+## Prototype 9
 
 ### Running
 
@@ -186,12 +191,12 @@ Open the folder in Godot 4.3+ and press Play, or run `godot --path .` from the c
 
 | Screen | Keys |
 |---|---|
-| Menu | 1 new run, 2 continue run, 3 versus, 4 calibrate timing, 5 computer difficulty, 6 game speed, 7 player 1 invincible, 8 unlock the yokai for practice |
-| Fighter select | A / D or arrows to move, Enter or J to begin; locked fighters are marked |
-| Run | play; when a beaten opponent stands dazed, perform the finisher shown on screen |
+| Menu | 1 new run, 2 continue run, 3 versus, 4 calibrate timing, 5 computer difficulty, 6 game speed, 7 player 1 invincible, 8 unlock the yokai for practice, 9 tournament |
+| Fighter select | A / D or arrows to move, Enter or J to begin |
+| Run | nine fights: four of your own kind, four of the other, then Ushi-oni |
 | After a capture | a number to take that spirit, or the last number to release; then, if slots are full, 1 or 2 to replace, 3 to release |
-| Run over | Enter |
-| Versus | F2 player 2: human / dummy / CPU; F3 dummy behaviour; F5 restart; F6 / F7 change fighters |
+| Versus | F2 player 2: human / dummy / CPU; F3 dummy behaviour; F5 restart; F6 / F7 change fighters (F7 also reaches Ushi-oni) |
+| Tournament | progress, then results; Esc stops it or returns |
 | Anywhere | Esc to the menu; F1 shows boxes, states and frames |
 
 | | Player 1 | Player 2 | Gamepad |
@@ -205,53 +210,98 @@ Open the folder in Godot 4.3+ and press Play, or run `godot --path .` from the c
 | Spirit guard (hold) | J+K+L | Num 4 + Num 2 + Num 6 | Square + Cross + Circle |
 | Finisher | A, D + K (away, toward + spirit) | ←, → + Num 2 | |
 
-On screen:
+### Fighting Ushi-oni
 
-- Names are shown over the fighters, and effects are announced there: "+120", "ARMOUR", "COUNTER", "SLOWED", "HELD".
-- A heal glows green, armour shows a gold outline, and slow a blue tint.
-- Combos are counted under the health bar of the fighter landing them.
-- Under each health bar are four recharge boxes: your two specials, then your two spirits.
+In versus, press F7 until player 2 is Ushi-oni. In a run, it is the ninth fight.
+
+- **Parts.** Its parts are drawn separately. The orange bars under its legs show how close each leg is to breaking, and broken legs turn grey. Its head is an outline until it lowers after a charge, when it lights up.
+- **Telegraphs.** Every attack's start-up is drawn in red where it will land, brightening as it approaches.
+- **Its attacks and their answers:**
+  - Leg Stab: guard it.
+  - Stomp: jump it or guard low.
+  - Charge: jump it. It passes through, and then its head is open.
+  - Poison Breath: guard it, or be slowed.
+- **Strategy.** Low attacks break its legs; the head takes double damage. Throws don't work on it, and it can't be bound.
+
+### Tournament
+
+From the menu (9), or from the command line, with or without a window:
+
+```
+godot --headless --path . -- --tournament [--bouts=N] [--level=N] [--seed=N] [--spirits]
+```
+
+`--bouts` is bouts per ordered pairing (default 2), `--level` an index into the computer's levels (default 3, Hard), `--seed` the random seed (default 1), and `--spirits` gives every fighter two random spirits. Headless, it prints the results and quits; with a window it shows progress and then the results. Either way the results are also saved to `user://tournament_report.txt`.
+
+The results cover:
+
+- each fighter's win rate, with a 95% margin;
+- the human and yokai averages;
+- the most lopsided pairings;
+- how often each special was used per bout, and how much health was restored per bout.
+
+A run of 480 bouts takes about two minutes. Runs with different seeds are independent and can be averaged.
+
+### What the tournament says now
+
+These are results from the Hard computer playing itself, with the caveats above.
+
+- **Healing.** Before this version the computer almost never healed: it considered it only at a distance a slow oni rarely reaches, and only with a small chance. It now heals at safe moments, at every difficulty:
+  - the opponent is knocked down at some distance;
+  - the opponent is still recovering for longer than the heal takes;
+  - or the opponent is far away with no projectile ready.
+
+  In the latest run the oni drank about once per bout and restored about 95 health per bout. The monk prayed about once per bout and restored about 110. Some attempts are still spilled by hits, as intended.
+- **Shuten-dōji** won 38–42% of its bouts across the two runs since, up from about a third before the computer drank. The very slow recharge keeps the sake from making it overpowered.
+- **Kojirō is the most persistent low result,** last or nearly last in every run (28–35%). The onmyōji and the kitsune are also usually in the bottom quarter, and Hanzō, Tomoe Gozen and the miko usually at the top. The human/yokai gap has narrowed to a few points.
+- **Noise.** Each run gives a fighter only 60 bouts, so these are patterns to check in play rather than numbers to tune from.
 
 ### What changed
 
-- **Binding.** One choice screen for every capture, always with a release option.
-- **The run.** Two tiers of four; the second fight's spirit is granted, and later ones are captured with the finisher.
-- **Unlocks.** Completing a run unlocks the yokai. Menu option 8 unlocks them early for practice.
-- **Kanabō** is now a low quake to both sides. **Sake** heals and nothing more. **Paper birds** fly lower and flatter. **The warding seal** holds instead of hurting.
-- **Counter-stance spirits** answer for their summoner.
-- **Combos:** scaling, juggle limit, knockdown and wake-up rules as described above.
-- **A Hard computer.** It anti-airs jumpers, punishes moves still recovering within its reach, and uses heals, counters and traps when they fit, besides guarding better. All levels share this logic; the tables differ.
-- **Rounds can have a time limit.** The game doesn't use one yet; the tournament does.
-- **Balance numbers.** A few were adjusted this round:
-  - Benkei's grapple and the kappa's grab recharge more slowly, and the kappa's grab is slower and does less damage.
-  - Benkei and Shuten-dōji are a little faster.
-  - Shuten-dōji and the nekomata have more health.
-  - The kappa has health 900 and power 1.0, down from 1000 and 1.1 (see below).
-- **Computer fixes found by the tournament.**
-  - The computer and the practice dummy now judge guard height from what is actually coming, including a projectile in flight. They used to judge from the thrower's motion, so the kappa's low water jet was guarded standing every time.
-  - A teleport now counts as reaching any distance.
+- **Ushi-oni and the monster engine** (above). The run ends with it, and versus can field it.
+- **Sake and meditation:** big heals, very slow recharge, longer and interruptible. The computer heals at safe moments at every level, Practice included.
+- **Spirit recharge** is never shorter than the recharge of the special the spirit performs.
+- **Tournament** in the game and on the command line (the old test script is gone).
 
-### Balance tournament
+### Structure
 
 ```
-godot --headless --path . --script res://tests/tournament.gd -- [bouts] [level] [spirits]
+project.godot, main.tscn
+game/
+  main.gd                  screens and flow: menu, select, run, captures, versus, calibration, tournament
+  run.gd                   a run as pure state: tiers, captures, the monster fight; save and restore
+  tournament.gd            computer-against-computer tournament, run incrementally, with a report
+  calibration.gd           measures a player's chord window on the game's real inputs
+  settings.gd              timing, options, unlocks and the saved run, in user://settings.cfg
+  controls_text.gd         command patterns -> the keys a player presses
+  input_setup.gd           all key and gamepad bindings
+  views/
+    bout_view.gd           draws a bout: fighters, monsters and telegraphs, spirits, projectiles, HUD
+  combat/
+    move_definition.gd     frame data, damage, height, hitboxes and every move effect
+    fighter_definition.gd  kind, stats, boxes, moves, commands, two specials, summon, finisher
+    spirit_binding.gd      a bound spirit: source fighter and chosen special
+    monster_definition.gd  a monster as data: parts, attacks, movement
+    monster.gd             a monster in a bout: parts, staggers, its own behaviour
+    command.gd             command notation and priority
+    input_history.gd       recent presses and holds, the chord window, command matching
+    intent.gd              one frame of what a controller wants; the guard chords
+    fighter.gd             per-fighter state machine; spirits and monsters are fighters too
+    entity.gd              projectiles, traps and barriers
+    bout.gd                frame order, hits on any part, guards, throws, spirits, combos, rounds, finish
+  controllers/
+    player_controller.gd   InputMap -> Intent
+    dummy_controller.gd    training dummy
+    cpu_controller.gd      the computer opponent, four difficulties
+  fighters/
+    prototype_rect.gd      the shared kit, as data
+    roster.gd              the sixteen fighters and their specials, as a data table
+  monsters/
+    ushi_oni.gd            Ushi-oni, as data
+    bestiary.gd            every monster
+tests/
+  selftest.gd              mechanics checks, run only on request
 ```
-
-The tournament plays every fighter against every other with the same computer on both sides (default Hard), in both positions, with 60-second rounds. It prints each fighter's overall win rate and the most lopsided pairings.
-
-Read the results as evidence about this computer with each kit, not as a measurement of balance. A kit that relies on things the computer does poorly will look weak whatever its strength. It runs only when invoked; a run of 480 bouts takes about two minutes, and each run also saves its win matrix so runs with different seeds can be pooled.
-
-**What it has shown so far** (Hard computer, no spirits):
-
-- **The kappa won 92% of its bouts.** Part of that was the guard-height misread above; after the fix it still won 81% over 540 bouts.
-  - Changing one property at a time showed that its small body mattered most. At normal size it won 65%. Its damage, its grab and its water jet each contributed less.
-  - Kappa are child-sized in legend, so rather than enlarge it, it now pays for being small in health and power, as the nekomata does. With that change it won 52% in the probe and 48% in the next full run.
-- **After that change no fighter stands out alone.** A single run gives each fighter 60 bouts, enough to see only large effects: individual win rates there carry about ±12 points of noise.
-- **Two patterns recur across runs and are worth watching:**
-  - Shuten-dōji is at or near the bottom every time, at about a third of bouts won.
-  - Humans as a group win more than yokai, by roughly 10 points.
-
-  Either may be a weakness in how the computer plays slow fighters and those relying on heals, teleports or projectiles, or a real gap. Play is the test.
 
 ### Self-test
 
@@ -260,16 +310,11 @@ godot --headless --path . --import          # once, to build the class cache
 godot --headless --path . --script res://tests/selftest.gd
 ```
 
-There are 75 checks. This prototype adds checks for:
+There are 82 checks. This prototype adds checks for:
 
-- combo scaling, the juggle limit and wake-up invulnerability;
-- a counter-stance spirit answering for its summoner;
-- the seal's hold;
-- round time limits;
-- captures from one's own kind, including release;
-- the run's granted and captured spirits;
-- the quake (standing foes knocked down, low guard and jumping avoid it);
-- two Hard computers fighting;
-- the full-guard dummy guarding a low projectile in flight.
+- Ushi-oni: its hidden head, open after a charge; its charge passing through; damage by part; a broken leg staggering and crippling it; one-round bouts; no throws or binding; using its attacks unprompted.
+- The computer drinking its sake when hurt and safe, at the easiest and hardest levels.
+- A spirit's recharge.
+- The tournament engine.
 
 The checks confirm the rules behave as written. They cannot tell you whether the game feels good or is balanced.

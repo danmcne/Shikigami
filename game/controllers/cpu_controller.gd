@@ -26,22 +26,23 @@ const PRACTICE := {
 	jump_chance = 0.02,
 	punish = 0.0,         # chance to punish a recovering move in reach
 	anti_air = 0.0,       # chance to anti-air a nearby jumper
-	utility = 0.05,       # chance to use a heal, counter or trap when it fits
+	utility = 0.05,       # chance to use a counter or trap when it fits
+	heal_chance = 0.5,    # chance to heal at a safe moment when hurt
 }
 const EASY := {
 	think = 18, aggression = 0.4, guard_chance = 0.3, guard_delay = 8, low_read = 0.5, spirit_read = 0.5,
 	escape_chance = 0.2, summon_chance = 0.15, jump_chance = 0.05,
-	punish = 0.2, anti_air = 0.2, utility = 0.15,
+	punish = 0.2, anti_air = 0.2, utility = 0.15, heal_chance = 0.6,
 }
 const NORMAL := {
 	think = 10, aggression = 0.6, guard_chance = 0.55, guard_delay = 5, low_read = 0.8, spirit_read = 0.8,
 	escape_chance = 0.4, summon_chance = 0.25, jump_chance = 0.05,
-	punish = 0.5, anti_air = 0.5, utility = 0.3,
+	punish = 0.5, anti_air = 0.5, utility = 0.3, heal_chance = 0.7,
 }
 const HARD := {
 	think = 6, aggression = 0.65, guard_chance = 0.8, guard_delay = 3, low_read = 0.9, spirit_read = 0.9,
 	escape_chance = 0.6, summon_chance = 0.3, jump_chance = 0.03,
-	punish = 0.85, anti_air = 0.75, utility = 0.4,
+	punish = 0.85, anti_air = 0.75, utility = 0.4, heal_chance = 0.8,
 }
 const LEVELS := [["Practice", PRACTICE], ["Easy", EASY], ["Normal", NORMAL], ["Hard", HARD]]
 ## Healing is considered below this share of health.
@@ -119,6 +120,10 @@ func _decide(me: Fighter, them: Fighter) -> void:
 	if not me.actionable():
 		return
 	var gap := absf(them.position.x - me.position.x) - them.definition.stand_hurtbox.size.x / 2.0
+	var heal := _heal_pattern(me)
+	if heal != "" and _safe_to_heal(them, gap, _move_for(me.definition, heal)) and rng.randf() < p.heal_chance:
+		_queue = inputs_for(heal, me.facing)
+		return
 	if them.airborne and gap < 170.0 and rng.randf() < p.anti_air and _ready(me, "2C"):
 		_queue = inputs_for("2C", me.facing)
 		return
@@ -180,13 +185,41 @@ func _utility(me: Fighter, them: Fighter, gap: float) -> String:
 		var m := _move_for(me.definition, pattern)
 		if not _ready(me, pattern):
 			continue
-		if m.heal > 0 and gap > 220.0 and me.health < me.definition.max_health * HEAL_BELOW:
-			return pattern
 		if m.counter and them.threatening() and gap < 160.0:
 			return pattern
 		if m.spawn and m.spawn.motion == Vector2.ZERO and gap > 200.0:
 			return pattern
 	return ""
+
+
+## A ready healing special if this fighter is hurt enough to want it, or "".
+func _heal_pattern(me: Fighter) -> String:
+	if me.health >= me.definition.max_health * HEAL_BELOW:
+		return ""
+	for pattern in me.definition.commands:
+		var m := _move_for(me.definition, pattern)
+		if m.heal > 0 and _ready(me, pattern):
+			return pattern
+	return ""
+
+
+## A moment when the exposed `heal` is unlikely to be punished: the opponent
+## is lying down at some distance, still recovering for longer than the heal
+## takes, or far away with no projectile ready.
+func _safe_to_heal(them: Fighter, gap: float, heal: MoveDefinition) -> bool:
+	if them.state == Fighter.State.KNOCKDOWN and not them.airborne and gap > 120.0:
+		return true
+	if them.state == Fighter.State.MOVE and them.move.total_frames() - them.state_frame > heal.startup:
+		return true
+	return gap > 260.0 and not _projectile_ready(them)
+
+
+func _projectile_ready(them: Fighter) -> bool:
+	for pattern in them.definition.commands:
+		var m := _move_for(them.definition, pattern)
+		if m.spawn and m.spawn.motion != Vector2.ZERO and _ready(them, pattern):
+			return true
+	return false
 
 
 func _patterns(d: FighterDefinition) -> Array:

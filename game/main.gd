@@ -4,6 +4,12 @@ extends Node2D
 ##   MENU       1 new run   2 continue run   3 versus   4 calibrate timing
 ##              5 difficulty   6 game speed   7 invincibility (player 1)
 ##              8 unlock the yokai without completing a campaign (practice)
+##              9 tournament: computer against computer, for balance
+##   TOURNAMENT progress, then results; Esc stops it
+##
+## From the command line, with or without a window:
+##   godot --path . -- --tournament [--bouts=N] [--level=N] [--seed=N] [--spirits]
+## runs the tournament, prints the results, and (headless) quits.
 ##   SELECT     A / D or arrows to choose a fighter, Enter or J to confirm
 ##   RUN        you against the CPU; finish beaten foes you can bind
 ##   BIND       choose which special the bound spirit performs (1 / 2),
@@ -15,10 +21,12 @@ extends Node2D
 ## Anywhere: Esc to the menu, F1 boxes.
 
 const Roster := preload("res://game/fighters/roster.gd")
+const Bestiary := preload("res://game/monsters/bestiary.gd")
 
-enum Screen { MENU, SELECT, RUN, BIND, RUN_END, VERSUS, CALIBRATE }
+enum Screen { MENU, SELECT, RUN, BIND, RUN_END, VERSUS, CALIBRATE, TOURNAMENT }
 enum Driver { HUMAN, DUMMY, CPU }
-const KIND_NAMES := {FighterDefinition.Kind.HUMAN: "human", FighterDefinition.Kind.YOKAI: "yokai"}
+const KIND_NAMES := {FighterDefinition.Kind.HUMAN: "human", FighterDefinition.Kind.YOKAI: "yokai",
+		FighterDefinition.Kind.MONSTER: "monster"}
 
 var roster: Array[FighterDefinition] = Roster.all()
 var selected := 0
@@ -36,10 +44,40 @@ var versus_driver := Driver.HUMAN
 var dummy := DummyController.new(DummyController.Mode.FULL_GUARD)
 
 var calibration: Calibration
+var tournament: Tournament
+## Started from the command line: print the results when done, and quit if
+## there is no window.
+var tournament_from_command_line := false
 
 
 func _ready() -> void:
 	InputSetup.register()
+	var args := OS.get_cmdline_user_args()
+	if "--tournament" in args:
+		var option := func(name: String, fallback: int) -> int:
+			for a in args:
+				if a.begins_with("--%s=" % name):
+					return int(a.get_slice("=", 1))
+			return fallback
+		tournament = Tournament.new(roster, option.call("level", 3), option.call("bouts", 2),
+				"--spirits" in args, option.call("seed", 1))
+		tournament_from_command_line = true
+		screen = Screen.TOURNAMENT
+
+
+func _process(_delta: float) -> void:
+	if screen != Screen.TOURNAMENT or tournament.done():
+		return
+	var headless := DisplayServer.get_name() == "headless"
+	if tournament.step(1000 if headless else 12):
+		var lines := tournament.report()
+		var file := FileAccess.open("user://tournament_report.txt", FileAccess.WRITE)
+		file.store_string("\n".join(lines) + "\n")
+		file.close()
+		if tournament_from_command_line:
+			print("\n".join(lines))
+			if headless:
+				get_tree().quit(0)
 
 
 func _physics_process(_delta: float) -> void:
@@ -101,6 +139,10 @@ func _unhandled_input(event: InputEvent) -> void:
 					Settings.set_option("speed", (Settings.speed() + 1) % Settings.SPEEDS.size())
 				6:
 					Settings.set_option("invincible", not Settings.invincible())
+				8:
+					tournament = Tournament.new(roster, 3, 2, false, Time.get_ticks_usec() % 100000)
+					tournament_from_command_line = false
+					screen = Screen.TOURNAMENT
 				7:
 					Settings.set_option("yokai_unlocked", not Settings.yokai_unlocked())
 					selected = 0
@@ -139,7 +181,9 @@ func _unhandled_input(event: InputEvent) -> void:
 					bout.restart()
 				KEY_F6, KEY_F7:
 					var i := 0 if key == KEY_F6 else 1
-					versus_choice[i] = (versus_choice[i] + 1) % _playable().size()
+					# Player 2 may also be a monster, after the fighters.
+					var choices := _playable().size() + (Bestiary.all().size() if i == 1 else 0)
+					versus_choice[i] = (versus_choice[i] + 1) % choices
 					_start_versus()
 
 
@@ -148,8 +192,11 @@ func _unhandled_input(event: InputEvent) -> void:
 ## Saves the run before every fight, so quitting mid-fight resumes at its start.
 func _start_fight() -> void:
 	Settings.save_run(run.to_dict())
-	bout = _make_bout(run.character, run.opponent, run.spirits, run.opponent_spirits)
-	bout.offer_finisher = not run.grants_on_victory()
+	if run.monster:
+		bout = _make_monster_bout(run.character, run.spirits, run.monster, run.rng.randi())
+	else:
+		bout = _make_bout(run.character, run.opponent, run.spirits, run.opponent_spirits)
+		bout.offer_finisher = not run.grants_on_victory()
 	cpu = _cpu(run.rng.randi())
 	screen = Screen.RUN
 
@@ -184,7 +231,11 @@ func _end_run() -> void:
 
 
 func _start_versus() -> void:
-	var defs := versus_choice.map(func(c: int) -> FighterDefinition: return _playable()[c % _playable().size()])
+	var playable := _playable()
+	var defs: Array[FighterDefinition] = [playable[versus_choice[0] % playable.size()]]
+	var beast_index := versus_choice[1] - playable.size()
+	if beast_index < 0:
+		defs.append(playable[versus_choice[1]])
 	var loadouts: Array = []
 	for d in defs:
 		# In versus each fighter carries two spirits it could bind, each with
@@ -193,7 +244,10 @@ func _start_versus() -> void:
 		for o in roster.filter(func(o: FighterDefinition) -> bool: return d.binds(o)).slice(0, Run.SLOTS):
 			bound.append(SpiritBinding.new(o, o.specials[0]))
 		loadouts.append(bound)
-	bout = _make_bout(defs[0], defs[1], loadouts[0], loadouts[1])
+	if beast_index >= 0:
+		bout = _make_monster_bout(defs[0], loadouts[0], Bestiary.all()[beast_index], Time.get_ticks_usec())
+	else:
+		bout = _make_bout(defs[0], defs[1], loadouts[0], loadouts[1])
 	cpu = _cpu(Time.get_ticks_usec())
 	screen = Screen.VERSUS
 
@@ -207,6 +261,14 @@ func _make_bout(a: FighterDefinition, b: FighterDefinition,
 	var made := Bout.new(a, b, sa.duplicate(), sb.duplicate())
 	for i in 2:
 		made.fighters[i].set_chord_window(Settings.chord_window(i))
+	made.fighters[0].invincible = Settings.invincible()
+	return made
+
+
+func _make_monster_bout(a: FighterDefinition, sa: Array[SpiritBinding], beast: MonsterDefinition,
+		seed_value: int) -> Bout:
+	var made := Bout.versus_monster(a, sa.duplicate(), Monster.new(beast, seed_value))
+	made.fighters[0].set_chord_window(Settings.chord_window(0))
 	made.fighters[0].invincible = Settings.invincible()
 	return made
 
@@ -232,6 +294,7 @@ func _draw() -> void:
 				"6   Game speed: %d%%" % roundi(Settings.SPEEDS[Settings.speed()] * 100),
 				"7   Player 1 invincible: %s" % ("on" if Settings.invincible() else "off"),
 				"8   Yokai: %s" % ("unlocked" if Settings.yokai_unlocked() else "locked until a campaign is completed (8 unlocks them for practice)"),
+				"9   Tournament: the Hard computer against itself, every pairing (a few minutes)",
 				"",
 			]
 			for i in 2:
@@ -269,6 +332,8 @@ func _draw() -> void:
 					HORIZONTAL_ALIGNMENT_CENTER, 22)
 		Screen.CALIBRATE:
 			_draw_calibration()
+		Screen.TOURNAMENT:
+			_draw_tournament()
 
 
 ## Humans always; yokai once a campaign has been completed (or unlocked from
@@ -334,14 +399,14 @@ func _draw_fight() -> void:
 		var d := bout.fighters[i].definition
 		names.append("%s (%s)" % [d.display_name, KIND_NAMES[d.kind]])
 	if screen == Screen.RUN:
-		var tier := "own kind" if run.tier() == 0 else "other kind"
+		var tier: String = ["own kind", "other kind", "monster"][run.tier()]
 		names[1] += "  CPU · fight %d of %d (%s)" % [run.fight + 1, Run.length(), tier]
-	else:
+	elif not bout.fighters[1] is Monster:
 		names[1] += "  " + ["human", "dummy: " + dummy.mode_name(), "CPU"][versus_driver]
 	BoutView.draw(self, bout, names, show_boxes)
 
 	BoutView.lines(self, Vector2(40, 128), BoutView.move_list(bout.fighters[0], "p1_"), 560)
-	if screen == Screen.VERSUS and versus_driver == Driver.HUMAN:
+	if screen == Screen.VERSUS and versus_driver == Driver.HUMAN and not bout.fighters[1] is Monster:
 		BoutView.lines(self, Vector2(680, 128), BoutView.move_list(bout.fighters[1], "p2_"), 560,
 				HORIZONTAL_ALIGNMENT_RIGHT)
 	if bout.phase == Bout.Phase.FINISH and bout.round_winner == 0:
@@ -354,6 +419,26 @@ func _draw_fight() -> void:
 	if screen == Screen.VERSUS:
 		var help := "F2 player 2: human / dummy / CPU   F3 dummy behaviour   F5 restart   F6 / F7 change fighters   Esc menu"
 		BoutView.lines(self, Vector2(0, 708), [help], 1280, HORIZONTAL_ALIGNMENT_CENTER, 13, Color(0.7, 0.7, 0.7))
+
+
+func _draw_tournament() -> void:
+	if not tournament.done():
+		BoutView.message(self, "Tournament", 220, 40)
+		var bar := Rect2(240, 300, 800, 24)
+		draw_rect(bar, Color(0.15, 0.15, 0.15))
+		draw_rect(Rect2(bar.position, Vector2(bar.size.x * tournament.progress(), bar.size.y)), Color(0.55, 0.5, 0.8))
+		draw_rect(bar, Color.WHITE, false, 2.0)
+		BoutView.lines(self, Vector2(0, 360), [
+			"%d of %d bouts, %s computer on both sides" % [tournament.bouts_done, tournament.total(),
+					CpuController.LEVELS[tournament.level][0]],
+			"Esc stops it.",
+		], 1280, HORIZONTAL_ALIGNMENT_CENTER, 18)
+		return
+	var lines := tournament.report()
+	var split := lines.find("Specials used per bout")
+	BoutView.lines(self, Vector2(30, 24), lines.slice(0, split), 620, HORIZONTAL_ALIGNMENT_LEFT, 13)
+	BoutView.lines(self, Vector2(650, 24), lines.slice(split) + ["", "Saved to user://tournament_report.txt.  Esc returns to the menu."],
+			620, HORIZONTAL_ALIGNMENT_LEFT, 13)
 
 
 func _draw_calibration() -> void:
