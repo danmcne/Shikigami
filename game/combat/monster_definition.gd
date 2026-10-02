@@ -47,14 +47,17 @@ class Attack:
 	## Usable only with the opponent's distance from the body's edge in range.
 	var min_gap := -INF
 	var max_gap := INF
-	## Speed along its facing during the active frames (a charge).
-	var travel := 0.0
+	## Velocity during the active frames: x along its facing, y downward (a
+	## charge, a dive). It stops at the ground.
+	var travel := Vector2.ZERO
 	## No pushbox during the active frames, so it passes through or under.
 	var pushless := false
 	## Hidden parts this attack leaves open during its recovery.
 	var exposes: Array[String] = []
-	## Parts that must be unbroken for this attack to be used.
+	## Parts that must be unbroken for this attack to be used, and parts that
+	## must be broken (a grounded phase).
 	var requires: Array[String] = []
+	var needs_broken: Array[String] = []
 	## Used only while someone stands on the monster (to throw them off).
 	var ridden_only := false
 	## Used only with the opponent on this side of the monster (-1 left,
@@ -93,5 +96,10 @@ var free_facing := false
 var arena_length := 0.0
 ## Struck by the finisher while it lies beaten: where its core is.
 var core := Rect2()
+## A flying monster hovers this high between attacks while its flight part is
+## unbroken; once that part breaks it is grounded for good.
+var altitude := 0.0
+var flight_part := ""
+var climb_speed := 4.0
 ## If the seal is missed, the core reforms with this share of its health.
 var reform_fraction := 0.25

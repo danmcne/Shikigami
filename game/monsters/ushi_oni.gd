@@ -74,7 +74,7 @@ static func definition() -> MonsterDefinition:
 	charge.weight = 1.5
 	charge.crippled_weight = 2.0
 	charge.min_gap = 120.0
-	charge.travel = 15.0
+	charge.travel = Vector2(15, 0)
 	charge.pushless = true
 	charge.exposes = ["head"]
 

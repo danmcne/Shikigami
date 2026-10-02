@@ -117,6 +117,13 @@ func _init() -> void:
 	_test_gashadokuro_rain_has_gaps()
 	_test_gashadokuro_broken_hand()
 	_test_gashadokuro_has_no_body()
+	print("monster pace, Nue")
+	_test_monster_windup_and_speed_follow_difficulty()
+	_test_bone_rain_before_any_break()
+	_test_nue_flies_out_of_jump_reach()
+	_test_nue_lightning_marks_then_strikes()
+	_test_nue_dives_and_lies_open()
+	_test_nue_grounded_when_cloud_breaks()
 	print("CPU, run, calibration")
 	_test_cpu_enters_motions()
 	_test_cpu_attacks()
@@ -1524,7 +1531,7 @@ func _gasha_scene(id: StringName, x: float, face: int, fighter: FighterDefinitio
 
 
 func _test_gashadokuro_hands_converge_from_half_a_stage() -> void:
-	var b := _gasha_scene(&"high_clap", -900, 1)
+	var b := _gasha_scene(&"high_clap", -300, 1)
 	var starts := []
 	var ends := []
 	_run(b, 40, _at({}), null, func(x: Bout) -> void:
@@ -1589,11 +1596,15 @@ func _test_free_facing_turns_by_input() -> void:
 	var walker := past.fighters[0]
 	_run(past, 120, _at({}, 6))
 	var kept := walker.facing == 1 and walker.position.x > 0.0
-	# Double tap back: turn round in place.
+	# Double tap back: still the backdash, without turning.
 	var tap := _gasha_scene(&"", -200, 1)
 	var start_x := tap.fighters[0].position.x
-	_run(tap, 6, _at({0: [4, ""], 1: [4, ""], 2: [5, ""], 3: [4, ""]}, 5))
-	var turned_in_place := tap.fighters[0].facing == -1 and absf(tap.fighters[0].position.x - start_x) < 12.0
+	var dashed := [false]
+	_run(tap, 6, _at({0: [4, ""], 1: [4, ""], 2: [5, ""], 3: [4, ""]}, 5), null, func(x: Bout) -> void:
+		var m := x.fighters[0].move
+		if m and m.id == &"dash_back":
+			dashed[0] = true)
+	var turned_in_place: bool = dashed[0] and tap.fighters[0].facing == 1
 	# Hold back: turn and run that way.
 	var hold := _gasha_scene(&"", -200, 1)
 	var holder := hold.fighters[0]
@@ -1604,18 +1615,18 @@ func _test_free_facing_turns_by_input() -> void:
 	_run(quick, 3, _at({0: [4, "C"]}, 5))
 	var m := quick.fighters[0].move
 	var special_ok := m != null and m.id == &"void_stance" and quick.fighters[0].facing == 1
-	_check("free facing: no turning to face it; double tap back turns, holding back turns and runs, back + special still works",
+	_check("free facing: no turning to face it; holding back turns and runs; the backdash and back + special still work",
 			kept and turned_in_place and turned_and_ran and special_ok,
 			"kept %s tap %s hold %s special %s" % [kept, turned_in_place, turned_and_ran, special_ok])
 
 
 func _test_circular_arena() -> void:
 	var b := _gasha_scene(&"", 0, 1)
-	b.fighters[1].position.x = 2000  # further than half the circle: it is really 1600 to the left
+	b.fighters[1].position.x = 2000  # further than half the circle: it is really 400 to the left
 	_run(b, 1, _at({}))
-	var wrapped := absf(b.fighters[1].position.x + 1600.0) < 5.0  # allowing for its own drift
-	b.fighters[0].position.x = 3700
-	b.fighters[1].position.x = 3500
+	var wrapped := absf(b.fighters[1].position.x + 400.0) < 5.0  # allowing for its own drift
+	b.fighters[0].position.x = 2500
+	b.fighters[1].position.x = 2300
 	_run(b, 1, _at({}))
 	var relapped := absf(b.fighters[0].position.x - 100.0) < 1.0 and absf(b.fighters[1].position.x + 100.0) < 3.0
 	_check("in its circular arena, positions keep the shortest way round, and the lap resets",
@@ -1634,3 +1645,122 @@ func _test_bone_rain_wider_when_easier() -> void:
 		xs.sort()
 		gaps.append(xs[1] - xs[0])
 	_check("bone rain spreads wider on Practice than on Normal", gaps[0] > gaps[1], "spacing %s" % [gaps])
+
+
+# --- monster pace, Nue -------------------------------------------------------
+
+func _test_monster_windup_and_speed_follow_difficulty() -> void:
+	var timings := []
+	for level in [0, 2]:
+		var m := Monster.new(Bestiary.by_id(&"gashadokuro"), 1, CpuController.LEVELS[level][1])
+		var grab: MonsterDefinition.Attack = m.monster.attacks.filter(
+				func(a: MonsterDefinition.Attack) -> bool: return a.move.id == &"left_grab")[0]
+		var played := m.paced(grab.move)
+		timings.append([played.startup, played.spawn.motion.x])
+	_check("on easier settings a monster's attacks wind up longer and travel slower",
+			timings[0][0] > timings[1][0] and timings[0][1] < timings[1][1], "Practice %s, Normal %s" % timings)
+
+
+func _test_bone_rain_before_any_break() -> void:
+	var b := _gasha_bout(200.0)
+	var g: Monster = b.fighters[1]
+	g._rest = 10
+	g.health = 99999
+	b.fighters[0].invincible = true
+	var rained := [false]
+	_run(b, 4000, _at({}), null, func(x: Bout) -> void:
+		var m: Monster = x.fighters[1]
+		if m.state == Fighter.State.MOVE and m.move.id == &"bone_rain":
+			rained[0] = true)
+	_check("bone rain appears now and then even with both hands whole", rained[0] and not g.crippled())
+
+
+func _nue_bout(distance := 300.0) -> Bout:
+	var b := Bout.versus_monster(def, [], Monster.new(Bestiary.by_id(&"nue"), 4))
+	b.fighters[0].position.x = -distance / 2.0
+	b.fighters[1].position.x = distance / 2.0
+	return b
+
+
+func _test_nue_flies_out_of_jump_reach() -> void:
+	var b := _nue_bout(120.0)
+	var nue: Monster = b.fighters[1]
+	nue._rest = 100000
+	nue.health = 99999
+	var height := -nue.position.y
+	# A jumping heavy at the top of the jump, under it.
+	var jumped := _nue_bout(120.0)
+	var jn: Monster = jumped.fighters[1]
+	jn._rest = 100000
+	jn.health = 99999
+	_run(jumped, 60, _at({0: [8, ""], 9: [8, "B"]}, 5))
+	var jump_hurt := 99999 - jn.health
+	# The shared rising anti-air.
+	var rose := _nue_bout(120.0)
+	var rn: Monster = rose.fighters[1]
+	rn._rest = 100000
+	rn.health = 99999
+	_run(rose, 60, _at({0: [2, "C"]}, 2))
+	var rise_hurt := 99999 - rn.health
+	_check("Nue flies above a jump's reach, but a rising anti-air reaches it",
+			is_equal_approx(height, nue.monster.altitude) and jump_hurt == 0 and rise_hurt > 0,
+			"height %.0f; jump did %d, rising did %d" % [height, jump_hurt, rise_hurt])
+
+
+func _test_nue_lightning_marks_then_strikes() -> void:
+	var b := _nue_bout(300.0)
+	var nue: Monster = b.fighters[1]
+	nue._rest = 100000
+	var l: MonsterDefinition.Attack = nue.monster.attacks.filter(
+			func(a: MonsterDefinition.Attack) -> bool: return a.move.id == &"lightning")[0]
+	nue.attack = l
+	nue._begin(l.move)
+	var bolts := [0]
+	var hurt_before_bolt := [false]
+	_run(b, 30, _at({}), null, func(x: Bout) -> void:
+		bolts[0] = maxi(bolts[0], x.entities.size())
+		if _taken(x, 0) > 0:
+			hurt_before_bolt[0] = true)
+	_run(b, 60, _at({}))
+	_check("lightning marks three spots around you, then strikes them",
+			bolts[0] == 3 and not hurt_before_bolt[0] and _taken(b, 0) > 0,
+			"%d marks, early hurt %s, took %d" % [bolts[0], hurt_before_bolt[0], _taken(b, 0)])
+
+
+func _test_nue_dives_and_lies_open() -> void:
+	var b := _nue_bout(500.0)  # out of the dive's path
+	var nue: Monster = b.fighters[1]
+	nue._rest = 100000
+	nue.health = 99999
+	b.fighters[0].invincible = true
+	var d: MonsterDefinition.Attack = nue.monster.attacks.filter(
+			func(a: MonsterDefinition.Attack) -> bool: return a.move.id == &"dive")[0]
+	nue.attack = d
+	nue._begin(d.move)
+	_run(b, d.move.startup + d.move.active + 4, _at({}))
+	var landed := nue.position.y > -1.0
+	var before := nue.health
+	_run(b, 40, _at({20: [6, "B"]}, 6))  # walk up and strike while it is down
+	_check("Nue dives to the ground and lies open there to ordinary attacks",
+			landed and nue.health < before,
+			"landed %s, struck %s" % [landed, nue.health < before])
+
+
+func _test_nue_grounded_when_cloud_breaks() -> void:
+	var b := _nue_bout(200.0)
+	var nue: Monster = b.fighters[1]
+	nue.health = 99999
+	b.fighters[0].invincible = true
+	var hit := MoveDefinition.new()
+	hit.damage = 500
+	nue.receive(hit, 1, false, 1.0, nue.to_world(nue.monster.parts[3].box).grow(-5))
+	var used := {}
+	_run(b, 1500, _at({}), null, func(x: Bout) -> void:
+		var m: Monster = x.fighters[1]
+		if m.state == Fighter.State.MOVE:
+			used[m.move.id] = true)
+	var on_ground := nue.position.y > -1.0
+	var ground_moves := used.has(&"claw") or used.has(&"tail_lash") or used.has(&"pounce")
+	var no_air_moves := not used.has(&"dive") and not used.has(&"lightning")
+	_check("breaking Nue's thundercloud grounds it for good, and it fights on as a beast",
+			on_ground and ground_moves and no_air_moves and not nue.flying(), "used %s" % [used.keys()])

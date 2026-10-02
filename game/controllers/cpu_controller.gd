@@ -31,27 +31,29 @@ const PRACTICE := {
 	# Monsters read the same table: multipliers on how long they take to turn
 	# round and how long they rest between attacks.
 	monster_turn = 3.0,
-	monster_rest = 1.6,
+	monster_rest = 2.0,
 	monster_spread = 1.5,  # wider gaps in a monster's volleys
 	monster_seal = 2.0,    # longer to seal a beaten giant
+	monster_windup = 1.5,  # longer start-up (telegraph) on its attacks
+	monster_speed = 0.7,   # slower travel of what it sends at you
 }
 const EASY := {
 	think = 18, aggression = 0.4, guard_chance = 0.3, guard_delay = 8, low_read = 0.5, spirit_read = 0.5,
 	escape_chance = 0.2, summon_chance = 0.15, jump_chance = 0.05,
-	punish = 0.2, anti_air = 0.2, utility = 0.15, heal_chance = 0.6, monster_turn = 2.0, monster_rest = 1.3,
-	monster_spread = 1.35, monster_seal = 1.5,
+	punish = 0.2, anti_air = 0.2, utility = 0.15, heal_chance = 0.6, monster_turn = 2.0, monster_rest = 1.6,
+	monster_spread = 1.35, monster_seal = 1.5, monster_windup = 1.3, monster_speed = 0.8,
 }
 const NORMAL := {
 	think = 10, aggression = 0.6, guard_chance = 0.55, guard_delay = 5, low_read = 0.8, spirit_read = 0.8,
 	escape_chance = 0.4, summon_chance = 0.25, jump_chance = 0.05,
 	punish = 0.5, anti_air = 0.5, utility = 0.3, heal_chance = 0.7, monster_turn = 1.0, monster_rest = 1.0,
-	monster_spread = 1.0, monster_seal = 1.0,
+	monster_spread = 1.0, monster_seal = 1.0, monster_windup = 1.0, monster_speed = 1.0,
 }
 const HARD := {
 	think = 6, aggression = 0.65, guard_chance = 0.8, guard_delay = 3, low_read = 0.9, spirit_read = 0.9,
 	escape_chance = 0.6, summon_chance = 0.3, jump_chance = 0.03,
 	punish = 0.85, anti_air = 0.75, utility = 0.4, heal_chance = 0.8, monster_turn = 0.85, monster_rest = 0.85,
-	monster_spread = 0.95, monster_seal = 1.0,
+	monster_spread = 0.95, monster_seal = 1.0, monster_windup = 1.0, monster_speed = 1.0,
 }
 const LEVELS := [["Practice", PRACTICE], ["Easy", EASY], ["Normal", NORMAL], ["Hard", HARD]]
 ## Healing is considered below this share of health.

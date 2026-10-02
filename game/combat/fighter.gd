@@ -21,10 +21,8 @@ const FINISHER := &"finisher"
 const FINISHER_COMMAND := "46D"
 const NOTICE_FRAMES := 60
 const JUGGLE_LIMIT := 3
-## With free facing: holding back this long turns round and runs that way, and
-## a double tap of back turns round in place.
+## With free facing: holding back this long turns round and runs that way.
 const TURN_HOLD := 12
-const TURN_TAP := "454"
 const WAKE_FRAMES := 12
 const GLOW_FRAMES := 45
 
@@ -38,7 +36,6 @@ var invincible := false
 ## its opponent but turns by input, and guard covers only the side it faces.
 var free_facing := false
 var _back_held := 0
-var _turn_tap: Command = null
 ## Status effects, in frames remaining. `wake_frames` is the brief
 ## invulnerability after getting up from a knockdown; `glow_frames` only
 ## shows a heal.
@@ -132,7 +129,6 @@ func _init(def: FighterDefinition, bound: Array[SpiritBinding] = []) -> void:
 	if def.finisher_move:
 		_moves[FINISHER] = def.finisher_move
 		_finisher = Command.parse(FINISHER_COMMAND, FINISHER)
-	_turn_tap = Command.parse(TURN_TAP, &"")
 
 
 func reset(x: float, face: int) -> void:
@@ -492,8 +488,8 @@ func _act_on_ground() -> void:
 			_walk(1.0)
 			_set_state(State.WALK if _intent.x != 0 else State.STAND)
 		return
-	if free_facing and _turn_by_input():
-		return
+	if free_facing:
+		_turn_by_holding()
 	if guard_held():
 		_guard()
 		return
@@ -556,24 +552,15 @@ func _act_in_air() -> void:
 		_start(StringName("jump_" + button))
 
 
-## With free facing: a double tap of back turns round in place; holding back
-## for TURN_HOLD frames turns round and walks on that way. A quick press of
-## back is still back, so back + special and the like still work. Returns
-## true if the frame was spent turning in place.
-func _turn_by_input() -> bool:
-	if input.matches(_turn_tap, facing, _consumed):
-		facing = -facing
-		holding_back = false
-		_back_held = 0
-		_consumed = input.frame
-		_set_state(State.STAND)
-		return true
+## With free facing: holding back for TURN_HOLD frames turns round, and
+## walking then carries on that way. A quick press of back is still back, so
+## back + special and the backdash still work.
+func _turn_by_holding() -> void:
 	_back_held = _back_held + 1 if holding_back else 0
 	if _back_held >= TURN_HOLD:
 		facing = -facing
 		holding_back = false
 		_back_held = 0
-	return false
 
 
 ## Guarding spends any attack presses made while the chord is held, so

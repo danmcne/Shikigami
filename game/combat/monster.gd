@@ -14,6 +14,10 @@ var turn_scale := 1.0
 var rest_scale := 1.0
 var spread_scale := 1.0
 var seal_scale := 1.0
+var windup_scale := 1.0
+var speed_scale := 1.0
+## Its attacks as played at this pace, by original move.
+var _paced := {}
 var part_health: Array[int] = []
 var attack: MonsterDefinition.Attack = null
 var rng := RandomNumberGenerator.new()
@@ -34,11 +38,15 @@ func _init(def: MonsterDefinition, seed_value := 0, pace: Dictionary = {}) -> vo
 	rest_scale = pace.get("monster_rest", 1.0)
 	spread_scale = pace.get("monster_spread", 1.0)
 	seal_scale = pace.get("monster_seal", 1.0)
+	windup_scale = pace.get("monster_windup", 1.0)
+	speed_scale = pace.get("monster_speed", 1.0)
 
 
 func reset(x: float, face: int) -> void:
 	super.reset(x, face if monster.turns else 1)
 	part_health.assign(monster.parts.map(func(p: MonsterDefinition.Part) -> int: return p.health))
+	if flying():
+		position.y = -monster.altitude
 	attack = null
 	_rest = roundi(monster.rest * rest_scale)
 
@@ -67,6 +75,29 @@ func surfaces() -> Array[Rect2]:
 		if p.standable:
 			out.append(to_world(p.box))
 	return out
+
+
+## Flying: it can fly and its flight part is unbroken.
+func flying() -> bool:
+	return monster.altitude > 0.0 and not broken(monster.flight_part)
+
+
+## A move as this monster plays it at its pace: longer start-up, and slower
+## travel for whatever it sends out, on easier settings.
+func paced(m: MoveDefinition) -> MoveDefinition:
+	if is_equal_approx(windup_scale, 1.0) and is_equal_approx(speed_scale, 1.0):
+		return m
+	if not _paced.has(m):
+		var copy: MoveDefinition = m.duplicate()
+		copy.startup = ceili(m.startup * windup_scale)
+		if m.spawn:
+			var piece: MoveDefinition = m.spawn.duplicate()
+			piece.motion = m.spawn.motion * speed_scale
+			piece.startup = ceili(m.spawn.startup * windup_scale)
+			piece.active = ceili(m.spawn.active / maxf(speed_scale, 0.1))
+			copy.spawn = piece
+		_paced[m] = copy
+	return _paced[m]
 
 
 func crippled() -> bool:
@@ -152,7 +183,7 @@ func step() -> void:
 				attack = null
 				if next:
 					attack = next
-					_begin(next.move)
+					_begin(paced(next.move))
 				else:
 					_rest = roundi(monster.rest * rest_scale * (1.5 if crippled() else 1.0))
 					_set_state(State.STAND)
@@ -164,9 +195,26 @@ func step() -> void:
 			pass
 	if state == State.MOVE and state_frame == move.startup and move.spawn:
 		pending_spawn = move.spawn
-	if state == State.MOVE and attack and attack.travel != 0.0 and move.is_active_on(state_frame):
-		position.x += facing * attack.travel
+	if state == State.MOVE and attack and attack.travel != Vector2.ZERO and move.is_active_on(state_frame):
+		position += Vector2(facing * attack.travel.x, attack.travel.y) * speed_scale
+		position.y = minf(position.y, 0.0)
+	_hover()
 	_integrate()
+
+
+## Between attacks a flying monster climbs back to its height; one that is
+## grounded, beaten or staggered sinks to the ground.
+func _hover() -> void:
+	if state == State.MOVE:
+		return
+	var height := -monster.altitude if flying() and state in [State.STAND, State.WALK] else 0.0
+	position.y = move_toward(position.y, height, monster.climb_speed)
+
+
+## No gravity and no falling: a monster's height is its own business.
+func _integrate() -> void:
+	position.x += slide
+	slide = move_toward(slide, 0.0, SLIDE_DECEL)
 
 
 func receive(m: MoveDefinition, _from_facing: int, _from_spirit := false, scale := 1.0,
@@ -217,7 +265,7 @@ func _think() -> void:
 	var choice := _choose(gap, ahead)
 	if choice:
 		attack = choice
-		_begin(choice.move)
+		_begin(paced(choice.move))
 
 
 ## An attack for the moment. With its opponent behind it, only attacks that
@@ -239,6 +287,8 @@ func _choose(gap: float, ahead: bool) -> MonsterDefinition.Attack:
 		if attack_def.stage_half != 0 and signf(_target_x) != attack_def.stage_half:
 			continue
 		if attack_def.requires.any(func(name: String) -> bool: return broken(name)):
+			continue
+		if attack_def.needs_broken.any(func(name: String) -> bool: return not broken(name)):
 			continue
 		var w := attack_def.crippled_weight if crippled() else attack_def.weight
 		if w > 0.0:

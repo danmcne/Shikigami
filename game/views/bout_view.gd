@@ -36,6 +36,13 @@ static func draw(ci: CanvasItem, bout: Bout, names: Array[String], show_boxes: b
 	for s in bout.spirits:
 		_fighter(ci, s, Color(COLORS[s.summoner].lightened(0.5), 0.4), show_boxes)
 	for e in bout.entities:
+		# Before it strikes, a piece with a start-up shows where it will.
+		if e.frame < e.move.startup:
+			for local in e.move.hitboxes:
+				var box := MoveDefinition.place(local, e.position, e.facing)
+				var urgency := float(e.frame) / maxf(e.move.startup, 1.0)
+				ci.draw_rect(box, Color(1.0, 0.2, 0.2, 0.08 + 0.2 * urgency))
+				ci.draw_rect(Rect2(box.position.x, -4, box.size.x, 4), Color(1.0, 0.3, 0.2, 0.8))
 		# Something falling casts a shadow where it will land.
 		if e.move.motion.y > 0.0 and e.position.y < -20.0:
 			for box in e.active_hitboxes():
@@ -69,6 +76,10 @@ static func _monster(ci: CanvasItem, m: Monster, show_boxes: bool) -> void:
 		tint = Color(1.4, 1.4, 1.4)
 	elif m.state == Fighter.State.KO:
 		tint = Color(0.4, 0.4, 0.4)
+	if m.position.y < -20.0:
+		# Something flying casts a shadow on the floor beneath it.
+		var under := m.to_world(m.definition.pushbox)
+		ci.draw_rect(Rect2(under.position.x + 20, -6, under.size.x - 40, 6), Color(0, 0, 0, 0.4))
 	for shape in m.monster.backdrop:
 		ci.draw_rect(m.to_world(shape), Color(0.85, 0.82, 0.7, 0.12) * tint)
 	for k in m.monster.parts.size():

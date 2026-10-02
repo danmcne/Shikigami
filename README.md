@@ -4,7 +4,7 @@ A 2D fighting game set in a fantasy Japan, in the lineage of Street Fighter and 
 
 The guiding principle: **the fighting is the game; the campaign exists to produce unusual fights.** There are no levels, stat sheets or grinding.
 
-This repository contains Prototype 10.2: sixteen humans and yokai and two giants, Ushi-oni and Gashadokuro, still drawn as rectangles; the full human campaign ending in a giant; combos; a computer at four difficulties; and a balance tournament runnable from the game or the command line. Everything below the "Prototype 10.2" heading describes that code. Everything above it describes the design.
+This repository contains Prototype 11: sixteen humans and yokai and three giants, Ushi-oni, Gashadokuro and Nue, still drawn as rectangles; the full human campaign ending in a giant; combos; a computer at four difficulties; and a balance tournament runnable from the game or the command line. Everything below the "Prototype 11" heading describes that code. Everything above it describes the design.
 
 ## The design
 
@@ -107,7 +107,7 @@ A run is a single climb through three tiers. Opponents are shuffled within each 
    - The second opponent's single spirit is simply yours when you win.
    - From the third and fourth, your finisher captures one of the spirits they carry.
 2. **Other-kind tier, 4 fights.** Again 0, 1, 2 and 2 spirits (now of your own kind, which you can't take). Your finisher seals the opponent itself, and you take one of its two specials.
-3. **Monster tier.** A fight against a monster (Ushi-oni or Gashadokuro, at random) under its own rules (below).
+3. **Monster tier.** A fight against a giant (Ushi-oni, Gashadokuro or Nue, at random) under its own rules (below).
 
 The run is saved before every fight, including the random generator's state, so it resumes exactly.
 
@@ -130,7 +130,7 @@ Two fighters heal: Shuten-dōji's sake and the monk's meditation. Both are long,
 
 ### Monsters
 
-Monsters (giants) are not scaled-up fighters with big health bars. Each is a different spatial problem, built from the same combat engine: Ushi-oni is about its body and positioning, Gashadokuro about enormous spatial structure, and Nue (planned) about an enemy in the air.
+Monsters (giants) are not scaled-up fighters with big health bars. Each is a different spatial problem, built from the same combat engine: Ushi-oni is about its body and positioning, Gashadokuro about enormous spatial structure, and Nue about an enemy in the air.
 
 Monsters are not scaled-up fighters. Each is a bespoke encounter, built from the same frame-based combat. The engine for them exists, and Ushi-oni is the first. Shared rules:
 
@@ -146,19 +146,18 @@ Monsters are not scaled-up fighters. Each is a bespoke encounter, built from the
   - push: a guarded target is pushed along in front of it until it stops.
 - **Follow-ups.** One attack can lead straight into another, as the jaws follow a grab.
 - **Monsters that don't turn.** A monster can keep facing one way, so its left and right parts are the stage's left and right. Its attacks can depend on which side of it, or which half of the stage, its opponent is on.
-- **Free facing.** In some giant fights (Gashadokuro's) you don't turn to face the monster but turn by input, and guard covers only the side you face:
-  - a quick press of back is still back, so back + special works;
-  - a double tap of back turns you round in place;
-  - holding back for a fifth of a second turns you and runs that way.
+- **Free facing.** In some giant fights (Gashadokuro's) you don't turn to face the monster but turn by input, and guard covers only the side you face. Holding back for a fifth of a second turns you round, and you run on that way. A quick press of back is still back, so back + special and the backdash work as everywhere else.
+- **Flight.** A monster can fly at a set height while a "flight part" is unbroken, climbing back to it between attacks and descending to dive. Breaking that part grounds it for good, and attacks can be reserved for the grounded phase. Flying monsters cast a shadow.
+- **Telegraphs for pieces.** A spawned piece with a start-up of its own, such as a lightning strike, marks the floor where it will land before it lands.
 - **Circular arenas.** A giant may be fought in an arena with no walls that comes back round on itself. The view follows you, and pillars mark the way round.
-- **Pace follows difficulty.** A monster's turning delay and its rest between attacks scale with the difficulty setting:
+- **Pace follows difficulty.** A monster's turning, rest, wind-ups, and the speed of what it sends at you all scale with the difficulty setting:
 
-  | Setting | Turning delay | Rest between attacks |
-  |---|---|---|
-  | Practice | ×3 | ×1.6 |
-  | Easy | ×2 | ×1.3 |
-  | Normal | ×1 | ×1 |
-  | Hard | ×0.85 | ×0.85 |
+  | Setting | Turning delay | Rest between attacks | Wind-up (telegraph) | Travel speed |
+  |---|---|---|---|---|
+  | Practice | ×3 | ×2 | ×1.5 | ×0.7 |
+  | Easy | ×2 | ×1.6 | ×1.3 | ×0.8 |
+  | Normal | ×1 | ×1 | ×1 | ×1 |
+  | Hard | ×0.85 | ×0.85 | ×1 | ×1 |
 - **Telegraphs.** Every attack's start-up is drawn in red where its hitboxes will land, brightening as the attack approaches.
 - **Attacks from outside the fighting space.** Hands, tails and lightning arrive from beyond the stage edges or from above.
 - **No throws against a boss,** and a boss can't be bound. Spirits work normally against it. Boss strikes are guarded with plain guard, at the usual heights.
@@ -166,8 +165,8 @@ Monsters are not scaled-up fighters. Each is a bespoke encounter, built from the
 | Monster | Legend | Encounter |
 |---|---|---|
 | Ushi-oni (built) | ox-headed, spider-bodied shore demon | Fills a third of the stage; its shell takes half damage. Leg Stab strikes both sides at once. Stomp is a low quake across the stage. Charge crosses the whole stage at speed, passing through you, and must be jumped. Poison Breath slows. Its legs can be broken with low attacks; once crippled it walks at half speed, can't stomp, and breathes more. Its head takes double damage but is open only after a charge, when it lowers to recover. Its head and back can be stood on: jump onto the head, then up onto the back, ride it, strike the shell, or drop off behind to reach its back legs. It turns round after a second, and Buck throws off riders. |
-| Gashadokuro (built) | giant skeleton of the unburied dead | Looms over a circular arena three stage-lengths round, as if you were shut in a building and it outside. It has no body to bump into; you walk beneath it. Free facing applies. It doesn't turn, so its left and right hands are the stage's left and right, and it drifts to keep you under one of them. Nothing of it can be struck at rest: a hand lies open after a slam, the skull stays low after a bite. Its hands sweep in from half a stage out from its centreline, often off-screen, to just under its skull. A grab carries you there to be chewed. Guarding it, facing it, you're pushed there unhurt and let go, and the jaws come down, unguardable, with just enough time to escape. Claps meet beneath it at head height or at the ankles; guarding the hand you face pushes you into the other, which strikes your back. Clapping needs both hands. Once a hand is broken, three bones rain around you as well. |
-| Nue | chimera (monkey face, tanuki body, tiger limbs, snake tail) in a thundercloud; shot down by Minamoto no Yorimasa | Flies around the arena out of normal reach. Lightning strikes marked spots on the floor, the snake tail strikes from behind, and dives are overheads. It is vulnerable when it dives, and to anti-air projectiles. Bringing it down grounds it for a final phase. |
+| Gashadokuro (built) | giant skeleton of the unburied dead | Looms over a circular arena two stage-lengths round, as if you were shut in a building and it outside. It has no body to bump into; you walk beneath it. Free facing applies. It doesn't turn, so its left and right hands are the stage's left and right, and it drifts to keep you under one of them. Nothing of it can be struck at rest: a hand lies open after a slam, the skull stays low after a bite. Its hands sweep in from half a stage out from its centreline, often off-screen, to just under its skull. A grab carries you there to be chewed. Guarding it, facing it, you're pushed there unhurt and let go, and the jaws come down, unguardable, with just enough time to escape. Claps meet beneath it at head height or at the ankles; guarding the hand you face pushes you into the other, which strikes your back. Clapping needs both hands. Three bones rain around you now and then, and often once a hand is broken. |
+| Nue (built) | chimera (monkey face, tanuki body, tiger limbs, snake tail) on a black thundercloud; shot down by Minamoto no Yorimasa | Flies just above an ordinary jump's reach. Reach it with a rising anti-air, an anti-air special, or a projectile thrown upward or from the top of a jump, or punish it on the ground after it dives. Lightning marks three spots around you, then strikes them. Its dive is an overhead, after which it lies on the ground a moment, open. The snake tail lashes down behind it. Its thundercloud takes the blows from below; break it and Nue falls, grounded for good, and fights on as a beast with a claw, a low tail lash to both sides, and a pounce. |
 | Ōmukade (candidate) | the giant centipede shot by Tawara Tōda | A segmented body that crosses the stage in waves; segments are parts. |
 | Yamata no Orochi (candidate) | eight-headed serpent | Several heads as parts, each with its own attack. |
 
@@ -177,7 +176,7 @@ A monster is data (`MonsterDefinition`):
 - attacks, each an ordinary `MoveDefinition` with a weight (and a weight once crippled), the distances it is used at, a travel speed, whether it passes through, which hidden parts it exposes, and which parts it needs unbroken;
 - walking speed, rest between attacks, and stagger time.
 
-`Monster` interprets the data, so a new monster is mostly a new data file plus whatever new spatial capability it is built around. Next: Nue, which needs flight. Whether its fight uses free facing is undecided.
+`Monster` interprets the data, so a new monster is mostly a new data file plus whatever new spatial capability it is built around: Ushi-oni needed climbable parts, Gashadokuro converging hands and a circular arena, Nue flight. Nue's fight uses ordinary facing; free facing remains Gashadokuro's.
 
 ### Modes
 
@@ -203,7 +202,7 @@ Art comes after the systems it has to serve are proven on rectangles.
 4. **CPU and run loop.** *Done.*
 5. **Character.** Sixteen named fighters, two specials each, spirits performing a chosen special, exclusive guards. *Done.*
 6. **Campaign and balance tools.** The human campaign's capture structure, unlocks, combos, a Hard computer, and a computer-against-computer tournament. *Done in this repository.*
-7. **Monsters.** The engine, Ushi-oni and Gashadokuro. *Done in this repository.* Next: Nue (Prototype 11).
+7. **Monsters.** The engine, Ushi-oni, Gashadokuro and Nue. *Done in this repository.*
 8. **Balance by play,** guided by the tournament, then rising difficulty through the campaign.
 9. **Art** for a first handful of fighters.
 10. **Presentation.** Menus, sound, story between fights.
@@ -216,7 +215,7 @@ Art comes after the systems it has to serve are proven on rectangles.
 
 ---
 
-## Prototype 10.2
+## Prototype 11
 
 ### Running
 
@@ -264,13 +263,8 @@ In versus, press F7 until player 2 is Ushi-oni. In a run, it is the ninth fight.
 
 In versus, press F7 past Ushi-oni. In a run, it may be the final fight.
 
-- **The arena** comes back round on itself, three stage-lengths long. The view follows you, and pillars mark your way. Run far enough and you come back round to it from the other side.
-- **Facing.** You turn by input, not to face it:
-  - tap back twice to turn round;
-  - hold back to turn and run;
-  - a quick back + special is still your away special.
-
-  Guard covers only the side you face.
+- **The arena** comes back round on itself, two stage-lengths long. The view follows you, and pillars mark your way. Run far enough and you come back round to it from the other side.
+- **Facing.** You turn by input, not to face it: hold back to turn round and run. A quick back + special is still your away special, and a double tap of back is still the backdash. Guard covers only the side you face.
 - **What you see.** Its ribs and spine loom faintly over the arena. Its hands and skull are outlines high above when they can't be struck, and solid bone when they can. The red band shows where a hand will sweep.
 - **Its attacks and their answers:**
   - Left / Right Slam, the hand on your side, from above: step out of the red, or guard standing. Then strike the hand while it lies open.
@@ -278,9 +272,27 @@ In versus, press F7 past Ushi-oni. In a run, it may be the final fight.
   - Left / Right Grab, a hand sweeping in along the floor. You can be out of its reach (more than half a stage from its centreline), or turn to face it and guard: you're pushed under the skull unhurt and let go, then must get clear before the jaws come down. Caught, you're carried there and chewed.
   - High Clap, both hands at head height meeting beneath it: crouch under it. Guarding one hand only pushes you into the other.
   - Low Clap, the same at the ankles: jump over it.
-  - Bone Rain, once a hand is broken: three bones with shadows beneath them; stand in a gap, or guard standing.
+  - Bone Rain, now and then, and often once a hand is broken: three bones with shadows beneath them; stand in a gap, or guard standing.
 - **A broken hand** takes its slam and its grab with it, and ends the claps.
 - **Sealing.** When it falls, its skull rests on the ground with the core glowing: land the finisher there before the window closes, or it rises again.
+
+### Fighting Nue
+
+In versus, press F7 past the other two giants. In a run, it may be the final fight.
+
+- **Reaching it.** It flies just above a jump's reach, casting a shadow on the floor. To reach it:
+  - the shared rising anti-air (down + special) reaches its thundercloud and belly, as does Kojirō's Swallow Cut;
+  - projectiles that climb (the onmyōji's paper birds), or ones thrown from the top of a jump (Hanzō's shuriken), reach it too;
+  - Tengu and the nekomata jump high enough to touch the cloud.
+- **Its attacks and their answers:**
+  - Lightning: three red marks on the floor around you, then bolts. Stand between them, or guard.
+  - Dive: an overhead from above. Step aside or guard standing, then strike it while it lies on the ground.
+  - Tail Strike: the snake lashes down behind it, at whoever slips beneath it.
+- **Grounded.** Break the thundercloud and it falls for good, and fights as a beast:
+  - Claw: guard it.
+  - Tail Lash, low to both sides: guard low or jump.
+  - Pounce: a running leap.
+- **Sealing.** When it falls, seal its core before the window closes.
 
 ### Tournament
 
@@ -319,9 +331,18 @@ These are results from the Hard computer playing itself, with the caveats above.
 
 ### Version history
 
-- **10.2** (this repository): Gashadokuro rebuilt around its centreline; required sealing for giants; free facing; circular arenas; wider bone rain on easier settings.
+- **11** (this repository): Nue; flight; telegraphs for pieces with a start-up; monster wind-up and travel speed by difficulty; Gashadokuro's arena two stage-lengths round, its pace slower on easier settings, bone rain before any break; free facing turns only by holding back (the backdash is back).
+- **10.2**: Gashadokuro rebuilt around its centreline; required sealing for giants; free facing; circular arenas; wider bone rain on easier settings.
 - **10.1** (delivered as "10"): Gashadokuro with left and right hands, half-stage walls, claps, staggered rain; multi-piece spawns.
 - **10**: Gashadokuro introduced; monster pace follows difficulty; Yuki-onna boost.
+
+### What changed in 11
+
+- **Nue**, the third giant (above), and the flight capability it needs.
+- **Free facing** now turns only by holding back; the double tap of back is the backdash again.
+- **Gashadokuro's arena** is two stage-lengths round, down from three. Bone rain can now come before any hand is broken, so it can be met without first breaking a hand.
+- **Monster pace.** On Easy and Practice, every monster now winds up longer and sends things more slowly, and rests longer between attacks (×1.6 on Easy, ×2 on Practice).
+- **Telegraphs.** Pieces with a start-up of their own (lightning) mark the floor before they strike, and flying monsters cast shadows.
 
 ### What changed in 10.2
 
@@ -379,6 +400,7 @@ game/
   monsters/
     ushi_oni.gd            Ushi-oni, as data
     gashadokuro.gd         Gashadokuro, as data
+    nue.gd                 Nue, as data
     bestiary.gd            every monster
 tests/
   selftest.gd              mechanics checks, run only on request
@@ -391,7 +413,7 @@ godot --headless --path . --import          # once, to build the class cache
 godot --headless --path . --script res://tests/selftest.gd
 ```
 
-There are 101 checks. Prototypes 9 and 10 added checks for:
+There are 107 checks. Prototypes 9 to 11 added checks for:
 
 - Ushi-oni: its hidden head, open after a charge; its charge passing through; damage by part; a broken leg staggering and crippling it; one-round bouts; no throws or binding; using its attacks unprompted.
 - Climbing it: onto the head, then the back; every fighter's jump clearing the head; striking from on top; dropping off behind; being carried by its charge; being bucked off; its slow turning; and a teleport landing behind it.
@@ -404,10 +426,12 @@ There are 101 checks. Prototypes 9 and 10 added checks for:
   - the rain's three staggered bones and their gaps;
   - a broken hand ending the claps and its own attacks while the other still grabs;
   - walking beneath it;
-  - free facing (no auto-turn, double-tap turn, hold to turn and run, back + special);
+  - free facing (no auto-turn, hold to turn and run, the backdash and back + special still working);
   - the circular arena's wrap;
   - wider rain on Practice;
   - a beaten giant needing its seal, and its core reforming when the seal is missed.
+- Monster wind-up and travel speed by difficulty, and bone rain before any break.
+- Nue: flying above a jump's reach but within a rising anti-air's; lightning marking three spots and then striking; diving and lying open; grounded for good when its cloud breaks.
 - The computer drinking its sake when hurt and safe, at the easiest and hardest levels.
 - A spirit's recharge.
 - The tournament engine.

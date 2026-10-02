@@ -1,15 +1,14 @@
 extends RefCounted
 ## Gashadokuro, the giant skeleton raised from the bones of the unburied dead.
 ##
-## It looms over a circular arena three stage-lengths round, as if you were
+## It looms over a circular arena two stage-lengths round, as if you were
 ## shut in a building and it outside: run far enough one way and you come
 ## round the other. It has no body to bump into; you walk beneath it. It faces
 ## you and doesn't turn, so its left and right hands are the stage's left and
 ## right, and it drifts to keep you under one of them.
 ##
-## In this fight you turn by input, not to face it: tap back twice to turn
-## round, or hold back to turn and run. Guard covers only the side you face,
-## so to block a hand you must face it.
+## In this fight you turn by input, not to face it: hold back to turn and run.
+## Guard covers only the side you face, so to block a hand you must face it.
 ##
 ## Nothing of it can be struck at rest. A hand comes down and lies open after a
 ## slam; the skull lowers after a bite. Its hands sweep and clap from half a
@@ -28,8 +27,9 @@ extends RefCounted
 ##                      (crouch under) or at the ankles (jump over). Guarding
 ##                      the hand you face pushes you on into the other, which
 ##                      strikes your back. Clapping needs both hands.
-##   Bone Rain          once a hand is broken: three bones fall around you, at
-##                      staggered heights, with narrow gaps between them
+##   Bone Rain          now and then, and often once a hand is broken: three
+##                      bones fall around you, at staggered heights, with
+##                      narrow gaps between them
 
 const H := MoveDefinition.Height
 const O := MoveDefinition.SpawnOrigin
@@ -53,7 +53,7 @@ static func definition() -> MonsterDefinition:
 	d.colour = Color(0.86, 0.83, 0.72)
 	d.turns = false
 	d.free_facing = true
-	d.arena_length = 3600.0
+	d.arena_length = 2400.0
 	d.walk_speed = 2.2
 	d.rest = 50
 	d.stagger = 80
@@ -136,7 +136,7 @@ static func definition() -> MonsterDefinition:
 		spawn = _move({id = &"falling_bone", startup = 0, active = 90, recovery = 0, motion = Vector2(0, 9),
 			damage = 60, hitstun = 18, blockstun = 12, knockback = 4.0, hitstop = 8, height = H.HIGH,
 			hitboxes = [Rect2(-45, -40, 90, 40)]})})
-	rain.weight = 0.0
+	rain.weight = 0.7
 	rain.crippled_weight = 3.0
 	attacks.append(rain)
 
