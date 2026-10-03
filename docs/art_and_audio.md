@@ -26,6 +26,34 @@ That is two images per fighter, which the cut-out rig swaps at the head joint, a
 
 **Weapons are gameplay.** A puppet's weapons are drawn and also define where it hits. Each move is a swing of a few key poses, its hitboxes are traced from the posed weapon frame by frame, and each weapon has damage zones (the tip strongest). Drawing a new fighter therefore means authoring its weapon and its swings together. That is little more work than drawing poses, and it keeps the art and the hits from drifting apart.
 
+**Clarity over correctness.** We draw for visual impact, not historical accuracy:
+
+- **Stance.** Fighters stand side-on like boxers: a profile torso and split feet, never squarely facing the opponent.
+- **Visibility.** Weapons and signature props sit on the near side or are silhouetted against the sky.
+- **Reach.** The frontmost limb or blade is the fastest attack, and it visibly reaches farthest.
+- **Mirroring.** Facing left, a fighter is simply mirrored.
+
+**Guards.** Each fighter's rest pose is a recognisable guard, drawn from kenjutsu, HEMA, sumo or theatre, so the silhouette says who it is and what it threatens:
+
+| Fighter | Guard and signature |
+|---|---|
+| Musashi (built) | Niten: katana high in jōdan in the far hand, wakizashi levelled at the opponent in the near hand. Scabbards at the obi. |
+| Shuten-dōji (built) | Kanabō on the near shoulder, behind his head. Free fist up by his chin. Sake gourd at the near hip. |
+| Kojirō | Waki-gamae, the "tail" guard (HEMA's Nebenhut): the long nodachi held low behind him, tip trailing, its length hidden. Swallow Cut whips up out of it; the Drying Pole thrusts out to full length. |
+| Tomoe Gozen | Naginata held low and forward, blade near the ground; the Wheel spins up out of it. |
+| Benkei | Naginata shouldered, with the seven weapons fanned on his back as a silhouette of hafts. |
+| Hanzō | Low crouch with the ninjatō in a reverse grip; shuriken in the off hand. |
+| En no Gyōja | The ringed staff (shakujō) planted, the other hand in a mudra; the yamabushi's small black cap and rosary. |
+| Izumo no Okuni | Dancer's fan open in the near hand, ofuda fanned in the other, long sleeves. |
+| Abe no Seimei | Tall eboshi cap; an ofuda raised between two fingers; paper birds circling. |
+| Tamamo-no-Mae | Court robes, many tails fanned behind her: the silhouette is the tails. |
+| Sōjōbō | Feather fan raised, wings half spread, long-nosed red face, high geta. |
+| Kawatarō | Sumo stance, low and wide; water-filled dish on the head; shell on the back, seen side-on. |
+| O-Yuki | White kimono with trailing sleeves and streaming hair; frost at the lips. |
+| Jorōgumo | A woman above, spider legs spread behind her; threads of web. |
+| Rokurokubi | Lantern in the near hand; her neck a chain of paper segments when it stretches. |
+| Danzaburō-danuki | Great belly, straw hat, a leaf on his head, a sake flask and staff. |
+
 **Rokurokubi's neck.** In the final art her neck must stay visibly attached as the head flies out and back. It will be a chain of paper segments (a textured line through points along the head's path) from her shoulders to the head, paying out and reeling back in with it.
 
 ## Player 1 and player 2: tori and uke

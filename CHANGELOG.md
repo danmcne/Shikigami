@@ -2,6 +2,22 @@
 
 Newest first. The README describes the current version only.
 
+## 13.2
+
+- **Clarity over correctness.** Both puppets stand side-on like boxers, with weapons and props on the visible side.
+- **Musashi:**
+  - wakizashi in the near hand, levelled at the opponent; katana high in jōdan in the far hand;
+  - his light thrust now visibly reaches farthest (136);
+  - Two Heavens is a double thrust, wakizashi high and katana low;
+  - scabbards, hakama pleats, a sleeve crest and a headband.
+- **Shuten-dōji:**
+  - kanabō carried on the shoulder, drawn behind his head;
+  - free fist up in guard, its jab now the frontmost blow;
+  - gourd always visible at the near hip, held to his mouth when drinking;
+  - arm rings, beads, claws, the pelt's tail, a knotted sash.
+- **Art direction:** guards for the whole roster (kenjutsu, HEMA, sumo, theatre); Kojirō in waki-gamae, the tail guard.
+- **Engine and tools:** puppet parts can be hidden during moves; `tests/measure.gd` measures traced moves.
+
 ## 13.1
 
 - **Weapons decide hits.** For puppet fighters, each move is a swing of key poses over its frame data. Its hitboxes are traced from the posed weapons on every active frame, and the puppet is drawn from the same poses.

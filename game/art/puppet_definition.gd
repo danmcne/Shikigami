@@ -58,8 +58,11 @@ var weapons: Array = []
 ## t runs 0..1 through start-up, 1..2 through the active frames, 2..3
 ## through recovery, so a swing fits any frame data.
 var swings: Dictionary = {}
-## Parts drawn only during certain moves (a sake gourd): part name -> move ids.
+## Parts drawn only during certain moves (a sake gourd in the hand), and
+## parts hidden during certain moves (the same gourd at the hip): part name
+## -> move ids.
 var props: Dictionary = {}
+var hidden_during: Dictionary = {}
 
 const DEFAULTS := {
 	torso = 4.0, head = -2.0,

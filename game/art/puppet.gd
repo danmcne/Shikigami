@@ -40,6 +40,8 @@ static func draw(ci: CanvasItem, f: Fighter, base: Transform2D, colourway: int, 
 	for part in ordered:
 		if p.props.has(part.name) and not current in p.props[part.name]:
 			continue
+		if p.hidden_during.has(part.name) and current in p.hidden_during[part.name]:
+			continue
 		var t: Transform2D = placed * transforms[part.name]
 		var c: Color = colours.get(part.slot, Color.MAGENTA)
 		if part.far:

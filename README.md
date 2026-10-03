@@ -4,7 +4,7 @@ A 2D fighting game set in a fantasy Japan, in the lineage of Street Fighter and 
 
 The guiding principle: **the fighting is the game; the campaign exists to produce unusual fights.** There are no levels, stat sheets or grinding.
 
-This is version 13.1: sixteen humans and yokai and three giants. Musashi and Shuten-dōji are now cut-paper puppets against a painted shore, the first art test, and they strike with their actual weapons; the rest are still rectangles. History is in [CHANGELOG.md](CHANGELOG.md), and the first art and audio direction is in [docs/art_and_audio.md](docs/art_and_audio.md).
+This is version 13.2: sixteen humans and yokai and three giants. Musashi and Shuten-dōji are now cut-paper puppets against a painted shore, the first art test, and they strike with their actual weapons; the rest are still rectangles. History is in [CHANGELOG.md](CHANGELOG.md), and the first art and audio direction is in [docs/art_and_audio.md](docs/art_and_audio.md).
 
 ## Running
 
@@ -201,11 +201,11 @@ Monkey face, tanuki body, tiger limbs, snake tail, on a black thundercloud.
 
 ## The art test
 
-Musashi and Shuten-dōji are drawn as cut-paper puppets: flat paper parts with fine ink edges on a simple skeleton, under a faint washi grain. The grain is grey in fights and sepia, on warm paper, on the menus. The direction is in `docs/art_and_audio.md`.
+Musashi and Shuten-dōji are drawn as cut-paper puppets: flat paper parts with fine ink edges on a simple skeleton, under a faint washi grain. They are drawn for visual impact and clarity rather than correctness: side-on stances, weapons and props on the visible side, the frontmost limb the fastest. Facing left, a fighter is mirrored. Guards planned for the rest of the roster are in `docs/art_and_audio.md`. The grain is grey in fights and sepia, on warm paper, on the menus. The direction is in `docs/art_and_audio.md`.
 
 - **Swings.** Every move is a swing: a few key poses through its wind-up, strike and recovery, fitted to its frame data, and the hitboxes are traced from the same poses.
-  - Musashi: lights are the wakizashi, heavies the katana, in a vertical arc. Two Heavens sends the wakizashi to the upper body and the katana to the lower. The cut that answers Void Stance is level. The throw grabs and tosses.
-  - Shuten-dōji: the light is a backfist. The heavy swings the kanabō from high behind him over and down, wounding hardest with its head. The quake slams the club into the ground. He raises a sake gourd to drink, and the throw lifts and slams.
+  - Musashi stands side-on in the Niten guard: the wakizashi levelled at the opponent in his near hand, the katana high in jōdan in the far hand. Lights thrust with the wakizashi; heavies cut down from jōdan in an arc. Two Heavens is a double thrust, the wakizashi high to the upper body and the katana low. The cut that answers Void Stance is level, and the throw grabs and tosses. Scabbards at his obi, pleated hakama, a crest on his sleeve, a headband.
+  - Shuten-dōji stands side-on with the kanabō on his shoulder, behind his head, and his free fist up by his chin; that fist's jab is his frontmost blow. The heavy swings the club up from the shoulder, over and down in front, wounding hardest with its head. The quake slams it into the ground. His sake gourd hangs at his hip and goes to his mouth when he drinks. The throw lifts and slams. Arm rings, beads, clawed feet, the tiger pelt's tail, a knotted sash.
 
   Idle, walk, crouch, guard, jump, reeling, knockdown and dazed follow the fighter's state. Fighters without swings fall back to aiming the weapon arm at the move's hitbox.
 - **Faces.** Each has two faces, after the noh mask. The bright *teru* is tilted up, for advancing and attacking. The clouded *kumoru* is tilted down and in shadow, for guarding, being hit and defeat. Musashi wears red or indigo kumadori; Shuten-dōji is a snarling oni.
@@ -214,7 +214,7 @@ Musashi and Shuten-dōji are drawn as cut-paper puppets: flat paper parts with f
 - **Weapons.** Musashi's katana and wakizashi wound most near the tip. Shuten-dōji's kanabō, about half his height, wounds most with its head; right under it, the club passes overhead.
 - **Boxes.** The puppets are scaled to each fighter's standing hurtbox. Their weapons, with damage zones, are part of the puppet data, so the boxes and the drawing come from one source.
 
-`tests/shot.gd` renders posed scenes to PNG files for art review. It needs a display, for instance `xvfb-run godot --path . --rendering-driver opengl3 --script res://tests/shot.gd`.
+`tests/shot.gd` renders posed scenes to PNG files for art review, and `tests/measure.gd` prints each traced move's reach and damage by distance against standing and crouching opponents. It needs a display, for instance `xvfb-run godot --path . --rendering-driver opengl3 --script res://tests/shot.gd`.
 
 ## Healing
 
