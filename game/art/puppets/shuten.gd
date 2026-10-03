@@ -37,11 +37,12 @@ static func definition() -> PuppetDefinition:
 		P.new("lower_arm_f", "upper_arm_f", Vector2(0, 31), [Vector2(-9, 0), Vector2(9, 0), Vector2(8, 26), Vector2(-7, 26)], "skin", 10),
 		P.new("cuff_f", "lower_arm_f", Vector2(0, 18), [Vector2(-9, 0), Vector2(9, 0), Vector2(9, 6), Vector2(-9, 6)], "iron", 10),
 		P.new("weapon_f", "lower_arm_f", Vector2(0, 26), [Vector2(-3, -6), Vector2(4, -6), Vector2(4, 16), Vector2(-3, 16)], "iron", 11),
-		P.new("club_f", "weapon_f", Vector2(0, 16), [Vector2(-6, 0), Vector2(7, 0), Vector2(11, 92), Vector2(0, 98), Vector2(-10, 92)], "iron", 11),
-		P.new("studs_1", "club_f", Vector2(0, 0), [Vector2(-5, 30), Vector2(-1, 30), Vector2(-1, 34), Vector2(-5, 34)], "studs", 11),
-		P.new("studs_2", "club_f", Vector2(0, 0), [Vector2(2, 48), Vector2(6, 48), Vector2(6, 52), Vector2(2, 52)], "studs", 11),
-		P.new("studs_3", "club_f", Vector2(0, 0), [Vector2(-6, 66), Vector2(-2, 66), Vector2(-2, 70), Vector2(-6, 70)], "studs", 11),
-		P.new("studs_4", "club_f", Vector2(0, 0), [Vector2(3, 82), Vector2(7, 82), Vector2(7, 86), Vector2(3, 86)], "studs", 11),
+		# About half his height, thickening toward the head.
+		P.new("club_f", "weapon_f", Vector2(0, 16), [Vector2(-5, 0), Vector2(6, 0), Vector2(11, 72), Vector2(0, 78), Vector2(-10, 72)], "iron", 11),
+		P.new("studs_1", "club_f", Vector2(0, 0), [Vector2(-5, 24), Vector2(-1, 24), Vector2(-1, 28), Vector2(-5, 28)], "studs", 11),
+		P.new("studs_2", "club_f", Vector2(0, 0), [Vector2(2, 38), Vector2(6, 38), Vector2(6, 42), Vector2(2, 42)], "studs", 11),
+		P.new("studs_3", "club_f", Vector2(0, 0), [Vector2(-7, 52), Vector2(-3, 52), Vector2(-3, 56), Vector2(-7, 56)], "studs", 11),
+		P.new("studs_4", "club_f", Vector2(0, 0), [Vector2(3, 64), Vector2(7, 64), Vector2(7, 68), Vector2(3, 68)], "studs", 11),
 	]
 	d.face_teru = [
 		[[Vector2(-1, -27), Vector2(18, -34), Vector2(19, -28), Vector2(0, -23)], "ink"],      # brow, furious
@@ -71,4 +72,72 @@ static func definition() -> PuppetDefinition:
 	# The club held low and forward, its head near the ground ahead.
 	d.rest = {upper_arm_f = -10.0, lower_arm_f = -30.0, weapon_f = -8.0,
 			upper_arm_b = 18.0, lower_arm_b = -30.0}
+
+	# The kanabō wounds hardest at its head; closer in it still hurts.
+	d.weapons = [
+		{name = "club", bone = "weapon_f", from = Vector2(0, 16), to = Vector2(0, 94), width = 15.0,
+			zones = [[0.0, 0.3, 0.5], [0.3, 0.65, 0.8], [0.65, 1.0, 1.0]]},
+		{name = "fist", bone = "fist_b", from = Vector2(0, 0), to = Vector2(0, 10), width = 16.0,
+			zones = [[0.0, 1.0, 1.0]]},
+	]
+	# A sake gourd, in his free hand, only while he drinks.
+	d.parts.append(P.new("gourd", "fist_b", Vector2(0, 6), [Vector2(-5, 0), Vector2(5, 0), Vector2(7, 8),
+			Vector2(4, 12), Vector2(8, 20), Vector2(0, 26), Vector2(-8, 20), Vector2(-4, 12), Vector2(-7, 8)], "gourd", 1, true))
+	d.props = {gourd = [&"sake"]}
+	tori["gourd"] = Color("c9a46a")
+	uke["gourd"] = Color("c9a46a")
+	d.swings = {
+		stand_light = {strikes = ["fist"], keys = [
+			[1.0, {upper_arm_b = -20.0, lower_arm_b = -110.0, torso = -4.0}],
+			[1.2, {upper_arm_b = -88.0, lower_arm_b = -2.0, torso = 8.0}],
+			[2.0, {upper_arm_b = -90.0, lower_arm_b = 0.0, torso = 8.0}]]},
+		# A real swing: from high behind him, over and down in front, the elbow
+		# kept bent as a heavy smash would. It ends low enough to catch a
+		# crouching opponent; right under it, the club passes overhead.
+		stand_heavy = {strikes = ["club"], keys = [
+			[1.0, {upper_arm_f = -175.0, lower_arm_f = -60.0, weapon_f = -10.0, torso = -8.0}],
+			[1.75, {upper_arm_f = -60.0, lower_arm_f = -55.0, weapon_f = 40.0, torso = 22.0}],
+			[2.0, {upper_arm_f = -55.0, lower_arm_f = -55.0, weapon_f = 42.0, torso = 22.0}]]},
+		crouch_light = {base = "crouch", strikes = ["fist"], keys = [
+			[1.0, {upper_arm_b = -20.0, lower_arm_b = -100.0}],
+			[1.2, {upper_arm_b = -60.0, lower_arm_b = 0.0}],
+			[2.0, {upper_arm_b = -62.0, lower_arm_b = 0.0}]]},
+		crouch_heavy = {base = "crouch", strikes = ["club"], keys = [
+			[1.0, {upper_arm_f = 30.0, lower_arm_f = -20.0, weapon_f = 30.0}],
+			[2.0, {upper_arm_f = -50.0, lower_arm_f = -10.0, weapon_f = -32.0}]]},
+		jump_light = {base = "air", strikes = ["fist"], keys = [
+			[1.0, {upper_arm_b = -60.0, lower_arm_b = -60.0}],
+			[1.2, {upper_arm_b = -40.0, lower_arm_b = 20.0}],
+			[2.0, {upper_arm_b = -40.0, lower_arm_b = 20.0}]]},
+		jump_heavy = {base = "air", strikes = ["club"], keys = [
+			[1.0, {upper_arm_f = -175.0, lower_arm_f = -20.0, weapon_f = -20.0}],
+			[2.0, {upper_arm_f = -30.0, lower_arm_f = 10.0, weapon_f = 10.0}]]},
+		# The quake: both hands bring the club down into the ground. The quake
+		# itself is the ground wave, so the move keeps its own boxes.
+		kanabo_quake = {keys = [
+			[1.0, {upper_arm_f = -178.0, lower_arm_f = -20.0, weapon_f = -20.0, upper_arm_b = -170.0, torso = -10.0}],
+			[1.3, {upper_arm_f = -55.0, lower_arm_f = -10.0, weapon_f = -4.0, upper_arm_b = -50.0, torso = 28.0}],
+			[2.0, {upper_arm_f = -55.0, lower_arm_f = -10.0, weapon_f = -4.0, upper_arm_b = -50.0, torso = 28.0}]]},
+		sake = {keys = [
+			[0.6, {upper_arm_b = -150.0, lower_arm_b = -120.0, head = -25.0, torso = -10.0}],
+			[2.2, {upper_arm_b = -150.0, lower_arm_b = -120.0, head = -25.0, torso = -10.0}]]},
+		throw = {keys = [
+			[1.0, {upper_arm_f = -80.0, lower_arm_f = -20.0, upper_arm_b = -75.0, lower_arm_b = -20.0, torso = 14.0}],
+			[2.0, {upper_arm_f = -80.0, lower_arm_f = -20.0, upper_arm_b = -75.0, lower_arm_b = -20.0, torso = 14.0}],
+			[2.4, {upper_arm_f = -170.0, lower_arm_f = -20.0, upper_arm_b = -170.0, lower_arm_b = -20.0, torso = -12.0}],
+			[2.7, {upper_arm_f = -30.0, lower_arm_f = 0.0, upper_arm_b = -30.0, lower_arm_b = 0.0, torso = 30.0}]]},
+		rush = {strikes = ["club"], keys = [
+			[1.0, {upper_arm_f = 20.0, lower_arm_f = -60.0, weapon_f = -20.0}],
+			[1.2, {upper_arm_f = -70.0, lower_arm_f = -10.0, weapon_f = -20.0, torso = 22.0}],
+			[2.0, {upper_arm_f = -70.0, lower_arm_f = -10.0, weapon_f = -20.0, torso = 22.0}]]},
+		rising = {strikes = ["club"], keys = [
+			[1.0, {upper_arm_f = 10.0, lower_arm_f = -10.0, weapon_f = 40.0}],
+			[2.0, {upper_arm_f = -175.0, lower_arm_f = 0.0, weapon_f = 0.0}]]},
+		summon = {keys = [
+			[1.0, {upper_arm_b = -160.0, lower_arm_b = -10.0, head = -14.0}],
+			[2.0, {upper_arm_b = -160.0, lower_arm_b = -10.0, head = -14.0}]]},
+		finisher = {keys = [
+			[1.0, {upper_arm_f = -178.0, lower_arm_f = -20.0, weapon_f = -20.0, upper_arm_b = -170.0, torso = -10.0}],
+			[2.0, {upper_arm_f = -40.0, lower_arm_f = 10.0, weapon_f = 20.0, upper_arm_b = -40.0, torso = 28.0}]]},
+	}
 	return d

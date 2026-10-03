@@ -4,7 +4,7 @@ A 2D fighting game set in a fantasy Japan, in the lineage of Street Fighter and 
 
 The guiding principle: **the fighting is the game; the campaign exists to produce unusual fights.** There are no levels, stat sheets or grinding.
 
-This is version 13: sixteen humans and yokai and three giants. Musashi and Shuten-dōji are now cut-paper puppets against a painted shore, the first art test; the rest are still rectangles. History is in [CHANGELOG.md](CHANGELOG.md), and the first art and audio direction is in [docs/art_and_audio.md](docs/art_and_audio.md).
+This is version 13.1: sixteen humans and yokai and three giants. Musashi and Shuten-dōji are now cut-paper puppets against a painted shore, the first art test, and they strike with their actual weapons; the rest are still rectangles. History is in [CHANGELOG.md](CHANGELOG.md), and the first art and audio direction is in [docs/art_and_audio.md](docs/art_and_audio.md).
 
 ## Running
 
@@ -52,6 +52,12 @@ Each player's full move list is on screen in that player's own keys, and it foll
   - A fighter in the air can be juggled up to three hits.
   - A fighter lying down can't be hit, and is invulnerable for a fifth of a second on rising.
 - **Timing.** Two presses count as "together" within a per-player window, which menu option 4 measures on the game's real chords.
+- **Distance.** Strikes want their proper distance, not just "close enough":
+  - a weapon wounds hardest near its tip and less toward the hand;
+  - the Drying Pole wounds only with its tip;
+  - throws work only up close.
+
+  For fighters drawn as puppets, the hitboxes are traced from the posed weapon on every active frame. A swing leaves an arc of boxes, what you see is what hits, and each part of the blade or club carries its own damage scale. F1 shows the boxes over the puppets.
 
 ## Fighters
 
@@ -195,13 +201,18 @@ Monkey face, tanuki body, tiger limbs, snake tail, on a black thundercloud.
 
 ## The art test
 
-Musashi and Shuten-dōji are drawn as cut-paper puppets: flat, ink-edged paper parts on a simple skeleton, under a faint washi grain. The direction is in `docs/art_and_audio.md`.
+Musashi and Shuten-dōji are drawn as cut-paper puppets: flat paper parts with fine ink edges on a simple skeleton, under a faint washi grain. The grain is grey in fights and sepia, on warm paper, on the menus. The direction is in `docs/art_and_audio.md`.
 
-- **Poses.** Poses follow the fighter's state, with idle, walk, crouch, guard, jump, reeling, knockdown and dazed. An attack aims the weapon arm at the move's own hitbox, so every attack reads without per-move animation. A second hitbox takes the other arm, which gives Musashi's Two Heavens one sword high and one low.
-- **Faces.** Each has two faces, after the noh mask: the bright, raised *teru* for advancing and attacking, and the clouded, lowered *kumoru* for guarding, being hit and defeat. Musashi wears red or indigo kumadori; Shuten-dōji is a snarling oni.
+- **Swings.** Every move is a swing: a few key poses through its wind-up, strike and recovery, fitted to its frame data, and the hitboxes are traced from the same poses.
+  - Musashi: lights are the wakizashi, heavies the katana, in a vertical arc. Two Heavens sends the wakizashi to the upper body and the katana to the lower. The cut that answers Void Stance is level. The throw grabs and tosses.
+  - Shuten-dōji: the light is a backfist. The heavy swings the kanabō from high behind him over and down, wounding hardest with its head. The quake slams the club into the ground. He raises a sake gourd to drink, and the throw lifts and slams.
+
+  Idle, walk, crouch, guard, jump, reeling, knockdown and dazed follow the fighter's state. Fighters without swings fall back to aiming the weapon arm at the move's hitbox.
+- **Faces.** Each has two faces, after the noh mask. The bright *teru* is tilted up, for advancing and attacking. The clouded *kumoru* is tilted down and in shadow, for guarding, being hit and defeat. Musashi wears red or indigo kumadori; Shuten-dōji is a snarling oni.
 - **Colourways.** Tori is vermilion, ivory and gold; uke is indigo, ash and silver. Player 1 always wears tori. In the campaign the computer wears tori too, so Shuten-dōji is a red oni; in versus player 2 wears uke, so he becomes a blue oni.
 - **Background.** The shore at dusk, in ukiyo-e banded colour: a low sun, a distant mountain, the sea in bands with curling crests, a torii in the water, and sand underfoot. Its layers scroll at different speeds and repeat, so it also serves the circular arenas.
-- **Boxes.** The puppets are scaled to each fighter's standing hurtbox, and the boxes remain the truth for hits (F1 shows them).
+- **Weapons.** Musashi's katana and wakizashi wound most near the tip. Shuten-dōji's kanabō, about half his height, wounds most with its head; right under it, the club passes overhead.
+- **Boxes.** The puppets are scaled to each fighter's standing hurtbox. Their weapons, with damage zones, are part of the puppet data, so the boxes and the drawing come from one source.
 
 `tests/shot.gd` renders posed scenes to PNG files for art review. It needs a display, for instance `xvfb-run godot --path . --rendering-driver opengl3 --script res://tests/shot.gd`.
 
@@ -293,7 +304,7 @@ godot --headless --path . --import          # once, to build the class cache
 godot --headless --path . --script res://tests/selftest.gd
 ```
 
-There are 115 checks. They cover:
+There are 117 checks. They cover:
 
 - **The rules:** guards, throws, combos, commands, timing.
 - **Every fighter's specials:** each one completes.

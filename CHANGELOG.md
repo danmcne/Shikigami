@@ -2,6 +2,22 @@
 
 Newest first. The README describes the current version only.
 
+## 13.1
+
+- **Weapons decide hits.** For puppet fighters, each move is a swing of key poses over its frame data. Its hitboxes are traced from the posed weapons on every active frame, and the puppet is drawn from the same poses.
+- **Distance.** Weapons have damage zones: tip strongest, the hand end weakest.
+- **Musashi:** wakizashi lights, katana heavies in a vertical arc, Two Heavens high with the wakizashi and low with the katana, a level answering cut, a grab-and-toss throw.
+- **Shuten-dōji:** a backfist light, a true overhead kanabō swing, a club slam for the quake, a sake gourd, a lift-and-slam throw.
+- **Faces** change visibly: the mask tilts up for teru, and down into shadow for kumoru.
+- **Look:** thinner paper edges; sepia washi on warm paper for the menus, grey in fights.
+- **Engine:** strikes carry a damage scale from the zone that landed; weapon geometry and swings live in the puppet data.
+- **The computer** judges a move's reach only from boxes at a standing body's height. A traced swing passes through boxes overhead, and counting them had made Musashi's computer use his anti-air as a long poke; he won 0% of tournament bouts before this fix.
+- **Swing fixes found by measurement:**
+  - the crouching sweeps pointed into the floor;
+  - both standing heavies never reached a crouching opponent;
+  - Shuten-dōji's kanabō, at two-thirds of his height, reached 250 px; it is now about half his height and swung with a bent elbow, reaching about 200.
+- **Tests:** the computer-against-computer check counts hits as they land (health resets between rounds).
+
 ## 13
 
 - **The art test.** Musashi and Shuten-dōji are cut-paper puppets:

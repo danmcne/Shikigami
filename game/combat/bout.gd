@@ -406,12 +406,13 @@ func _resolve_hits() -> void:
 			if e.owner_index == 1 - i and e.move.tethered and not e.from_spirit and not e.spent:
 				hurt.append_array(e.boxes())
 		var f := fighters[i]
-		var contact := _contact(f.active_hitboxes(), hurt)
+		var landed := _strike_contact(f.active_strikes(), hurt)
+		var contact: Rect2 = landed[0]
 		if contact.has_area():
 			if f.move.throw:
 				throwers.append(f)
 			else:
-				strikes.append([i, f.move, f.facing, f, false, contact])
+				strikes.append([i, f.move, f.facing, f, false, contact, landed[1]])
 		for e in entities:
 			if e.owner_index != i or e.holding or e.pushing:
 				continue
@@ -427,7 +428,7 @@ func _resolve_hits() -> void:
 				target.seized(e.move)
 				e.holding = target
 				continue
-			strikes.append([i, e.move, e.facing, null, e.from_spirit, contact])
+			strikes.append([i, e.move, e.facing, null, e.from_spirit, contact, 1.0])
 			if e.move.returns:
 				e.turn_back()
 			else:
@@ -435,12 +436,13 @@ func _resolve_hits() -> void:
 		for s in spirits:
 			if s.summoner != i or s.state != Fighter.State.MOVE:
 				continue
-			contact = _contact(s.active_hitboxes(), hurt)
+			var s_landed := _strike_contact(s.active_strikes(), hurt)
+			contact = s_landed[0]
 			if contact.has_area():
 				if s.move.throw:
 					throwers.append(s)
 				else:
-					strikes.append([i, s.move, s.facing, null, true, contact])
+					strikes.append([i, s.move, s.facing, null, true, contact, s_landed[1]])
 					s.move_connected = true
 
 	var struck := [false, false]
@@ -461,7 +463,8 @@ func _resolve_hits() -> void:
 			guardian.trigger_counter()
 			target.show_notice("COUNTER")
 			continue
-		var scale := maxf(COMBO_FLOOR, 1.0 - COMBO_STEP * combo[side])
+		# Combo scaling, and where on the weapon it landed.
+		var scale: float = maxf(COMBO_FLOOR, 1.0 - COMBO_STEP * combo[side]) * s[6]
 		target.receive(m, s[2], s[4], scale, s[5])
 		struck[side] = true
 		if target.state in [Fighter.State.HITSTUN, Fighter.State.KNOCKDOWN, Fighter.State.KO]:
@@ -507,6 +510,17 @@ func _clash_entities() -> void:
 
 ## Where any of `boxes` first overlaps any of `targets`; an empty rect if
 ## nowhere.
+## Where a set of strikes ([box, damage scale] pairs) lands on `targets`, and
+## the strongest zone that touched: [contact, scale], or an empty contact.
+func _strike_contact(strikes: Array, targets: Array[Rect2]) -> Array:
+	var best := [Rect2(), 0.0]
+	for strike in strikes:
+		for t in targets:
+			if strike[0].intersects(t) and strike[1] > best[1]:
+				best = [strike[0].intersection(t), strike[1]]
+	return best
+
+
 func _contact(boxes: Array[Rect2], targets: Array[Rect2]) -> Rect2:
 	for box in boxes:
 		for t in targets:

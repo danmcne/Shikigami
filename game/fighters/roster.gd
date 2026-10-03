@@ -9,6 +9,7 @@ extends RefCounted
 ## throws, projectiles (including stationary traps and barriers), launches,
 ## teleports, counters, heals, armour, slow, and pulls (negative knockback).
 
+const PuppetsRegistry := preload("res://game/art/puppets/registry.gd")
 const PrototypeRect := preload("res://game/fighters/prototype_rect.gd")
 const H := MoveDefinition.Height
 const HUMAN := FighterDefinition.Kind.HUMAN
@@ -248,7 +249,38 @@ static func _build(e: Dictionary) -> FighterDefinition:
 		d.commands[patterns[k]] = m.id
 		d.specials.append(m.id)
 	d.spirit_cooldown = e.get("spirit_cooldown", 360)
+	_trace_weapons(d)
 	return d
+
+
+## A fighter with a puppet strikes with its weapons: each move it animates as
+## a swing has its hitboxes traced, frame by frame, from where the weapons
+## are. Moves without a swing, or whose swing strikes with nothing (a throw's
+## grab, a quake's ground wave), keep their own boxes.
+static func _trace_weapons(d: FighterDefinition) -> void:
+	var puppet := PuppetsRegistry.for_id(d.id)
+	if puppet == null:
+		return
+	var scale := d.stand_hurtbox.size.y / puppet.height * Puppet.FIT
+	var everything: Array = d.moves.values() + [d.summon_move, d.finisher_move]
+	for m in d.moves.values():
+		if m.counter:
+			everything.append(m.counter)
+	for m in everything:
+		if m == null or not puppet.swings.has(String(m.id)):
+			continue
+		var swing: Dictionary = puppet.swings[String(m.id)]
+		if swing.get("strikes", []).is_empty():
+			continue
+		var frames: Array = []
+		var all: Array[Rect2] = []
+		for f in range(m.startup, m.startup + m.active):
+			var strikes := puppet.weapon_strikes(swing, m, f, scale)
+			frames.append(strikes)
+			for strike in strikes:
+				all.append(strike[0])
+		m.frame_strikes = frames
+		m.hitboxes = all
 
 
 ## A MoveDefinition from a dictionary; nested `counter`, `spawn` and `leaves`

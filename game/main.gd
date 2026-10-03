@@ -50,6 +50,10 @@ var tournament: Tournament
 var tournament_from_command_line := false
 
 
+## The washi grain over the screen: sepia on the menus, grey in fights.
+var _paper: ColorRect
+
+
 func _ready() -> void:
 	InputSetup.register()
 	# A faint washi grain over the whole screen.
@@ -60,6 +64,7 @@ func _ready() -> void:
 	material.shader = load("res://game/art/paper.gdshader")
 	paper.material = material
 	add_child(paper)
+	_paper = paper
 	var args := OS.get_cmdline_user_args()
 	if "--tournament" in args:
 		var option := func(name: String, fallback: int) -> int:
@@ -285,6 +290,15 @@ func _make_monster_bout(a: FighterDefinition, sa: Array[SpiritBinding], beast: M
 # --- drawing -----------------------------------------------------------------
 
 func _draw() -> void:
+	if not screen in [Screen.RUN, Screen.VERSUS]:
+		# The menus sit on warm, dark paper.
+		draw_rect(Rect2(0, 0, 1280, 720), Color("3b2f23"))
+	if _paper:
+		var fighting := screen in [Screen.RUN, Screen.VERSUS]
+		var m := _paper.material as ShaderMaterial
+		m.set_shader_parameter("tint", Vector3(1, 1, 1) if fighting else Vector3(0.62, 0.45, 0.25))
+		m.set_shader_parameter("wash", 0.0 if fighting else 0.10)
+		m.set_shader_parameter("strength", 0.07 if fighting else 0.12)
 	match screen:
 		Screen.MENU:
 			BoutView.message(self, "SHIKIGAMI (working title)", 200, 48)

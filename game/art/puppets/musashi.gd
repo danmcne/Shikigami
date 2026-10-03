@@ -61,4 +61,69 @@ static func definition() -> PuppetDefinition:
 	# Chūdan: the katana raised toward the opponent's eyes, the wakizashi low.
 	d.rest = {upper_arm_f = -25.0, lower_arm_f = -60.0, weapon_f = -55.0,
 			upper_arm_b = 10.0, lower_arm_b = -35.0, weapon_b = -70.0}
+
+	# Both blades wound most near the tip and least near the guard.
+	var edge := [[0.0, 0.25, 0.4], [0.25, 0.7, 0.8], [0.7, 1.0, 1.0]]
+	d.weapons = [
+		{name = "katana", bone = "weapon_f", from = Vector2(0, 17), to = Vector2(0, 103), width = 5.0, zones = edge},
+		{name = "wakizashi", bone = "weapon_b", from = Vector2(0, 9), to = Vector2(0, 65), width = 5.0, zones = edge},
+	]
+	# Light attacks are the wakizashi, heavy ones the katana.
+	d.swings = {
+		stand_light = {strikes = ["wakizashi"], keys = [
+			[1.0, {upper_arm_b = -30.0, lower_arm_b = -110.0, weapon_b = -40.0, torso = -4.0}],
+			[1.3, {upper_arm_b = -88.0, lower_arm_b = -2.0, weapon_b = 0.0, torso = 10.0}],
+			[2.0, {upper_arm_b = -90.0, lower_arm_b = 0.0, weapon_b = 0.0, torso = 12.0}]]},
+		# A vertical cut: from overhead, level through the middle of the swing,
+		# and down low enough by its end to catch a crouching opponent.
+		stand_heavy = {strikes = ["katana"], keys = [
+			[1.0, {upper_arm_f = -175.0, lower_arm_f = -15.0, weapon_f = -15.0, torso = -6.0}],
+			[1.75, {upper_arm_f = -45.0, lower_arm_f = -5.0, weapon_f = -5.0, torso = 18.0}],
+			[2.0, {upper_arm_f = -40.0, lower_arm_f = -5.0, weapon_f = -5.0, torso = 18.0}]]},
+		crouch_light = {base = "crouch", strikes = ["wakizashi"], keys = [
+			[1.0, {upper_arm_b = -20.0, lower_arm_b = -90.0, weapon_b = -30.0}],
+			[1.3, {upper_arm_b = -55.0, lower_arm_b = -5.0, weapon_b = -22.0}],
+			[2.0, {upper_arm_b = -57.0, lower_arm_b = -5.0, weapon_b = -22.0}]]},
+		crouch_heavy = {base = "crouch", strikes = ["katana"], keys = [
+			[1.0, {upper_arm_f = 40.0, lower_arm_f = -30.0, weapon_f = 10.0}],
+			[2.0, {upper_arm_f = -55.0, lower_arm_f = -5.0, weapon_f = -32.0}]]},
+		jump_light = {base = "air", strikes = ["wakizashi"], keys = [
+			[1.0, {upper_arm_b = -10.0, lower_arm_b = -100.0, weapon_b = -20.0}],
+			[1.3, {upper_arm_b = -40.0, lower_arm_b = 10.0, weapon_b = 20.0}],
+			[2.0, {upper_arm_b = -40.0, lower_arm_b = 10.0, weapon_b = 20.0}]]},
+		jump_heavy = {base = "air", strikes = ["katana"], keys = [
+			[1.0, {upper_arm_f = -170.0, lower_arm_f = -20.0, weapon_f = -10.0}],
+			[2.0, {upper_arm_f = -40.0, lower_arm_f = 10.0, weapon_f = 10.0}]]},
+		# Two Heavens: the wakizashi to the upper body, the katana to the lower.
+		two_heavens = {strikes = ["wakizashi", "katana"], keys = [
+			[1.0, {upper_arm_f = 20.0, lower_arm_f = -40.0, upper_arm_b = -30.0, lower_arm_b = -110.0, torso = -6.0}],
+			[1.4, {upper_arm_b = -95.0, lower_arm_b = 0.0, weapon_b = 0.0, upper_arm_f = -30.0, lower_arm_f = -15.0, weapon_f = 5.0, torso = 10.0}],
+			[2.0, {upper_arm_b = -95.0, lower_arm_b = 0.0, weapon_b = 0.0, upper_arm_f = -30.0, lower_arm_f = -15.0, weapon_f = 5.0, torso = 10.0}]]},
+		# Void Stance: the katana held low at his side, waiting.
+		void_stance = {keys = [
+			[0.5, {upper_arm_f = 10.0, lower_arm_f = -30.0, weapon_f = 60.0, torso = -2.0}],
+			[2.5, {upper_arm_f = 10.0, lower_arm_f = -30.0, weapon_f = 60.0, torso = -2.0}]]},
+		# ...and its answer, a level cut.
+		void_cut = {strikes = ["katana"], keys = [
+			[1.0, {upper_arm_f = 50.0, lower_arm_f = -60.0, weapon_f = -20.0}],
+			[2.0, {upper_arm_f = -95.0, lower_arm_f = 0.0, weapon_f = 0.0, torso = 14.0}]]},
+		throw = {keys = [
+			[1.0, {upper_arm_f = -75.0, lower_arm_f = -20.0, upper_arm_b = -70.0, lower_arm_b = -20.0, torso = 12.0}],
+			[2.0, {upper_arm_f = -75.0, lower_arm_f = -20.0, upper_arm_b = -70.0, lower_arm_b = -20.0, torso = 12.0}],
+			[2.5, {upper_arm_f = -20.0, lower_arm_f = -110.0, upper_arm_b = 10.0, lower_arm_b = -100.0, torso = -10.0}]]},
+		rush = {strikes = ["katana"], keys = [
+			[1.0, {upper_arm_f = -40.0, lower_arm_f = -90.0, weapon_f = -10.0}],
+			[1.2, {upper_arm_f = -90.0, lower_arm_f = 0.0, weapon_f = 0.0, torso = 18.0}],
+			[2.0, {upper_arm_f = -90.0, lower_arm_f = 0.0, weapon_f = 0.0, torso = 18.0}]]},
+		rising = {strikes = ["katana"], keys = [
+			[0.5, {upper_arm_f = 0.0, lower_arm_f = -20.0, weapon_f = 40.0}],
+			[1.0, {upper_arm_f = -120.0, lower_arm_f = -10.0, weapon_f = 0.0}],
+			[2.0, {upper_arm_f = -175.0, lower_arm_f = 0.0, weapon_f = 0.0}]]},
+		summon = {keys = [
+			[1.0, {upper_arm_b = -150.0, lower_arm_b = -20.0, upper_arm_f = -30.0, head = -10.0}],
+			[2.0, {upper_arm_b = -150.0, lower_arm_b = -20.0, upper_arm_f = -30.0, head = -10.0}]]},
+		finisher = {keys = [
+			[1.0, {upper_arm_f = -175.0, lower_arm_f = -10.0, weapon_f = -10.0, upper_arm_b = -150.0, torso = -8.0}],
+			[2.0, {upper_arm_f = -60.0, lower_arm_f = 0.0, weapon_f = -20.0, upper_arm_b = 30.0, torso = 18.0}]]},
+	}
 	return d

@@ -24,6 +24,8 @@ What this avoids: hand-drawn frame animation for 16 fighters (by far the biggest
 
 That is two images per fighter, which the cut-out rig swaps at the head joint, and it lets a fixed face carry the fight's moods.
 
+**Weapons are gameplay.** A puppet's weapons are drawn and also define where it hits. Each move is a swing of a few key poses, its hitboxes are traced from the posed weapon frame by frame, and each weapon has damage zones (the tip strongest). Drawing a new fighter therefore means authoring its weapon and its swings together. That is little more work than drawing poses, and it keeps the art and the hits from drifting apart.
+
 **Rokurokubi's neck.** In the final art her neck must stay visibly attached as the head flies out and back. It will be a chain of paper segments (a textured line through points along the head's path) from her shoulders to the head, paying out and reeling back in with it.
 
 ## Player 1 and player 2: tori and uke

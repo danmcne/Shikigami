@@ -133,6 +133,8 @@ func _init() -> void:
 	_test_rokurokubi_head_is_vulnerable()
 	_test_lantern_leaves_fire()
 	_test_drying_pole_wounds_only_with_its_tip()
+	_test_swing_traces_an_arc()
+	_test_weapon_tip_wounds_hardest()
 	print("CPU, run, calibration")
 	_test_cpu_enters_motions()
 	_test_cpu_attacks()
@@ -1138,13 +1140,19 @@ func _test_hard_cpu_fights() -> void:
 	var a := _r(&"musashi")
 	var b := Bout.new(a, _r(&"shuten"))
 	var cpus := [CpuController.new(CpuController.HARD, 1), CpuController.new(CpuController.HARD, 2)]
+	# Health resets between rounds, so record every hit as it lands.
+	var landed := [0, 0]
+	var last := [b.fighters[0].health, b.fighters[1].health]
 	for n in 3000:
 		var f := b.fighters
 		var intents: Array[Intent] = [cpus[0].read(f[0], f[1]), cpus[1].read(f[1], f[0])]
 		b.step(intents)
+		for i in 2:
+			if f[i].health < last[i]:
+				landed[1 - i] += 1
+			last[i] = f[i].health
 	_check("two Hard computers fight each other and both land hits",
-			b.fighters[0].health < b.fighters[0].definition.max_health or b.wins[1] > 0,
-			"healths %d / %d" % [b.fighters[0].health, b.fighters[1].health])
+			landed[0] > 0 and landed[1] > 0, "hits landed %s" % [landed])
 
 
 func _test_low_projectile_read() -> void:
@@ -1948,3 +1956,31 @@ func _test_drying_pole_wounds_only_with_its_tip() -> void:
 	_check("the Drying Pole wounds at its proper distance; too close, it passes harmlessly and is spent",
 			_taken(far, 1) == kojiro.moves[&"drying_pole"].damage and _taken(close, 1) == 0 and spent,
 			"far %d, close %d, spent %s" % [_taken(far, 1), _taken(close, 1), spent])
+
+
+# --- weapons: hitboxes traced from the posed weapon ---------------------------
+
+func _test_swing_traces_an_arc() -> void:
+	var heavy: MoveDefinition = _r(&"musashi").moves[&"stand_heavy"]
+	var tops: Array = []
+	for frame in heavy.frame_strikes:
+		var top := INF
+		for strike in frame:
+			top = minf(top, strike[0].position.y)
+		tops.append(top)
+	var traced := heavy.frame_strikes.size() == heavy.active and tops.all(func(v: float) -> bool: return v < INF)
+	_check("Musashi's heavy cut is traced from the katana, and its boxes sweep down through the swing",
+			traced and tops[0] < tops[-1] - 60.0, "tops %s" % [tops])
+
+
+func _test_weapon_tip_wounds_hardest() -> void:
+	var shuten := _r(&"shuten")
+	var damage := {}
+	for distance in [230.0, 120.0]:
+		var b := Bout.new(shuten, def)
+		b.fighters[0].position.x = -distance / 2.0
+		b.fighters[1].position.x = distance / 2.0
+		_run(b, 40, _at({0: [5, "B"]}))
+		damage[distance] = _taken(b, 1)
+	_check("the kanabō wounds hardest with its head; closer in it still hurts, but less",
+			damage[230.0] > damage[120.0] and damage[120.0] > 0, "at the head %d, closer %d" % [damage[230.0], damage[120.0]])

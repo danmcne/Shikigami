@@ -249,6 +249,10 @@ func _ready(me: Fighter, pattern: String) -> bool:
 			and not (m.spawn and m.spawn in me.live_spawns)
 
 
+## The top of a standing body, for judging what a move can reach.
+const BODY_TOP := -165.0
+
+
 static func _reach(m: MoveDefinition) -> float:
 	# A projectile travels, and a teleport arrives beside the opponent wherever
 	# they are: either reaches any distance.
@@ -256,9 +260,15 @@ static func _reach(m: MoveDefinition) -> float:
 		return INF
 	if m.hitboxes.is_empty():
 		return -1.0
+	# Only boxes at a standing body's height count: a swing traced from a
+	# weapon passes through boxes far overhead that would reach no one, as
+	# does an anti-air's.
 	var reach := -INF
 	for box in m.hitboxes:
-		reach = maxf(reach, box.end.x)
+		if box.end.y > BODY_TOP and box.position.y < 0.0:
+			reach = maxf(reach, box.end.x)
+	if reach == -INF:
+		return -1.0
 	if m.motion.y == 0.0:
 		# A slide decelerating at Fighter.SLIDE_DECEL covers v²/(2·decel).
 		reach += m.motion.x * m.motion.x / (2.0 * Fighter.SLIDE_DECEL)

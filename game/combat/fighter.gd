@@ -470,10 +470,26 @@ func pushbox() -> Rect2:
 
 func active_hitboxes() -> Array[Rect2]:
 	var boxes: Array[Rect2] = []
-	if state == State.MOVE and not move_connected and move.is_active_on(state_frame):
-		for box in move.hitboxes:
-			boxes.append(to_world(box))
+	for strike in active_strikes():
+		boxes.append(strike[0])
 	return boxes
+
+
+## The boxes striking now, in the world, each with its damage scale: a
+## weapon's zones if the move is traced from one, otherwise its hitboxes at
+## full strength.
+func active_strikes() -> Array:
+	var out: Array = []
+	if state != State.MOVE or move_connected or not move.is_active_on(state_frame):
+		return out
+	if not move.frame_strikes.is_empty():
+		var k := clampi(state_frame - move.startup, 0, move.frame_strikes.size() - 1)
+		for strike in move.frame_strikes[k]:
+			out.append([to_world(strike[0]), strike[1]])
+	else:
+		for box in move.hitboxes:
+			out.append([to_world(box), 1.0])
+	return out
 
 
 func to_world(local: Rect2) -> Rect2:

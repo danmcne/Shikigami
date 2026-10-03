@@ -76,6 +76,11 @@ enum SpawnOrigin { PERFORMER, TARGET }
 ## started, harmless on the way back (Rokurokubi's head).
 @export var returns: bool = false
 @export var turn_height: float = -80.0
+## Traced from a weapon: for each active frame, the boxes the weapon occupies
+## and the damage scale of each ([Rect2, scale] pairs). When present these
+## replace `hitboxes` while the move is active; `hitboxes` then holds them
+## all, for reach and the like. Built when the fighter is assembled.
+@export var frame_strikes: Array = []
 ## Health restored on the first active frame: to the performer, or, for a
 ## spirit, to the fighter who summoned it.
 @export var heal: int = 0
