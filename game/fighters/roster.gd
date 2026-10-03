@@ -199,13 +199,15 @@ static func _table() -> Array:
 		{id = &"rokurokubi", name = "Rokurokubi", kind = YOKAI,
 			p = {health = 900, size = 1.0, speed = 0.95, jump = 1.0, power = 0.95, tempo = 0},
 			# By night her neck stretches: her head flies out in a long arc and comes
-			# down on you from above. It stays joined to her, so a blow to the head is a
-			# blow to her, and it snaps back the moment she is struck.
-			# Her recovery lasts the whole flight; the head is withdrawn when it ends.
-			specials = [{id = &"long_neck", startup = 12, active = 1, recovery = 68, cooldown = 120,
+			# down on you from above, turning back when it strikes or reaches a
+			# fighter's mid-height, and returning along the same path. It stays joined
+			# to her, so a blow to the head is a blow to her, and it snaps back the
+			# moment she is struck. Her recovery lasts the whole flight out and back.
+			specials = [{id = &"long_neck", startup = 12, active = 1, recovery = 66, cooldown = 120,
 					spawn_offset = Vector2(20, -150),
 					spawn = {id = &"flying_head", startup = 0, active = 80, recovery = 0,
-						motion = Vector2(7, -12), gravity = 0.45, tethered = true,
+						motion = Vector2(9, -11), gravity = 0.6, tethered = true, returns = true,
+						turn_height = -80.0,
 						damage = 80, hitstun = 20, blockstun = 12, knockback = 6.0, hitstop = 9, height = H.HIGH,
 						hitboxes = [Rect2(-25, -25, 50, 50)]}},
 				# The lantern whose oil she licks by night, thrown in an arc; where it

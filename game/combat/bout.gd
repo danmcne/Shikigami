@@ -404,7 +404,7 @@ func _resolve_hits() -> void:
 		var hurt := target.hurtboxes()
 		for e in entities:
 			if e.owner_index == 1 - i and e.move.tethered and not e.from_spirit and not e.spent:
-				hurt.append_array(e.active_hitboxes())
+				hurt.append_array(e.boxes())
 		var f := fighters[i]
 		var contact := _contact(f.active_hitboxes(), hurt)
 		if contact.has_area():
@@ -428,7 +428,10 @@ func _resolve_hits() -> void:
 				e.holding = target
 				continue
 			strikes.append([i, e.move, e.facing, null, e.from_spirit, contact])
-			e.spent = true
+			if e.move.returns:
+				e.turn_back()
+			else:
+				e.spent = true
 		for s in spirits:
 			if s.summoner != i or s.state != Fighter.State.MOVE:
 				continue

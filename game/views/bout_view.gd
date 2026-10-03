@@ -36,6 +36,12 @@ static func draw(ci: CanvasItem, bout: Bout, names: Array[String], show_boxes: b
 	for s in bout.spirits:
 		_fighter(ci, s, Color(COLORS[s.summoner].lightened(0.5), 0.4), show_boxes)
 	for e in bout.entities:
+		# A tethered piece is joined to its performer: a neck from the shoulders.
+		if e.move.tethered:
+			var owner: Fighter = bout.fighters[e.owner_index]
+			var top := owner.hurtbox()
+			var neck := Vector2(top.get_center().x + owner.facing * top.size.x * 0.2, top.position.y + 12)
+			ci.draw_line(neck, e.position, COLORS[e.owner_index].lightened(0.2), 6.0)
 		# Before it strikes, a piece with a start-up shows where it will.
 		if e.frame < e.move.startup:
 			for local in e.move.hitboxes:
@@ -47,9 +53,11 @@ static func draw(ci: CanvasItem, bout: Bout, names: Array[String], show_boxes: b
 		if e.move.motion.y > 0.0 and e.position.y < -20.0:
 			for box in e.active_hitboxes():
 				ci.draw_rect(Rect2(box.position.x, -6, box.size.x, 6), Color(0, 0, 0, 0.45))
-		for box in e.active_hitboxes():
+		# A returning piece is still drawn on its way back, though it can't strike.
+		var drawn := e.boxes() if e.returning else e.active_hitboxes()
+		for box in drawn:
 			ci.draw_rect(box, COLORS[e.owner_index].lightened(0.4))
-			ci.draw_rect(box, Color.RED if show_boxes else Color.WHITE, false, 2.0)
+			ci.draw_rect(box, Color.RED if show_boxes and not e.returning else Color.WHITE, false, 2.0)
 	ci.draw_set_transform(Vector2.ZERO)
 	_hud(ci, bout, names)
 

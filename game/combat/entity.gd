@@ -21,6 +21,11 @@ var arrived := false
 ## A fighter this piece has seized and carries, or is pushing while they guard.
 var holding: Fighter = null
 var pushing: Fighter = null
+## A returning piece: heading back along the path it took.
+var returning := false
+## Frames retraced per frame on the way back.
+const RETURN_SPEED := 2
+var _path := PackedVector2Array()
 
 
 func _init(m: MoveDefinition, at: Vector2, face: int, index: int, spirit := false) -> void:
@@ -34,6 +39,16 @@ func _init(m: MoveDefinition, at: Vector2, face: int, index: int, spirit := fals
 
 func step() -> void:
 	frame += 1
+	if returning:
+		for k in RETURN_SPEED:
+			if _path.is_empty():
+				spent = true
+				return
+			position = _path[_path.size() - 1]
+			_path.remove_at(_path.size() - 1)
+		return
+	if move.returns:
+		_path.append(position)
 	if not arrived:
 		position += Vector2(facing * velocity.x, velocity.y)
 		velocity.y += move.gravity
@@ -42,8 +57,23 @@ func step() -> void:
 			arrived = true
 	if frame >= move.total_frames():
 		spent = true
-	if move.gravity > 0.0 and position.y >= 0.0:
+	if move.returns and velocity.y > 0.0 and position.y >= move.turn_height:
+		turn_back()
+	elif move.gravity > 0.0 and position.y >= 0.0:
 		spent = true
+
+
+## Head back along the path taken.
+func turn_back() -> void:
+	returning = true
+
+
+## Its boxes in the world whether or not they can strike now.
+func boxes() -> Array[Rect2]:
+	var out: Array[Rect2] = []
+	for box in move.hitboxes:
+		out.append(MoveDefinition.place(box, position, facing))
+	return out
 
 
 ## How far it moved along x on its last step (zero once arrived).
@@ -53,7 +83,7 @@ func last_step_x() -> float:
 
 func active_hitboxes() -> Array[Rect2]:
 	var boxes: Array[Rect2] = []
-	if not spent and move.is_active_on(frame):
+	if not spent and not returning and move.is_active_on(frame):
 		for box in move.hitboxes:
 			boxes.append(MoveDefinition.place(box, position, facing))
 	return boxes

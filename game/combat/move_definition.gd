@@ -71,6 +71,11 @@ enum SpawnOrigin { PERFORMER, TARGET }
 ## For a spawned move: what it leaves on the ground where it lands or strikes
 ## (a thrown lantern's fire).
 @export var leaves: MoveDefinition
+## For a spawned move: instead of ending, it turns back when it strikes or
+## when it comes down to `turn_height`, and retraces its path to where it
+## started, harmless on the way back (Rokurokubi's head).
+@export var returns: bool = false
+@export var turn_height: float = -80.0
 ## Health restored on the first active frame: to the performer, or, for a
 ## spirit, to the fighter who summoned it.
 @export var heal: int = 0

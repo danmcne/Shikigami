@@ -17,6 +17,15 @@ Nothing here is built yet. The aim is a style that is unmistakably Japanese, con
 
 What this avoids: hand-drawn frame animation for 16 fighters (by far the biggest cost in 2D fighting games), and facial animation altogether.
 
+**Two faces per fighter.** A noh mask changes expression with its angle. Tilted up (*teru*, "to shine"), it catches the light and looks bright or fierce. Tilted down (*kumoru*, "to cloud"), it shades and looks sorrowful or menacing. We can do the same with two drawings of each face, swapped by state rather than animated:
+
+- the raised face for advancing, attacking, specials and victory;
+- the lowered face for guarding, being hit, knocked down, dazed or sealed.
+
+That is two images per fighter, which the cut-out rig swaps at the head joint, and it lets a fixed face carry the fight's moods.
+
+**Rokurokubi's neck.** In the final art her neck must stay visibly attached as the head flies out and back. It will be a chain of paper segments (a textured line through points along the head's path) from her shoulders to the head, paying out and reeling back in with it.
+
 ## Player 1 and player 2: tori and uke
 
 Each fighter gets two colourways from the same parts, by palette swap: one shader maps a few colour slots per part.

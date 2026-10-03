@@ -2,6 +2,12 @@
 
 Newest first. The README describes the current version only.
 
+## 12.1
+
+- **Rokurokubi's head.** It stays joined to her by a neck, drawn even in the rectangle version. It turns back when it strikes or when it comes down to a fighter's mid-height, never into the ground. It returns along the path it took, harmless on the way back but still part of her.
+- **Engine:** returning pieces, which turn back on striking or at a set height and retrace their path.
+- **Art direction:** two faces per fighter, after the noh mask's change of expression with its angle.
+
 ## 12
 
 - **Giant arenas.** Every giant is fought in a circular arena two stage-lengths round, so none can corner you. Ushi-oni and Nue keep ordinary facing and turn to meet you after their delay. Only attacks that reach past a monster's back edge are used against someone behind it, so Ushi-oni no longer charges away from you.

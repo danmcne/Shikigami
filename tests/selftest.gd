@@ -1843,17 +1843,38 @@ func _test_run_never_repeats() -> void:
 
 func _test_rokurokubi_long_neck() -> void:
 	var roku := _r(&"rokurokubi")
+	var head_move: MoveDefinition = roku.moves[&"long_neck"].spawn
+	# Against an opponent far away: the head arcs out and strikes them.
 	var b := Bout.new(roku, def)
 	b.fighters[0].position.x = -250
 	b.fighters[1].position.x = 150
 	var peak := [0.0]
-	_run(b, 70, _at({0: [5, "C"]}), null, func(x: Bout) -> void:
+	_run(b, 90, _at({0: [5, "C"]}), null, func(x: Bout) -> void:
 		for e in x.entities:
 			peak[0] = minf(peak[0], e.position.y))
-	var arced: bool = peak[0] < -250.0
-	var landed_far: bool = _taken(b, 1) == roku.moves[&"long_neck"].spawn.damage
-	_check("Long Neck: her head arcs high and comes down far away; it stays part of her",
-			arced and landed_far, "peak %.0f, took %d" % [peak[0], _taken(b, 1)])
+	var struck: bool = _taken(b, 1) == head_move.damage
+	# With no one there: it turns back at mid-height and retraces its path.
+	var empty := Bout.new(roku, def)
+	empty.fighters[0].position.x = -500
+	empty.fighters[1].position.x = 500
+	var start := [Vector2.INF]
+	var lowest := [-INF]
+	var last := [Vector2.ZERO]
+	var returned := [false]
+	_run(empty, 90, _at({0: [5, "C"]}), null, func(x: Bout) -> void:
+		for e in x.entities:
+			if e.move.tethered:
+				if start[0] == Vector2.INF:
+					start[0] = e.position
+				lowest[0] = maxf(lowest[0], e.position.y)
+				last[0] = e.position
+				if e.returning:
+					returned[0] = true)
+	var stays_up: bool = lowest[0] <= head_move.turn_height + 15.0
+	var came_back: bool = returned[0] and last[0].distance_to(start[0]) < 30.0
+	_check("Long Neck: her head arcs out, turns back at mid-height or on striking, and returns along its path",
+			peak[0] < -200.0 and struck and stays_up and came_back,
+			"peak %.0f, struck %s, lowest %.0f, back to within %.0f" % [peak[0], struck, lowest[0], last[0].distance_to(start[0])])
 
 
 func _test_rokurokubi_head_is_vulnerable() -> void:

@@ -4,7 +4,7 @@ A 2D fighting game set in a fantasy Japan, in the lineage of Street Fighter and 
 
 The guiding principle: **the fighting is the game; the campaign exists to produce unusual fights.** There are no levels, stat sheets or grinding.
 
-This is version 12: sixteen humans and yokai and three giants, still drawn as rectangles. History is in [CHANGELOG.md](CHANGELOG.md), and the first art and audio direction is in [docs/art_and_audio.md](docs/art_and_audio.md).
+This is version 12.1: sixteen humans and yokai and three giants, still drawn as rectangles. History is in [CHANGELOG.md](CHANGELOG.md), and the first art and audio direction is in [docs/art_and_audio.md](docs/art_and_audio.md).
 
 ## Running
 
@@ -73,7 +73,7 @@ Eight humans and eight yokai. Each shares a kit of normals, a throw, dashes, the
 | Kappa | yokai | Sumo Grab: a long-reach throw | Water Jet: a low projectile |
 | Yuki-onna | yokai | Frost Breath: short range; slows | Icicle: falls from above some way ahead |
 | Jorōgumo | yokai | Web: reels the victim in | Ceiling Drop: up out of reach, then down on you |
-| Rokurokubi | yokai | Long Neck: her head arcs out and comes down far away; it is part of her, so a blow to it hurts her and snaps it back | Lantern: thrown in an arc; leaves a small fire where it lands or strikes |
+| Rokurokubi | yokai | Long Neck: her head arcs out on her neck and comes down far away, turning back when it strikes or reaches a fighter's mid-height, and returning along its path. It is part of her: a blow to it hurts her and snaps it back | Lantern: thrown in an arc; leaves a small fire where it lands or strikes |
 | Tanuki | yokai | Belly Drum: a low shockwave to both sides | Leaf Disguise: a counter, as a statue |
 
 The three named humans come from history and legend:
