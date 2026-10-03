@@ -10,14 +10,17 @@ const SMALL := 14
 const GREY := Color(0.82, 0.82, 0.82)
 
 
-static func draw(ci: CanvasItem, bout: Bout, names: Array[String], show_boxes: bool) -> void:
+## `colourways`: 0 (tori) or 1 (uke) for each fighter's puppet.
+static func draw(ci: CanvasItem, bout: Bout, names: Array[String], show_boxes: bool,
+		colourways: Array = [0, 1]) -> void:
+	var camera_x := bout.fighters[0].position.x if bout.arena_length > 0.0 else 0.0
+	Backdrop.draw(ci, camera_x)
+	var base := Transform2D(0.0, Vector2(ORIGIN.x - camera_x, ORIGIN.y))
 	if bout.arena_length > 0.0:
 		# A circular arena: the view follows the first fighter, the floor runs
 		# on, and pillars mark the way round.
 		var cx := bout.fighters[0].position.x
 		ci.draw_set_transform(Vector2(ORIGIN.x - cx, ORIGIN.y))
-		ci.draw_rect(Rect2(cx - 700, 0, 1400, 60), Color(0.16, 0.15, 0.17))
-		ci.draw_line(Vector2(cx - 700, 0), Vector2(cx + 700, 0), Color(0.45, 0.42, 0.5), 2.0)
 		var spacing := bout.arena_length / 8.0
 		var first := floorf((cx - 700) / spacing) * spacing
 		var x := first
@@ -26,15 +29,20 @@ static func draw(ci: CanvasItem, bout: Bout, names: Array[String], show_boxes: b
 			x += spacing
 	else:
 		ci.draw_set_transform(ORIGIN)
-		ci.draw_rect(Rect2(Bout.STAGE_LEFT, 0, Bout.STAGE_RIGHT - Bout.STAGE_LEFT, 60), Color(0.18, 0.16, 0.14))
-		ci.draw_line(Vector2(Bout.STAGE_LEFT, 0), Vector2(Bout.STAGE_RIGHT, 0), Color(0.5, 0.45, 0.4), 2.0)
 	for i in 2:
-		if bout.fighters[i] is Monster:
-			_monster(ci, bout.fighters[i], show_boxes)
+		var f := bout.fighters[i]
+		if f is Monster:
+			_monster(ci, f, show_boxes)
+		elif Puppet.has_puppet(f):
+			Puppet.draw(ci, f, base, colourways[i])
+			_labels(ci, f, show_boxes)
 		else:
-			_fighter(ci, bout.fighters[i], COLORS[i], show_boxes)
+			_fighter(ci, f, COLORS[i], show_boxes)
 	for s in bout.spirits:
-		_fighter(ci, s, Color(COLORS[s.summoner].lightened(0.5), 0.4), show_boxes)
+		if Puppet.has_puppet(s):
+			Puppet.draw(ci, s, base, colourways[s.summoner], 0.45)
+		else:
+			_fighter(ci, s, Color(COLORS[s.summoner].lightened(0.5), 0.4), show_boxes)
 	for e in bout.entities:
 		# A tethered piece is joined to its performer: a neck from the shoulders.
 		if e.move.tethered:
@@ -159,6 +167,21 @@ static func _converge_warning(mv: MoveDefinition, m: Monster) -> Rect2:
 		top = minf(top, box.position.y)
 		bottom = maxf(bottom, box.end.y)
 	return Rect2(left, top, right - left, bottom - top)
+
+
+## For a puppet: its name and notices overhead, and its boxes if asked for.
+static func _labels(ci: CanvasItem, f: Fighter, show_boxes: bool) -> void:
+	var body := f.hurtbox()
+	ci.draw_string(ThemeDB.fallback_font, Vector2(body.position.x - 60, body.position.y - 40),
+			f.definition.display_name, HORIZONTAL_ALIGNMENT_CENTER, body.size.x + 120, 13, Color(1, 1, 1, 0.8))
+	if f.notice_frames > 0:
+		ci.draw_string(ThemeDB.fallback_font, Vector2(body.position.x - 60, body.position.y - 58),
+				f.notice, HORIZONTAL_ALIGNMENT_CENTER, body.size.x + 120, 18, Color(1.0, 0.95, 0.5))
+	if show_boxes:
+		ci.draw_rect(body, Color.CYAN, false, 1.0)
+		ci.draw_rect(f.pushbox(), Color.YELLOW, false, 1.0)
+		for box in f.active_hitboxes():
+			ci.draw_rect(box, Color.RED, false, 2.0)
 
 
 static func _fighter(ci: CanvasItem, f: Fighter, base: Color, show_boxes: bool) -> void:

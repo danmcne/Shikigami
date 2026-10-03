@@ -4,7 +4,7 @@ A 2D fighting game set in a fantasy Japan, in the lineage of Street Fighter and 
 
 The guiding principle: **the fighting is the game; the campaign exists to produce unusual fights.** There are no levels, stat sheets or grinding.
 
-This is version 12.1: sixteen humans and yokai and three giants, still drawn as rectangles. History is in [CHANGELOG.md](CHANGELOG.md), and the first art and audio direction is in [docs/art_and_audio.md](docs/art_and_audio.md).
+This is version 13: sixteen humans and yokai and three giants. Musashi and Shuten-dōji are now cut-paper puppets against a painted shore, the first art test; the rest are still rectangles. History is in [CHANGELOG.md](CHANGELOG.md), and the first art and audio direction is in [docs/art_and_audio.md](docs/art_and_audio.md).
 
 ## Running
 
@@ -60,7 +60,7 @@ Eight humans and eight yokai. Each shares a kit of normals, a throw, dashes, the
 | Fighter | Kind | Special | Away + special |
 |---|---|---|---|
 | Miyamoto Musashi | human | Two Heavens: high and low at once | Void Stance: a counter |
-| Sasaki Kojirō | human | Swallow Cut: an arc above and ahead; also in the air | Drying Pole: the longest thrust in the roster |
+| Sasaki Kojirō | human | Swallow Cut: an arc above and ahead; also in the air | Drying Pole: a long thrust whose tip alone wounds; too close, it passes harmlessly |
 | Tomoe Gozen | human | Naginata Wheel: front and back; also in the air | Naginata Sweep: a long low sweep that knocks down |
 | Benkei | human | Standing Death: advances with armour | Seven Weapons: a long-reach grapple |
 | Hattori Hanzō | human | Kawarimi: a counter that reappears behind the attacker | Shuriken: fast and light; also in the air |
@@ -68,13 +68,23 @@ Eight humans and eight yokai. Each shares a kit of normals, a throw, dashes, the
 | Izumo no Okuni | human | Ofuda: a thrown talisman | Warding Seal: a talisman on the ground ahead that holds whoever steps on it |
 | Abe no Seimei | human | Paper Birds: shikigami that climb as they fly; also in the air | Five-Element Seal: a barrier that stops projectiles and repels |
 | Shuten-dōji | yokai | Sake: long and exposed; restores 260; 25 s to recharge; a hit spills it | Kanabō Quake: a low quake to both sides that knocks down |
-| Kitsune | yokai | Fox Step: vanishes and reappears behind to strike | Nine Tails: a sweep low and mid at once |
-| Tengu | yokai | Gale Fan: a gust that hurls more than it hurts | Flight: a gliding overhead; also in the air |
-| Kappa | yokai | Sumo Grab: a long-reach throw | Water Jet: a low projectile |
-| Yuki-onna | yokai | Frost Breath: short range; slows | Icicle: falls from above some way ahead |
+| Tamamo-no-Mae (kitsune) | yokai | Fox Step: vanishes and reappears behind to strike; 4 s to recharge | Nine Tails: a sweep low and mid at once |
+| Sōjōbō (tengu) | yokai | Gale Fan: a gust that hurls more than it hurts | Flight: a gliding overhead; also in the air |
+| Kawatarō (kappa) | yokai | Sumo Grab: a long-reach throw | Water Jet: a low projectile |
+| O-Yuki (yuki-onna) | yokai | Frost Breath: short range; slows | Icicle: falls from above some way ahead |
 | Jorōgumo | yokai | Web: reels the victim in | Ceiling Drop: up out of reach, then down on you |
 | Rokurokubi | yokai | Long Neck: her head arcs out on her neck and comes down far away, turning back when it strikes or reaches a fighter's mid-height, and returning along its path. It is part of her: a blow to it hurts her and snaps it back | Lantern: thrown in an arc; leaves a small fire where it lands or strikes |
-| Tanuki | yokai | Belly Drum: a low shockwave to both sides | Leaf Disguise: a counter, as a statue |
+| Danzaburō-danuki (tanuki) | yokai | Belly Drum: a low shockwave to both sides | Leaf Disguise: a counter, as a statue |
+
+Five of the yokai are named individuals from legend:
+
+- **Tamamo-no-Mae,** the nine-tailed fox;
+- **Sōjōbō,** king of the tengu;
+- **Kawatarō,** the kappa;
+- **O-Yuki,** the snow woman of Lafcadio Hearn's tale;
+- **Danzaburō-danuki,** the tanuki of Sado.
+
+The Jorōgumo, Rokurokubi and the giants go by their kind. A special's recharge is the same at every difficulty.
 
 The three named humans come from history and legend:
 
@@ -183,6 +193,18 @@ Monkey face, tanuki body, tiger limbs, snake tail, on a black thundercloud.
 | Thrash, used only on riders | jump off, or guard |
 | Grounded: Claw / Tail Lash (low, both sides) / Pounce | guard / guard low or jump / guard |
 
+## The art test
+
+Musashi and Shuten-dōji are drawn as cut-paper puppets: flat, ink-edged paper parts on a simple skeleton, under a faint washi grain. The direction is in `docs/art_and_audio.md`.
+
+- **Poses.** Poses follow the fighter's state, with idle, walk, crouch, guard, jump, reeling, knockdown and dazed. An attack aims the weapon arm at the move's own hitbox, so every attack reads without per-move animation. A second hitbox takes the other arm, which gives Musashi's Two Heavens one sword high and one low.
+- **Faces.** Each has two faces, after the noh mask: the bright, raised *teru* for advancing and attacking, and the clouded, lowered *kumoru* for guarding, being hit and defeat. Musashi wears red or indigo kumadori; Shuten-dōji is a snarling oni.
+- **Colourways.** Tori is vermilion, ivory and gold; uke is indigo, ash and silver. Player 1 always wears tori. In the campaign the computer wears tori too, so Shuten-dōji is a red oni; in versus player 2 wears uke, so he becomes a blue oni.
+- **Background.** The shore at dusk, in ukiyo-e banded colour: a low sun, a distant mountain, the sea in bands with curling crests, a torii in the water, and sand underfoot. Its layers scroll at different speeds and repeat, so it also serves the circular arenas.
+- **Boxes.** The puppets are scaled to each fighter's standing hurtbox, and the boxes remain the truth for hits (F1 shows them).
+
+`tests/shot.gd` renders posed scenes to PNG files for art review. It needs a display, for instance `xvfb-run godot --path . --rendering-driver opengl3 --script res://tests/shot.gd`.
+
 ## Healing
 
 Shuten-dōji's sake and En no Gyōja's meditation are long, exposed actions. They restore a great deal and recharge very slowly, with recharges reset each round, so healing is a decision made once or twice a round. A hit during either spills it, and the recharge is spent anyway.
@@ -224,7 +246,7 @@ Results are also saved to `user://tournament_report.txt`. They describe this com
 
 1. Balance by play, guided by the tournament.
 2. Rising difficulty through the campaign: health, speed and computer skill by fight number.
-3. Art, then sound and music (direction in `docs/art_and_audio.md`).
+3. Art: after the test, puppets for the remaining fighters, then the giants, then two more backgrounds. Then sound and music. The direction is in `docs/art_and_audio.md`.
 4. Presentation: menus, story between fights.
 
 ## Open questions
@@ -246,6 +268,7 @@ game/
   controls_text.gd         command patterns -> the keys a player presses
   input_setup.gd           key and gamepad bindings
   views/bout_view.gd       drawing: fighters, giants, telegraphs, pieces, HUD
+  art/                     puppets (definition, renderer, Musashi, Shuten-dōji), the shore backdrop, the paper grain
   combat/
     move_definition.gd     frame data, boxes and every move effect
     fighter_definition.gd  a fighter as data
@@ -270,7 +293,7 @@ godot --headless --path . --import          # once, to build the class cache
 godot --headless --path . --script res://tests/selftest.gd
 ```
 
-There are 114 checks. They cover:
+There are 115 checks. They cover:
 
 - **The rules:** guards, throws, combos, commands, timing.
 - **Every fighter's specials:** each one completes.

@@ -132,6 +132,7 @@ func _init() -> void:
 	_test_rokurokubi_long_neck()
 	_test_rokurokubi_head_is_vulnerable()
 	_test_lantern_leaves_fire()
+	_test_drying_pole_wounds_only_with_its_tip()
 	print("CPU, run, calibration")
 	_test_cpu_enters_motions()
 	_test_cpu_attacks()
@@ -1931,3 +1932,19 @@ func _test_lantern_leaves_fire() -> void:
 	_check("the lantern lands in an arc and leaves a fire that burns whoever stands in it",
 			fire_seen[0] and _taken(burned, 1) == roku.moves[&"lantern"].spawn.leaves.damage,
 			"fire %s at %.0f; burned %d" % [fire_seen[0], fire_x[0], _taken(burned, 1)])
+
+
+func _test_drying_pole_wounds_only_with_its_tip() -> void:
+	var kojiro := _r(&"kojiro")
+	var far := Bout.new(kojiro, def)
+	far.fighters[0].position.x = -110
+	far.fighters[1].position.x = 110
+	_run(far, 30, _at({0: [4, "C"]}, 4))
+	var close := Bout.new(kojiro, def)
+	close.fighters[0].position.x = -40
+	close.fighters[1].position.x = 40
+	_run(close, 30, _at({0: [4, "C"]}, 4))
+	var spent: bool = close.fighters[0].move_cooldowns.get(&"drying_pole", 0) > 0
+	_check("the Drying Pole wounds at its proper distance; too close, it passes harmlessly and is spent",
+			_taken(far, 1) == kojiro.moves[&"drying_pole"].damage and _taken(close, 1) == 0 and spent,
+			"far %d, close %d, spent %s" % [_taken(far, 1), _taken(close, 1), spent])

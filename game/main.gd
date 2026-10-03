@@ -52,6 +52,14 @@ var tournament_from_command_line := false
 
 func _ready() -> void:
 	InputSetup.register()
+	# A faint washi grain over the whole screen.
+	var paper := ColorRect.new()
+	paper.size = Vector2(1280, 720)
+	paper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var material := ShaderMaterial.new()
+	material.shader = load("res://game/art/paper.gdshader")
+	paper.material = material
+	add_child(paper)
 	var args := OS.get_cmdline_user_args()
 	if "--tournament" in args:
 		var option := func(name: String, fallback: int) -> int:
@@ -404,12 +412,20 @@ func _draw_fight() -> void:
 		names[1] += "  CPU · fight %d of %d (%s)" % [run.fight + 1, Run.length(), tier]
 	elif not bout.fighters[1] is Monster:
 		names[1] += "  " + ["human", "dummy: " + dummy.mode_name(), "CPU"][versus_driver]
-	BoutView.draw(self, bout, names, show_boxes)
+	# Player 1 wears tori. The computer also wears tori in the campaign; in
+	# versus, player 2 wears uke.
+	var colourways := [0, 0] if screen == Screen.RUN else [0, 1]
+	BoutView.draw(self, bout, names, show_boxes, colourways)
 
-	BoutView.lines(self, Vector2(40, 128), BoutView.move_list(bout.fighters[0], "p1_"), 560)
+	# A dark backing keeps the text legible over the painted sky.
+	draw_rect(Rect2(30, 22, 1220, 64), Color(0.05, 0.04, 0.06, 0.35))
+	var rows := BoutView.move_list(bout.fighters[0], "p1_")
+	draw_rect(Rect2(30, 112, 600, rows.size() * 18 + 10), Color(0.05, 0.04, 0.06, 0.45))
+	BoutView.lines(self, Vector2(40, 128), rows, 560)
 	if screen == Screen.VERSUS and versus_driver == Driver.HUMAN and not bout.fighters[1] is Monster:
-		BoutView.lines(self, Vector2(680, 128), BoutView.move_list(bout.fighters[1], "p2_"), 560,
-				HORIZONTAL_ALIGNMENT_RIGHT)
+		var rows_2 := BoutView.move_list(bout.fighters[1], "p2_")
+		draw_rect(Rect2(650, 112, 600, rows_2.size() * 18 + 10), Color(0.05, 0.04, 0.06, 0.45))
+		BoutView.lines(self, Vector2(680, 128), rows_2, 560, HORIZONTAL_ALIGNMENT_RIGHT)
 	if bout.phase == Bout.Phase.FINISH and bout.round_winner == 0:
 		var f := bout.fighters[0]
 		var seconds := ceili((Bout.FINISH_FRAMES - bout.phase_frame) / 60.0)

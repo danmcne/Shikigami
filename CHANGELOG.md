@@ -2,6 +2,19 @@
 
 Newest first. The README describes the current version only.
 
+## 13
+
+- **The art test.** Musashi and Shuten-dōji are cut-paper puppets:
+  - poses come from state, and attacks aim the weapon arm at the move's own hitboxes;
+  - two faces each (teru and kumoru);
+  - tori and uke colourways.
+
+  The shore at dusk is the first ukiyo-e backdrop, under a washi grain over the screen. The computer wears tori in the campaign; player 2 wears uke in versus, so Shuten-dōji is a red oni or a blue one.
+- **Fox Step** recharges in 4 s, up from 2. Recharges were never shortened on Hard; the Hard computer simply uses Fox Step the moment it's ready.
+- **The Drying Pole** wounds only with its tip, at reach 140–260. Too close, it passes harmlessly and is spent.
+- **Yokai names:** Tamamo-no-Mae, Sōjōbō, Kawatarō, O-Yuki, Danzaburō-danuki.
+- **Tools:** `tests/shot.gd` renders posed scenes for art review.
+
 ## 12.1
 
 - **Rokurokubi's head.** It stays joined to her by a neck, drawn even in the rectangle version. It turns back when it strikes or when it comes down to a fighter's mid-height, never into the ground. It returns along the path it took, harmless on the way back but still part of her.

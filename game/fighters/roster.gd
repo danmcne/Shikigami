@@ -52,10 +52,11 @@ static func _table() -> Array:
 			specials = [{id = &"swallow_cut", startup = 6, active = 8, recovery = 20, cooldown = 90, air = true,
 					damage = 90, knockdown = 40, knockback = 7.0, hitstop = 10,
 					hitboxes = [Rect2(0, -230, 90, 110), Rect2(20, -130, 100, 50)]},
-				# The Drying Pole, his overlong nodachi.
+				# The Drying Pole, his overlong nodachi. Only its tip wounds: against
+				# someone too close the thrust passes harmlessly, its recharge spent.
 				{id = &"drying_pole", startup = 10, active = 4, recovery = 20, cooldown = 60,
 					damage = 80, hitstun = 18, blockstun = 12, knockback = 12.0, hitstop = 9,
-					hitboxes = [Rect2(30, -115, 250, 25)]}]},
+					hitboxes = [Rect2(140, -115, 120, 25)]}]},
 		{id = &"tomoe", name = "Tomoe Gozen", kind = HUMAN,
 			p = {health = 950, size = 0.95, speed = 1.1, jump = 1.0, power = 0.95, tempo = -1},
 			# The naginata swung full circle, front and back, also in the air.
@@ -136,10 +137,10 @@ static func _table() -> Array:
 				{id = &"kanabo_quake", startup = 20, active = 6, recovery = 24, cooldown = 150,
 					damage = 60, knockdown = 50, knockback = 3.0, hitstop = 12, height = H.LOW,
 					hitboxes = [Rect2(-230, -18, 460, 18)]}]},
-		{id = &"kitsune", name = "Kitsune", kind = YOKAI,
+		{id = &"kitsune", name = "Tamamo-no-Mae", kind = YOKAI,
 			p = {health = 850, size = 0.85, speed = 1.35, jump = 1.06, power = 0.8, tempo = -1},
 			# Fox illusion: gone, then behind you.
-			specials = [{id = &"fox_step", startup = 20, active = 4, recovery = 16, cooldown = 120,
+			specials = [{id = &"fox_step", startup = 20, active = 4, recovery = 16, cooldown = 240,
 					invulnerable = 16, teleport_frame = 14, teleport_distance = 45.0,
 					damage = 70, hitstun = 18, blockstun = 12, knockback = 7.0, hitstop = 8,
 					hitboxes = [Rect2(10, -120, 70, 50)]},
@@ -147,7 +148,7 @@ static func _table() -> Array:
 				{id = &"nine_tails", startup = 8, active = 6, recovery = 18, cooldown = 60,
 					damage = 65, knockdown = 30, knockback = 6.0, hitstop = 8, height = H.LOW,
 					hitboxes = [Rect2(15, -40, 100, 30), Rect2(15, -120, 70, 40)]}]},
-		{id = &"tengu", name = "Tengu", kind = YOKAI,
+		{id = &"tengu", name = "Sōjōbō", kind = YOKAI,
 			p = {health = 1000, size = 1.05, speed = 1.1, jump = 1.15, power = 1.0, tempo = 0},
 			# The feather fan: a gust that hurls more than it hurts.
 			specials = [{id = &"gale_fan", startup = 12, active = 1, recovery = 20, cooldown = 90,
@@ -158,7 +159,7 @@ static func _table() -> Array:
 				{id = &"tengu_flight", startup = 6, active = 18, recovery = 14, cooldown = 90, air = true,
 					motion = Vector2(11, -7), damage = 80, knockdown = 35, knockback = 8.0, hitstop = 9,
 					height = H.HIGH, hitboxes = [Rect2(0, -120, 80, 60)]}]},
-		{id = &"kappa", name = "Kappa", kind = YOKAI,
+		{id = &"kappa", name = "Kawatarō", kind = YOKAI,
 			# Child-sized, so hard to hit; it pays for that in health and power,
 			# as small, quick fighters must.
 			p = {health = 900, size = 0.8, speed = 0.9, jump = 1.0, power = 1.0, tempo = 0},
@@ -172,7 +173,7 @@ static func _table() -> Array:
 					spawn = {id = &"water", startup = 0, active = 70, recovery = 0, motion = Vector2(9, 0),
 						damage = 45, hitstun = 16, blockstun = 12, knockback = 5.0, hitstop = 5, height = H.LOW,
 						hitboxes = [Rect2(-20, -20, 40, 20)]}}]},
-		{id = &"yuki_onna", name = "Yuki-onna", kind = YOKAI,
+		{id = &"yuki_onna", name = "O-Yuki", kind = YOKAI,
 			p = {health = 950, size = 0.95, speed = 1.05, jump = 1.0, power = 0.95, tempo = 0},
 			# The snow woman's breath: it chills, and the chilled are slow.
 			specials = [{id = &"frost_breath", startup = 10, active = 10, recovery = 18, cooldown = 100,
@@ -221,7 +222,7 @@ static func _table() -> Array:
 						leaves = {id = &"lantern_fire", startup = 0, active = 90, recovery = 0,
 							damage = 40, hitstun = 18, blockstun = 12, knockback = 4.0, hitstop = 6, height = H.MID,
 							hitboxes = [Rect2(-55, -60, 110, 60)]}}}]},
-		{id = &"tanuki", name = "Tanuki", kind = YOKAI,
+		{id = &"tanuki", name = "Danzaburō-danuki", kind = YOKAI,
 			p = {health = 1100, size = 0.9, speed = 0.9, jump = 1.0, power = 0.95, tempo = 0},
 			# Hara-tsuzumi, the belly drum: a low shockwave to both sides.
 			specials = [{id = &"belly_drum", startup = 14, active = 6, recovery = 22, cooldown = 120,

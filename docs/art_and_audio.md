@@ -1,6 +1,6 @@
-# Art and audio direction (first thoughts)
+# Art and audio direction
 
-Nothing here is built yet. The aim is a style that is unmistakably Japanese, consistent across 16 fighters, 3 giants and 3 stages, and cheap enough for a small team to finish.
+The art test (version 13) built Musashi and Shuten-dōji as puppets in this style, and the shore at dusk; everything else here is still a plan. The aim is a style that is unmistakably Japanese, consistent across 16 fighters, 3 giants and 3 stages, and cheap enough for a small team to finish.
 
 ## The proposal: a paper theatre
 
