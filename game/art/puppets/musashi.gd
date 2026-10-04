@@ -148,8 +148,10 @@ static func definition() -> PuppetDefinition:
 		summon = {keys = [
 			[1.0, {upper_arm_f = -150.0, lower_arm_f = -20.0, head = -10.0}],
 			[2.0, {upper_arm_f = -150.0, lower_arm_f = -20.0, head = -10.0}]]},
+		# The finisher's cut lands exactly as its active frames begin.
 		finisher = {keys = [
-			[1.0, {upper_arm_b = -175.0, lower_arm_b = -10.0, weapon_b = -10.0, upper_arm_f = -150.0, torso = -8.0}],
+			[0.7, {upper_arm_b = -175.0, lower_arm_b = -10.0, weapon_b = -10.0, upper_arm_f = -150.0, torso = -8.0}],
+			[1.0, {upper_arm_b = -60.0, lower_arm_b = 0.0, weapon_b = -20.0, upper_arm_f = 30.0, torso = 18.0}],
 			[2.0, {upper_arm_b = -60.0, lower_arm_b = 0.0, weapon_b = -20.0, upper_arm_f = 30.0, torso = 18.0}]]},
 	}
 	return d

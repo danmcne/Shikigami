@@ -135,6 +135,7 @@ func _init() -> void:
 	_test_drying_pole_wounds_only_with_its_tip()
 	_test_swing_traces_an_arc()
 	_test_weapon_tip_wounds_hardest()
+	_test_effects_land_with_the_animation()
 	print("CPU, run, calibration")
 	_test_cpu_enters_motions()
 	_test_cpu_attacks()
@@ -1976,11 +1977,40 @@ func _test_swing_traces_an_arc() -> void:
 func _test_weapon_tip_wounds_hardest() -> void:
 	var shuten := _r(&"shuten")
 	var damage := {}
-	for distance in [230.0, 120.0]:
+	for distance in [170.0, 60.0]:
 		var b := Bout.new(shuten, def)
 		b.fighters[0].position.x = -distance / 2.0
 		b.fighters[1].position.x = distance / 2.0
 		_run(b, 40, _at({0: [5, "B"]}))
 		damage[distance] = _taken(b, 1)
 	_check("the kanabō wounds hardest with its head; closer in it still hurts, but less",
-			damage[230.0] > damage[120.0] and damage[120.0] > 0, "at the head %d, closer %d" % [damage[230.0], damage[120.0]])
+			damage[170.0] > damage[60.0] and damage[60.0] > 0, "at the head %d, closer %d" % [damage[170.0], damage[60.0]])
+
+
+func _test_effects_land_with_the_animation() -> void:
+	# A move with its own boxes (a quake's ground wave, a throw's grab, a
+	# finisher) whose animation is a swing must reach its impact pose exactly
+	# when its active frames begin, and hold it through them: nothing takes
+	# effect before the blow visibly lands.
+	const Registry := preload("res://game/art/puppets/registry.gd")
+	var bad: Array[String] = []
+	for d in Roster.all():
+		var puppet: PuppetDefinition = Registry.for_id(d.id)
+		if puppet == null:
+			continue
+		var moves: Array = d.moves.values() + [d.summon_move, d.finisher_move]
+		for m in d.moves.values():
+			if m.counter:
+				moves.append(m.counter)
+		for m in moves:
+			if m == null or m.hitboxes.is_empty() or not m.frame_strikes.is_empty():
+				continue
+			var swing: Dictionary = puppet.swings.get(String(m.id), {})
+			if swing.is_empty():
+				continue
+			var at_start: Dictionary = puppet.swing_pose(swing, m, m.startup).angles
+			var at_end: Dictionary = puppet.swing_pose(swing, m, m.startup + m.active - 1).angles
+			if at_start != at_end:
+				bad.append("%s %s" % [d.id, m.id])
+	_check("every animated move with its own boxes lands its blow as its active frames begin", bad.is_empty(),
+			"early or late: %s" % [bad])

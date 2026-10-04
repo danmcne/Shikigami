@@ -2,6 +2,21 @@
 
 Newest first. The README describes the current version only.
 
+## 13.3
+
+- **Principle corrected.** Poses must be anatomically plausible, and among plausible poses we choose the clearest and most striking, ignoring handedness. 13.2 had the oni holding his club in one hand while it rested on the other shoulder, and drinking from a gourd at one hip with the opposite hand.
+- **Shuten-dōji:**
+  - a boxing stance, chest toward us;
+  - his free lead fist up and forward, which jabs;
+  - the kanabō dragged low behind in his rear hand;
+  - the gourd just inside his front hip, taken up by the lead hand to drink.
+
+  The heavy hauls the club over from behind, with its start-up lengthened to 20 frames to match. The sweep and rising swing come out of the drag. The throw is one-handed.
+- **Effects land with the blow.** The quake took effect while the club was still overhead; its slam now meets the ground on its first active frame. Both finishers likewise.
+- **Engine and tests:**
+  - a roster entry can set a fighter's own frame data for shared moves;
+  - a new check requires every animated move with its own boxes to reach its impact pose as its active frames begin, and hold it through them.
+
 ## 13.2
 
 - **Clarity over correctness.** Both puppets stand side-on like boxers, with weapons and props on the visible side.

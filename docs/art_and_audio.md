@@ -26,19 +26,21 @@ That is two images per fighter, which the cut-out rig swaps at the head joint, a
 
 **Weapons are gameplay.** A puppet's weapons are drawn and also define where it hits. Each move is a swing of a few key poses, its hitboxes are traced from the posed weapon frame by frame, and each weapon has damage zones (the tip strongest). Drawing a new fighter therefore means authoring its weapon and its swings together. That is little more work than drawing poses, and it keeps the art and the hits from drifting apart.
 
-**Clarity over correctness.** We draw for visual impact, not historical accuracy:
+**Plausible first, then clear.** Poses must be anatomically plausible, with obvious exceptions for some yokai: a hand holds what it holds, and a prop is taken by the hand that can reach it. Among the plausible poses, choose the clearest and most striking:
 
-- **Stance.** Fighters stand side-on like boxers: a profile torso and split feet, never squarely facing the opponent.
-- **Visibility.** Weapons and signature props sit on the near side or are silhouetted against the sky.
-- **Reach.** The frontmost limb or blade is the fastest attack, and it visibly reaches farthest.
-- **Mirroring.** Facing left, a fighter is simply mirrored.
+- **Handedness is ignored.** Facing left, a fighter is simply mirrored.
+- **Stance.** Stances are side-on or boxer-like, never stiffly square.
+- **Visibility.** Weapons and signature props stay visible.
+- **Reach.** The frontmost limb or blade is the fastest attack and visibly reaches farthest.
+
+**Timing follows the animation.** Every effect happens when the blow visibly lands. Traced weapons guarantee this for strikes. A move with its own boxes (a quake, a throw, a finisher) must reach its impact pose exactly as its active frames begin. A big wind-up therefore means a long start-up: the oni's heavy hauls his club over from behind in 20 frames. A quicker attack of the same kind would need a shorter motion, an oni stomp for instance.
 
 **Guards.** Each fighter's rest pose is a recognisable guard, drawn from kenjutsu, HEMA, sumo or theatre, so the silhouette says who it is and what it threatens:
 
 | Fighter | Guard and signature |
 |---|---|
 | Musashi (built) | Niten: katana high in jōdan in the far hand, wakizashi levelled at the opponent in the near hand. Scabbards at the obi. |
-| Shuten-dōji (built) | Kanabō on the near shoulder, behind his head. Free fist up by his chin. Sake gourd at the near hip. |
+| Shuten-dōji (built) | A boxer's stance, chest toward us: lead fist up and forward, the kanabō dragged low behind in the rear hand, the sake gourd just inside the front hip. |
 | Kojirō | Waki-gamae, the "tail" guard (HEMA's Nebenhut): the long nodachi held low behind him, tip trailing, its length hidden. Swallow Cut whips up out of it; the Drying Pole thrusts out to full length. |
 | Tomoe Gozen | Naginata held low and forward, blade near the ground; the Wheel spins up out of it. |
 | Benkei | Naginata shouldered, with the seven weapons fanned on his back as a silhouette of hafts. |
