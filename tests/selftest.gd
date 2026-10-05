@@ -136,6 +136,10 @@ func _init() -> void:
 	_test_swing_traces_an_arc()
 	_test_weapon_tip_wounds_hardest()
 	_test_effects_land_with_the_animation()
+	_test_rig_side_view_layers()
+	_test_rig_diagonal_view_layers()
+	_test_rig_front_view_layers()
+	_test_rig_reaches_a_point()
 	print("CPU, run, calibration")
 	_test_cpu_enters_motions()
 	_test_cpu_attacks()
@@ -2014,3 +2018,76 @@ func _test_effects_land_with_the_animation() -> void:
 				bad.append("%s %s" % [d.id, m.id])
 	_check("every animated move with its own boxes lands its blow as its active frames begin", bad.is_empty(),
 			"early or late: %s" % [bad])
+
+
+# --- the humanoid rig --------------------------------------------------------
+
+func _order_names(p: PuppetDefinition, v: int) -> Array:
+	return p.draw_order(v).map(func(part: PuppetDefinition.Part) -> String: return part.name)
+
+
+func _before(order: Array, a: String, b: String) -> bool:
+	return order.find(a) >= 0 and order.find(b) >= 0 and order.find(a) < order.find(b)
+
+
+func _test_rig_side_view_layers() -> void:
+	const Registry := preload("res://game/art/puppets/registry.gd")
+	var p: PuppetDefinition = Registry.for_id(&"musashi")
+	var o := _order_names(p, PuppetDefinition.View.SIDE)
+	var ok := _before(o, "trail_upper", "torso") and _before(o, "trail_thigh", "torso") \
+			and _before(o, "torso", "lead_thigh") and _before(o, "lead_thigh", "hips") \
+			and _before(o, "lapel", "lead_upper") and _before(o, "trail_weapon", "torso") \
+			and _before(o, "lead_thigh", "pleat_1") and _before(o, "pleat_1", "lead_shin")
+	var shaded := p.shade_of(p.find("trail_upper"), PuppetDefinition.View.SIDE) > 0.0 \
+			and p.shade_of(p.find("trail_blade"), PuppetDefinition.View.SIDE) > 0.0 \
+			and p.shade_of(p.find("lead_upper"), PuppetDefinition.View.SIDE) == 0.0
+	_check("side view: far arm and leg behind the torso, near leg under the clothing, near arm on top; far parts shaded",
+			ok and shaded, "%s" % [o])
+
+
+func _test_rig_diagonal_view_layers() -> void:
+	const Registry := preload("res://game/art/puppets/registry.gd")
+	var p: PuppetDefinition = Registry.for_id(&"shuten")
+	var v := PuppetDefinition.View.DIAGONAL
+	var o := _order_names(p, v)
+	var ok := _before(o, "lead_thigh", "trail_thigh") and _before(o, "trail_thigh", "hips") \
+			and _before(o, "trail_thigh", "head") and _before(o, "head", "lead_upper") \
+			and _before(o, "lead_upper", "trail_upper") and _before(o, "trail_upper", "lead_fore") \
+			and _before(o, "trail_fore", "trail_weapon") and _before(o, "club", "studs_1")
+	var depth := p.depth_of("lead", v) == PuppetDefinition.Depth.FAR and p.depth_of("trail", v) == PuppetDefinition.Depth.NEAR
+	var shaded := p.shade_of(p.find("lead_thigh"), v) > 0.0 and p.shade_of(p.find("trail_thigh"), v) == 0.0 \
+			and p.shade_of(p.find("lead_upper"), v) == 0.0
+	var placed := p.pose_transforms(p.base_angles("stand"))
+	var shoulders: bool = placed["lead_upper"].origin.x > 0.0 and placed["trail_upper"].origin.x < 0.0
+	_check("diagonal view: the lead side is far (its leg behind and shaded), arms over the torso from its edges",
+			ok and depth and shaded and shoulders, "%s" % [o])
+
+
+func _test_rig_front_view_layers() -> void:
+	const Registry := preload("res://game/art/puppets/registry.gd")
+	var p: PuppetDefinition = Registry.for_id(&"shuten")
+	var v := PuppetDefinition.View.FRONT
+	var o := _order_names(p, v)
+	var ok := _before(o, "lead_thigh", "head") and _before(o, "trail_thigh", "hips") \
+			and _before(o, "head", "lead_upper") and _before(o, "trail_upper", "lead_fore") \
+			and _before(o, "lead_fore", "lead_hand") and p.depth_of("lead", v) == p.depth_of("trail", v)
+	_check("front view: torso and legs, then head and clothing, upper arms, forearms, hands", ok, "%s" % [o])
+
+
+func _test_rig_reaches_a_point() -> void:
+	const Registry := preload("res://game/art/puppets/registry.gd")
+	var p: PuppetDefinition = Registry.for_id(&"shuten")
+	var a := p.base_angles("stand")
+	a.head = -22.0
+	p.reach_with(a, "lead", "mouth", -1.0)
+	var placed := p.pose_transforms(a)
+	var mouth: Vector2 = placed["head"] * p.points.mouth[1]
+	var hand: Vector2 = placed["lead_hand"].origin
+	var far_away := p.base_angles("stand")
+	p.reach_with(far_away, "lead", Vector2(400, -100), 1.0)
+	var stretched: Vector2 = p.pose_transforms(far_away)["lead_hand"].origin
+	var shoulder: Vector2 = p.pose_transforms(far_away)["lead_upper"].origin
+	var full := p.find("lead_fore").pivot.length() + p.find("lead_hand").pivot.length()
+	_check("the rig reaches a hand to a named point, and toward one out of reach without stretching",
+			hand.distance_to(mouth) < 2.0 and stretched.distance_to(shoulder) <= full + 0.5,
+			"hand %.1f from the mouth; reach %.1f of %.1f" % [hand.distance_to(mouth), stretched.distance_to(shoulder), full])

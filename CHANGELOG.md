@@ -2,6 +2,19 @@
 
 Newest first. The README describes the current version only.
 
+## 14
+
+- **A shared humanoid rig** replaces the one-off puppets.
+  - **Skeleton.** One skeleton with fixed bone lengths, whose limbs are named by role (lead and trail).
+  - **Views.** Side, front and diagonal views each decide attachment, near and far, shape variants, shading and layer order. Parts are declared by kind (body, head, leg, clothing, arm segment, hand, weapon, decoration), and their order is computed rather than numbered. In the diagonal (aspective) view the lead side is far, which is why its leg sits behind.
+  - **Shading.** Only depth darkens a part.
+  - **No exceptions to layer order.** A weapon behind the torso stays behind it.
+- **Reaching.** Two-bone inverse kinematics reaches a hand to named points, never stretching; the oni's drink now uses it.
+- **Musashi** is ported to side view, lead side near. **Shuten-dōji** is ported to the diagonal view: both arms are drawn over his torso from its edges, his dragged club passes in front of his near trailing leg, and his far lead leg is shaded. This fixes the trailing arm that grew from his back, and the legs whose depth contradicted the arms.
+- **Gameplay unchanged:** every traced move measures exactly as in 13.3.
+- **Tests:** layer order and shading per view, attachment at the torso's edges, reaching a named point.
+- **Next,** after review: two-handed weapons (the second hand solved onto the grip and free to slide along a long one, the only flexible joint), and moving between views within a move.
+
 ## 13.3
 
 - **Principle corrected.** Poses must be anatomically plausible, and among plausible poses we choose the clearest and most striking, ignoring handedness. 13.2 had the oni holding his club in one hand while it rested on the other shoulder, and drinking from a gourd at one hip with the opposite hand.

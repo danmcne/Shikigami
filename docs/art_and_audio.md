@@ -26,6 +26,29 @@ That is two images per fighter, which the cut-out rig swaps at the head joint, a
 
 **Weapons are gameplay.** A puppet's weapons are drawn and also define where it hits. Each move is a swing of a few key poses, its hitboxes are traced from the posed weapon frame by frame, and each weapon has damage zones (the tip strongest). Drawing a new fighter therefore means authoring its weapon and its swings together. That is little more work than drawing poses, and it keeps the art and the hits from drifting apart.
 
+**The rig.** All humanoid puppets share one rig (version 14).
+
+- **Views.** Limbs are named by fighting role (lead toward the opponent, trailing away), and the view resolves depth, attachment, shape variants, shading and layer order:
+
+  | View | Back to front |
+  |---|---|
+  | Side | far arm, its weapon and far leg; torso, head, near leg; clothing; near arm and weapon |
+  | Front | torso and legs; head and clothing; upper arms; forearms; hands and weapons |
+  | Diagonal | torso and lead leg; trailing leg; head and clothing; upper arms; forearms; hands and weapons |
+
+  The diagonal view combines front and side views, as Egyptian figures do. When a profile turns its chest toward us, the lead side swings away, so the lead side is far and the trailing side near.
+- **Depth and layers.** Only depth darkens a part. Nothing changes layer to be seen: large weapons may sit on the far side; otherwise weapons are held up or out.
+- **Flexible joints are kept to a minimum.** The one planned is a hand sliding along a long grip.
+- **What each character needs drawn:**
+
+  | Parts | Views |
+  |---|---|
+  | Torso, head (with its two faces), hips or clothing, legs | a side variant and a front variant each |
+  | Arms, hands, weapons | shared across views |
+
+  The diagonal view uses the front torso and clothing with the side head and legs.
+- **Prior art.** Multi-view cut-out rigs are standard in animation tools such as Toon Boom Harmony. What this rig adds is layer order derived from roles and views, and that it runs in the game as the source of the hitboxes.
+
 **Plausible first, then clear.** Poses must be anatomically plausible, with obvious exceptions for some yokai: a hand holds what it holds, and a prop is taken by the hand that can reach it. Among the plausible poses, choose the clearest and most striking:
 
 - **Handedness is ignored.** Facing left, a fighter is simply mirrored.

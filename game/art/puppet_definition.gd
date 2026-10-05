@@ -1,78 +1,225 @@
 class_name PuppetDefinition
 extends RefCounted
-## A fighter's look as a cut-paper puppet: flat parts joined at pivots, two
-## colourways, and two faces. Purely visual: the fighter's boxes stay the
-## truth, and the puppet is scaled to its standing hurtbox.
+## A fighter's cut-paper puppet on the shared humanoid rig.
 ##
-## Coordinates are puppet units: feet at y = 0, up is -y, forward is +x, and a
-## puppet stands about `height` tall. Limbs are drawn hanging down from their
-## pivot and the torso standing up from the hips, so a pose of all zeros is a
-## figure standing straight with arms at its sides.
+## One skeleton, fixed bone lengths, two limbs of each kind. Poses name limbs
+## by their fighting role: "lead" (the side toward the opponent) and "trail".
+## A view then decides, for each side, where its shoulder and hip attach,
+## whether it is near or far from the viewer, which shape variants are drawn,
+## and the order of the layers:
+##
+##   SIDE      profile. Shoulders almost together; the lead side is near or far
+##             as the character chooses. Back to front: far arm and far leg;
+##             torso, head, near leg; clothing over torso and legs; near arm.
+##   FRONT     chest to the viewer; shoulders at the torso's edges, neither
+##             side nearer. Back to front: torso and legs; head and clothing;
+##             upper arms; forearms; hands and weapons.
+##   DIAGONAL  the composite (aspective) view of Egyptian figures: torso and
+##             arms as in front view, head and legs in profile. Turning a
+##             profile's chest toward the viewer swings the lead side away, so
+##             the lead side is far and the trailing side near. Back to front:
+##             torso and lead leg; trailing leg; head and clothing; upper arms;
+##             forearms; hands and weapons (far before near within each).
+##
+## Depth, never lead or trail, decides shading: far parts are darkened.
+## Nothing ever changes layer to be seen: a weapon behind the torso stays
+## behind it, so weapons on the far side are large or held up and out.
+##
+## Coordinates are puppet units: feet at y = 0, up is -y, forward (toward the
+## opponent) is +x. Limbs hang down from their pivot at angle 0 and the torso
+## stands up from the hips; a negative angle swings a hanging limb forward.
+
+enum View { SIDE, FRONT, DIAGONAL }
+## What a part is, which decides its layer. A DECO rides on its parent, drawn
+## just after it in the same layer and at the same depth (pleats on a leg,
+## rings on an arm, horns on a head, a blade on its hilt).
+enum Kind { BODY, HEAD, LEG, CLOTHING, ARM_UPPER, ARM_FORE, HAND, WEAPON, DECO }
+
+const VIEW_NAMES := {View.SIDE: "side", View.FRONT: "front", View.DIAGONAL: "diagonal"}
+enum Depth { FAR, MID, NEAR }
 
 
 class Part:
 	var name: String
 	var parent: String
-	## Where this part joins its parent, in the parent's space.
-	var pivot: Vector2
-	var shape: PackedVector2Array
-	## Colour slot, looked up in the colourway.
+	## Where this part joins its parent: a fixed point, or the name of a view
+	## anchor (lead_shoulder, trail_shoulder, lead_hip, trail_hip, neck).
+	var pivot := Vector2.ZERO
+	var anchor := ""
+	## Its outline, per view name ("side", "front", "diagonal") or "any".
+	var shapes: Dictionary = {}
 	var slot: String
-	## Draw order: lower first. Far-side limbs sit behind the body.
-	var z: int
-	## Far-side parts are drawn a little darker.
-	var far := false
+	var kind: int
+	## "lead", "trail" or "" (from the name's prefix, or the parent's for a deco).
+	var side := ""
 
-	func _init(part_name: String, parent_name: String, at: Vector2, points: Array, colour_slot: String,
-			order: int, is_far := false) -> void:
+	func _init(part_name: String, parent_name: String, at: Variant, outline: Variant, colour_slot: String,
+			part_kind: int) -> void:
 		name = part_name
 		parent = parent_name
-		pivot = at
-		shape = PackedVector2Array(points)
+		if at is String:
+			anchor = at
+		else:
+			pivot = at
+		shapes = outline if outline is Dictionary else {"any": outline}
 		slot = colour_slot
-		z = order
-		far = is_far
+		kind = part_kind
+		if part_name.begins_with("lead_"):
+			side = "lead"
+		elif part_name.begins_with("trail_"):
+			side = "trail"
 
 
 var parts: Array = []
-## [tori, uke]: colour slot -> Color. Tori is player 1's and the computer's in
-## the campaign; uke is player 2's in versus.
+## [tori, uke]: colour slot -> Color.
 var colourways: Array = []
-## Face details drawn on the head: [points, slot] pairs. Teru (the mask
-## tilted up, bright) for advancing and attacking; kumoru (tilted down,
+## Face details drawn on the head, in profile: [points, slot] pairs. Teru (the
+## mask tilted up, bright) for advancing and attacking; kumoru (tilted down,
 ## clouded) for guarding, being hit and defeat.
 var face_teru: Array = []
 var face_kumoru: Array = []
 var height := 170.0
-## This puppet's resting angles (how it holds its weapon at rest), over the
-## shared defaults; states that move a joint override them.
+## The view this character is drawn in, and in side view whether its lead
+## side is the near one.
+var view := View.SIDE
+var side_lead_near := true
+## Per view: where the limbs attach. {view: {lead_shoulder, trail_shoulder,
+## lead_hip, trail_hip, neck}}
+var anchors: Dictionary = {}
+## Named points on parts, for limbs to reach: {name: [part, point]}.
+var points: Dictionary = {}
+## Resting angles over the shared defaults.
 var rest: Dictionary = {}
-
-## Weapons and striking limbs: a segment on a bone, with a width, divided
-## into zones that wound at different strengths (the tip most). These are
-## gameplay data: a move's hitboxes are traced from them.
+## Weapons and striking limbs, which are gameplay data: a move's hitboxes are
+## traced from them.
 ##   {name, bone, from: Vector2, to: Vector2, width, zones: [[from, to, damage scale], ...]}
 var weapons: Array = []
 ## Moves animated as swings, by move id:
-##   {keys = [[t, {joint: angle}], ...], strikes = [weapon names], base = "stand" | "crouch" | "air"}
+##   {keys = [[t, {joint: angle, ik = {lead|trail: {to = point, bend = ±1}}}], ...],
+##    strikes = [weapon names], base = "stand" | "crouch" | "air"}
 ## t runs 0..1 through start-up, 1..2 through the active frames, 2..3
-## through recovery, so a swing fits any frame data.
+## through recovery.
 var swings: Dictionary = {}
-## Parts drawn only during certain moves (a sake gourd in the hand), and
-## parts hidden during certain moves (the same gourd at the hip): part name
-## -> move ids.
+## Parts drawn only during certain moves, and parts hidden during certain
+## moves: part name -> move ids.
 var props: Dictionary = {}
 var hidden_during: Dictionary = {}
 
 const DEFAULTS := {
 	torso = 4.0, head = -2.0,
-	upper_arm_f = -35.0, lower_arm_f = -55.0, weapon_f = 0.0,
-	upper_arm_b = 25.0, lower_arm_b = -40.0, weapon_b = 0.0,
-	thigh_f = -14.0, shin_f = 12.0, thigh_b = 16.0, shin_b = 4.0,
+	lead_upper = -35.0, lead_fore = -55.0, lead_weapon = 0.0,
+	trail_upper = 25.0, trail_fore = -40.0, trail_weapon = 0.0,
+	lead_thigh = -14.0, lead_shin = 12.0, trail_thigh = 16.0, trail_shin = 4.0,
 }
-const CROUCH := {torso = 22.0, thigh_f = -78.0, shin_f = 100.0, thigh_b = -40.0, shin_b = 110.0}
+const CROUCH := {torso = 22.0, lead_thigh = -78.0, lead_shin = 100.0, trail_thigh = -40.0, trail_shin = 110.0}
 const CROUCH_DROP := 38.0
-const AIR := {thigh_f = -60.0, shin_f = 80.0, thigh_b = -25.0, shin_b = 70.0}
+const AIR := {lead_thigh = -60.0, lead_shin = 80.0, trail_thigh = -25.0, trail_shin = 70.0}
+
+# Layer group of each kind at each depth, per view.
+const _SIDE_GROUPS := {
+	Depth.FAR: {Kind.ARM_UPPER: 0, Kind.ARM_FORE: 0, Kind.HAND: 0, Kind.WEAPON: 0, Kind.LEG: 0},
+	Depth.MID: {Kind.BODY: 1, Kind.HEAD: 1, Kind.CLOTHING: 2},
+	Depth.NEAR: {Kind.LEG: 1, Kind.ARM_UPPER: 3, Kind.ARM_FORE: 3, Kind.HAND: 3, Kind.WEAPON: 3},
+}
+const _FRONT_GROUPS := {Kind.BODY: 0, Kind.LEG: 0, Kind.HEAD: 1, Kind.CLOTHING: 1,
+		Kind.ARM_UPPER: 2, Kind.ARM_FORE: 3, Kind.HAND: 4, Kind.WEAPON: 4}
+const _DIAGONAL_GROUPS := {Kind.BODY: 0, Kind.HEAD: 2, Kind.CLOTHING: 2,
+		Kind.ARM_UPPER: 3, Kind.ARM_FORE: 4, Kind.HAND: 5, Kind.WEAPON: 5}
+
+
+## Near, far or neither, for a side in a view.
+func depth_of(side: String, v: int) -> int:
+	if side == "":
+		return Depth.MID
+	match v:
+		View.SIDE:
+			var lead_near := side_lead_near
+			return Depth.NEAR if (side == "lead") == lead_near else Depth.FAR
+		View.DIAGONAL:
+			return Depth.FAR if side == "lead" else Depth.NEAR
+	return Depth.MID
+
+
+## How much a part is darkened for depth in a view: far parts in profile;
+## only the far leg in the diagonal view, whose arms are drawn as in front.
+func shade_of(part: Part, v: int) -> float:
+	var base := _base_of(part)
+	if depth_of(base.side, v) != Depth.FAR:
+		return 0.0
+	if v == View.SIDE:
+		return 0.25
+	if v == View.DIAGONAL and base.kind == Kind.LEG:
+		return 0.15
+	return 0.0
+
+
+## The parts in the order they are drawn in a view, back to front.
+func draw_order(v: int) -> Array:
+	var keyed: Array = []
+	for i in parts.size():
+		keyed.append([_layer_key(parts[i], v), i, parts[i]])
+	keyed.sort_custom(func(a: Array, b: Array) -> bool:
+		for k in 3:
+			if a[0][k] != b[0][k]:
+				return a[0][k] < b[0][k]
+		return a[1] < b[1])
+	return keyed.map(func(e: Array) -> Part: return e[2])
+
+
+## [layer group, depth rank, order of declaration of the base part]: decos
+## take their base part's key, so they follow it.
+func _layer_key(part: Part, v: int) -> Array:
+	var base := _base_of(part)
+	var depth := depth_of(base.side, v)
+	var group := 0
+	match v:
+		View.SIDE:
+			var at_depth: Dictionary = _SIDE_GROUPS[depth]
+			group = at_depth.get(base.kind, _SIDE_GROUPS[Depth.MID].get(base.kind, 1))
+		View.FRONT:
+			group = _FRONT_GROUPS.get(base.kind, 1)
+		View.DIAGONAL:
+			if base.kind == Kind.LEG:
+				group = 0 if depth == Depth.FAR else 1
+			else:
+				group = _DIAGONAL_GROUPS.get(base.kind, 2)
+	return [group, depth, parts.find(base)]
+
+
+func _base_of(part: Part) -> Part:
+	var p := part
+	while p.kind == Kind.DECO and p.parent != "":
+		p = find(p.parent)
+	return p
+
+
+func find(part_name: String) -> Part:
+	for p in parts:
+		if p.name == part_name:
+			return p
+	return null
+
+
+## The outline drawn for a part in a view. The diagonal view takes torso and
+## clothing from the front view and head and limbs from the side view.
+func shape_of(part: Part, v: int) -> PackedVector2Array:
+	var base := _base_of(part)
+	var order: Array = [VIEW_NAMES[v]]
+	if v == View.DIAGONAL:
+		order.append("front" if base.kind in [Kind.BODY, Kind.CLOTHING] else "side")
+	order.append("any")
+	for key in order:
+		if part.shapes.has(key):
+			return part.shapes[key]
+	return part.shapes.values()[0]
+
+
+## Where a part joins its parent in a view.
+func pivot_of(part: Part, v: int) -> Vector2:
+	if part.anchor == "":
+		return part.pivot
+	var at: Dictionary = anchors.get(v, anchors.get(view, {}))
+	return at.get(part.anchor, Vector2.ZERO)
 
 
 ## The resting angles for a context: standing, crouching or in the air.
@@ -87,10 +234,12 @@ func base_angles(context: String) -> Dictionary:
 
 
 ## Where move `m` (animated by `swing`) has the puppet at `frame`: joint
-## angles and the root's drop, interpolated between the swing's keys.
+## angles and the root's drop, interpolated between the swing's keys, each
+## key's reaches solved first.
 func swing_pose(swing: Dictionary, m: MoveDefinition, frame: int) -> Dictionary:
 	var context: String = swing.get("base", "stand")
-	var a := base_angles(context)
+	var base := base_angles(context)
+	var root := Vector2(0, CROUCH_DROP if context == "crouch" else 0.0)
 	var t := _phase(m, frame)
 	var keys: Array = [[0.0, {}]] + swing.keys + [[3.0, {}]]
 	var k := 0
@@ -99,15 +248,72 @@ func swing_pose(swing: Dictionary, m: MoveDefinition, frame: int) -> Dictionary:
 	var t0: float = keys[k][0]
 	var t1: float = keys[k + 1][0]
 	var w := 0.0 if is_equal_approx(t1, t0) else clampf((t - t0) / (t1 - t0), 0.0, 1.0)
-	var rest_a := a.duplicate()
-	for joint in rest_a:
-		var v0: float = keys[k][1].get(joint, rest_a[joint])
-		var v1: float = keys[k + 1][1].get(joint, rest_a[joint])
-		a[joint] = lerpf(v0, v1, w)
-	return {angles = a, root = Vector2(0, CROUCH_DROP if context == "crouch" else 0.0), root_rot = 0.0}
+	var a0 := _key_angles(base, keys[k][1], root)
+	var a1 := _key_angles(base, keys[k + 1][1], root)
+	var a := a0.duplicate()
+	for joint in a1:
+		a[joint] = lerpf(a0.get(joint, a1[joint]), a1[joint], w)
+	return {angles = a, root = root, root_rot = 0.0}
 
 
-## Each part's transform in puppet space for a set of angles.
+## A key's full angles: the base, the key's own angles, then its reaches.
+func _key_angles(base: Dictionary, key: Dictionary, root: Vector2) -> Dictionary:
+	var a := base.duplicate()
+	for joint in key:
+		if joint != "ik":
+			a[joint] = key[joint]
+	var reaches: Dictionary = key.get("ik", {})
+	for side in reaches:
+		var reach: Dictionary = reaches[side]
+		reach_with(a, side, reach.to, reach.get("bend", 1.0), root)
+	return a
+
+
+## Bends `side`'s arm so its hand reaches the named point (or a point in
+## puppet space), elbow bending the way `bend` says. Fixed bone lengths: a
+## point out of reach is reached toward, never stretched to.
+func reach_with(a: Dictionary, side: String, target: Variant, bend: float, root := Vector2.ZERO) -> void:
+	var upper := find(side + "_upper")
+	var fore := find(side + "_fore")
+	if upper == null or fore == null:
+		return
+	var placed := pose_transforms(a, root)
+	var goal: Vector2 = target if target is Vector2 else placed[points[target][0]] * points[target][1]
+	var shoulder: Vector2 = placed[upper.name].origin
+	var parent_angle: float = (placed[upper.parent] as Transform2D).get_rotation()
+	var wrist_local := _wrist(side)
+	var l1 := fore.pivot.length()
+	var l2 := wrist_local.length()
+	var to_goal := goal - shoulder
+	var d := clampf(to_goal.length(), absf(l1 - l2) + 0.01, l1 + l2 - 0.01)
+	var cos_a := clampf((l1 * l1 + d * d - l2 * l2) / (2.0 * l1 * d), -1.0, 1.0)
+	var toward := _hanging(to_goal)
+	var upper_abs := toward + bend * acos(cos_a)
+	var elbow := shoulder + Vector2(-sin(upper_abs), cos(upper_abs)) * l1
+	var fore_abs := _hanging(goal - elbow)
+	# Bones whose child pivot is slightly off their axis.
+	upper_abs -= _hanging(fore.pivot)
+	fore_abs -= _hanging(wrist_local)
+	a[upper.name] = rad_to_deg(upper_abs - parent_angle)
+	a[fore.name] = rad_to_deg(fore_abs - upper_abs)
+
+
+## Where the hand is on the forearm: the pivot of the hand, or of whatever the
+## forearm holds.
+func _wrist(side: String) -> Vector2:
+	for p in parts:
+		if p.parent == side + "_fore" and (p.kind == Kind.HAND or p.kind == Kind.WEAPON):
+			return p.pivot
+	return Vector2(0, 24)
+
+
+## The angle at which a limb hanging along +y points along `v`.
+static func _hanging(v: Vector2) -> float:
+	return atan2(-v.x, v.y)
+
+
+## Each part's transform in puppet space for a set of angles, in this
+## character's view.
 func pose_transforms(angles: Dictionary, root := Vector2.ZERO, root_rot := 0.0) -> Dictionary:
 	var out := {}
 	var top := Transform2D(deg_to_rad(root_rot), root)
@@ -118,7 +324,6 @@ func pose_transforms(angles: Dictionary, root := Vector2.ZERO, root_rot := 0.0) 
 
 ## Where the move's striking weapons are at `frame`: boxes in the fighter's
 ## local space (scaled by `scale`), each with the damage scale of its zone.
-## A zone that does not wound leaves no box.
 func weapon_strikes(swing: Dictionary, m: MoveDefinition, frame: int, scale: float) -> Array:
 	var pose := swing_pose(swing, m, frame)
 	var transforms := pose_transforms(pose.angles, pose.root, pose.root_rot)
@@ -146,12 +351,10 @@ func weapon_strikes(swing: Dictionary, m: MoveDefinition, frame: int, scale: flo
 func _place(part: Part, angles: Dictionary, out: Dictionary, top: Transform2D) -> Transform2D:
 	if out.has(part.name):
 		return out[part.name]
-	var own := Transform2D(deg_to_rad(angles.get(part.name, 0.0)), part.pivot)
+	var own := Transform2D(deg_to_rad(angles.get(part.name, 0.0)), pivot_of(part, view))
 	var t := top * own
 	if part.parent != "":
-		for other in parts:
-			if other.name == part.parent:
-				t = _place(other, angles, out, top) * own
+		t = _place(find(part.parent), angles, out, top) * own
 	out[part.name] = t
 	return t
 

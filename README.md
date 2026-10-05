@@ -4,7 +4,7 @@ A 2D fighting game set in a fantasy Japan, in the lineage of Street Fighter and 
 
 The guiding principle: **the fighting is the game; the campaign exists to produce unusual fights.** There are no levels, stat sheets or grinding.
 
-This is version 13.3: sixteen humans and yokai and three giants. Musashi and Shuten-dōji are now cut-paper puppets against a painted shore, the first art test, and they strike with their actual weapons; the rest are still rectangles. History is in [CHANGELOG.md](CHANGELOG.md), and the first art and audio direction is in [docs/art_and_audio.md](docs/art_and_audio.md).
+This is version 14: sixteen humans and yokai and three giants. Musashi and Shuten-dōji are now cut-paper puppets against a painted shore, the first art test, and they strike with their actual weapons; the rest are still rectangles. History is in [CHANGELOG.md](CHANGELOG.md), and the first art and audio direction is in [docs/art_and_audio.md](docs/art_and_audio.md).
 
 ## Running
 
@@ -201,7 +201,18 @@ Monkey face, tanuki body, tiger limbs, snake tail, on a black thundercloud.
 
 ## The art test
 
-Musashi and Shuten-dōji are drawn as cut-paper puppets: flat paper parts with fine ink edges on a simple skeleton, under a faint washi grain. Poses must be anatomically plausible, with obvious exceptions for some yokai. Among the plausible poses we choose the clearest and most striking, and ignore handedness:
+Musashi and Shuten-dōji are drawn as cut-paper puppets on a shared humanoid rig.
+
+- **Limbs by role.** One skeleton with fixed bone lengths, whose limbs are named by their fighting role: the lead side faces the opponent, the trailing side is away.
+- **Views decide the rest.** A view decides where each side's shoulder and hip attach, which side is near or far, which shape variants are drawn, what is shaded, and the order of the layers.
+  - In side view, the far arm and leg are behind the torso and the near arm on top; Musashi's lead side is near.
+  - In front view, both arms are drawn over the torso from its edges.
+  - In the diagonal view of a boxer (Egyptian aspective: torso and arms front, head and legs profile), the lead side is far, so the lead leg sits behind the trailing one. The oni is drawn this way.
+- **No exceptions to layer order.** Nothing changes layer to be seen: weapons on the far side are large or held up and out.
+- **Reaching.** Hands can reach for named points, such as the oni's mouth when he drinks, by two-bone inverse kinematics with fixed lengths.
+- **Decorations** (pleats, rings, horns, blades) ride on their part's layer and depth.
+
+The puppets are flat paper parts with fine ink edges on a simple skeleton, under a faint washi grain. Poses must be anatomically plausible, with obvious exceptions for some yokai. Among the plausible poses we choose the clearest and most striking, and ignore handedness:
 
 - Musashi stands side-on with the wakizashi forward;
 - Shuten-dōji stands like a boxer;
@@ -290,7 +301,7 @@ game/
   controls_text.gd         command patterns -> the keys a player presses
   input_setup.gd           key and gamepad bindings
   views/bout_view.gd       drawing: fighters, giants, telegraphs, pieces, HUD
-  art/                     puppets (definition, renderer, Musashi, Shuten-dōji), the shore backdrop, the paper grain
+  art/                     the humanoid rig (puppet_definition.gd), its renderer (puppet.gd), Musashi and Shuten-dōji, the shore backdrop, the paper grain
   combat/
     move_definition.gd     frame data, boxes and every move effect
     fighter_definition.gd  a fighter as data
@@ -315,7 +326,7 @@ godot --headless --path . --import          # once, to build the class cache
 godot --headless --path . --script res://tests/selftest.gd
 ```
 
-There are 118 checks. They cover:
+There are 122 checks. They cover:
 
 - **The rules:** guards, throws, combos, commands, timing.
 - **Every fighter's specials:** each one completes.

@@ -1,56 +1,65 @@
 extends RefCounted
-## Miyamoto Musashi as a cut-paper puppet, drawn for clarity rather than
-## correctness: side-on like a boxer, the wakizashi in the near hand pointed at
-## the opponent, the katana raised high (jōdan) in the far hand where it reads
-## against the sky. Kimono and pleated hakama, scabbards at the obi, a crest on
-## the sleeve, a headband over long tied hair. His face is a white base with
-## kumadori, red as tori, indigo as uke. Facing left he is simply mirrored.
+## Miyamoto Musashi on the humanoid rig, in side view with his lead side near:
+## the wakizashi in the lead (near) hand levelled at the opponent, the katana
+## raised high (jōdan) in the trailing (far) hand, where a large blade on the
+## far side stays visible by being held up. Kimono and pleated hakama,
+## scabbards at the obi, a crest on the sleeve, a headband over long tied
+## hair. His face is a white base with kumadori, red as tori, indigo as uke.
 
 const P := PuppetDefinition.Part
+const K := PuppetDefinition.Kind
+const V := PuppetDefinition.View
 
 
 static func definition() -> PuppetDefinition:
 	var d := PuppetDefinition.new()
 	d.height = 172.0
+	d.view = V.SIDE
+	d.side_lead_near = true
+	d.anchors = {V.SIDE: {lead_shoulder = Vector2(6, -52), trail_shoulder = Vector2(-5, -52),
+			lead_hip = Vector2(6, 6), trail_hip = Vector2(-5, 6), neck = Vector2(1, -57)}}
+	var thigh := [Vector2(-11, 0), Vector2(11, 0), Vector2(15, 42), Vector2(-15, 42)]
+	var shin := [Vector2(-14, 0), Vector2(14, 0), Vector2(18, 37), Vector2(-18, 37)]
+	var foot := [Vector2(-6, -2), Vector2(15, -2), Vector2(15, 3), Vector2(-6, 3)]
+	var sleeve := [Vector2(-8, 0), Vector2(9, 0), Vector2(12, 32), Vector2(-9, 30)]
+	var forearm := [Vector2(-4, 0), Vector2(5, 0), Vector2(4, 23), Vector2(-3, 23)]
 	d.parts = [
-		P.new("hips", "", Vector2(0, -84), [Vector2(-16, -6), Vector2(17, -6), Vector2(22, 12), Vector2(-20, 12)], "garment", 3),
-		# Far side: the katana arm and the back leg.
-		P.new("upper_arm_b", "torso", Vector2(-5, -52), [Vector2(-8, 0), Vector2(8, 0), Vector2(11, 31), Vector2(-9, 29)], "garment", 1, true),
-		P.new("lower_arm_b", "upper_arm_b", Vector2(1, 29), [Vector2(-4, 0), Vector2(5, 0), Vector2(4, 22), Vector2(-3, 22)], "skin", 1, true),
-		P.new("weapon_b", "lower_arm_b", Vector2(0, 22), [Vector2(-2, -5), Vector2(2.5, -5), Vector2(2.5, 14), Vector2(-2, 14)], "hilt", 1),
-		P.new("tsuba_b", "weapon_b", Vector2(0, 14), [Vector2(-5, 0), Vector2(5, 0), Vector2(5, 3), Vector2(-5, 3)], "accent", 1),
-		P.new("blade_b", "weapon_b", Vector2(0, 17), [Vector2(-3, 0), Vector2(3, 0), Vector2(2, 80), Vector2(-1, 86), Vector2(-2, 3)], "steel", 1),
-		P.new("thigh_b", "hips", Vector2(-5, 6), [Vector2(-11, 0), Vector2(11, 0), Vector2(15, 42), Vector2(-15, 42)], "garment", 2, true),
-		P.new("shin_b", "thigh_b", Vector2(0, 40), [Vector2(-14, 0), Vector2(14, 0), Vector2(18, 37), Vector2(-18, 37)], "garment", 2, true),
-		P.new("foot_b", "shin_b", Vector2(0, 37), [Vector2(-6, -2), Vector2(15, -2), Vector2(15, 3), Vector2(-6, 3)], "tabi", 2, true),
-		# Near leg, with the hakama's pleats.
-		P.new("thigh_f", "hips", Vector2(6, 6), [Vector2(-11, 0), Vector2(11, 0), Vector2(15, 42), Vector2(-15, 42)], "garment", 4),
-		P.new("pleat_1", "thigh_f", Vector2(0, 0), [Vector2(-4, 2), Vector2(-2, 2), Vector2(-5, 42), Vector2(-7, 42)], "fold", 4),
-		P.new("pleat_2", "thigh_f", Vector2(0, 0), [Vector2(4, 2), Vector2(6, 2), Vector2(9, 42), Vector2(7, 42)], "fold", 4),
-		P.new("shin_f", "thigh_f", Vector2(0, 40), [Vector2(-14, 0), Vector2(14, 0), Vector2(18, 37), Vector2(-18, 37)], "garment", 4),
-		P.new("pleat_3", "shin_f", Vector2(0, 0), [Vector2(-6, 0), Vector2(-4, 0), Vector2(-8, 37), Vector2(-10, 37)], "fold", 4),
-		P.new("pleat_4", "shin_f", Vector2(0, 0), [Vector2(6, 0), Vector2(8, 0), Vector2(12, 37), Vector2(10, 37)], "fold", 4),
-		P.new("foot_f", "shin_f", Vector2(0, 37), [Vector2(-6, -2), Vector2(15, -2), Vector2(15, 3), Vector2(-6, 3)], "tabi", 4),
-		# Torso in profile, chest toward the opponent's side.
-		P.new("torso", "hips", Vector2(0, -4), [Vector2(-12, 0), Vector2(13, 0), Vector2(17, -28), Vector2(14, -56), Vector2(-12, -56), Vector2(-15, -30)], "secondary", 5),
-		P.new("lapel", "torso", Vector2(0, 0), [Vector2(-12, -56), Vector2(2, -56), Vector2(8, -30), Vector2(13, -56), Vector2(14, -56), Vector2(17, -28), Vector2(13, 0), Vector2(-12, 0), Vector2(-15, -30)], "garment", 6),
-		P.new("collar", "torso", Vector2(0, 0), [Vector2(2, -56), Vector2(5, -56), Vector2(9, -34), Vector2(8, -30)], "secondary", 6),
-		P.new("obi", "torso", Vector2(0, 0), [Vector2(-13, 3), Vector2(14, 3), Vector2(15, -9), Vector2(-14, -9)], "accent", 6),
-		# The two scabbards, thrust through the obi and pointing back.
-		P.new("saya_k", "hips", Vector2(4, -10), [Vector2(-2.5, 0), Vector2(2.5, 0), Vector2(2, 74), Vector2(-2, 74)], "lacquer", 7),
-		P.new("saya_w", "hips", Vector2(8, -8), [Vector2(-2.5, 0), Vector2(2.5, 0), Vector2(2, 48), Vector2(-2, 48)], "lacquer", 7),
-		P.new("head", "torso", Vector2(1, -57), [Vector2(-10, 0), Vector2(10, 0), Vector2(13, -14), Vector2(11, -26), Vector2(1, -31), Vector2(-9, -27), Vector2(-12, -14)], "face", 8),
-		P.new("hair", "head", Vector2(0, 0), [Vector2(-13, -12), Vector2(-12, -27), Vector2(-2, -34), Vector2(10, -30), Vector2(12, -24), Vector2(4, -27), Vector2(-4, -26), Vector2(-7, -18), Vector2(-9, -6), Vector2(-16, -2)], "hair", 9),
-		P.new("band", "head", Vector2(0, 0), [Vector2(-12, -22), Vector2(12, -25), Vector2(12, -21), Vector2(-12, -18)], "band", 9),
-		P.new("band_tail", "head", Vector2(-12, -20), [Vector2(0, -2), Vector2(-14, 2), Vector2(-20, 10), Vector2(-12, 5), Vector2(0, 2)], "band", 9),
-		P.new("topknot", "head", Vector2(-6, -31), [Vector2(-5, 0), Vector2(4, -1), Vector2(6, -8), Vector2(-3, -9)], "hair", 9),
-		# Near side: the wakizashi arm, with the family crest on the sleeve.
-		P.new("upper_arm_f", "torso", Vector2(6, -52), [Vector2(-8, 0), Vector2(9, 0), Vector2(12, 32), Vector2(-9, 30)], "garment", 10),
-		P.new("mon", "upper_arm_f", Vector2(1, 14), [Vector2(0, -5), Vector2(3.5, -3.5), Vector2(5, 0), Vector2(3.5, 3.5), Vector2(0, 5), Vector2(-3.5, 3.5), Vector2(-5, 0), Vector2(-3.5, -3.5)], "mon", 10),
-		P.new("lower_arm_f", "upper_arm_f", Vector2(1, 30), [Vector2(-4, 0), Vector2(5, 0), Vector2(4, 23), Vector2(-3, 23)], "skin", 10),
-		P.new("weapon_f", "lower_arm_f", Vector2(0, 23), [Vector2(-2, -4), Vector2(2, -4), Vector2(2, 9), Vector2(-2, 9)], "hilt", 11),
-		P.new("tsuba_f", "weapon_f", Vector2(0, 8), [Vector2(-4, 0), Vector2(4, 0), Vector2(4, 2.5), Vector2(-4, 2.5)], "accent", 11),
-		P.new("blade_f", "weapon_f", Vector2(0, 10), [Vector2(-3, 0), Vector2(3, 0), Vector2(1.5, 52), Vector2(-1, 56), Vector2(-2, 2)], "steel", 11),
+		P.new("hips", "", Vector2(0, -84), [Vector2(-16, -6), Vector2(17, -6), Vector2(22, 12), Vector2(-20, 12)], "garment", K.CLOTHING),
+		P.new("torso", "hips", Vector2(0, -4), [Vector2(-12, 0), Vector2(13, 0), Vector2(17, -28), Vector2(14, -56), Vector2(-12, -56), Vector2(-15, -30)], "secondary", K.BODY),
+		P.new("head", "torso", "neck", [Vector2(-10, 0), Vector2(10, 0), Vector2(13, -14), Vector2(11, -26), Vector2(1, -31), Vector2(-9, -27), Vector2(-12, -14)], "face", K.HEAD),
+		P.new("hair", "head", Vector2(0, 0), [Vector2(-13, -12), Vector2(-12, -27), Vector2(-2, -34), Vector2(10, -30), Vector2(12, -24), Vector2(4, -27), Vector2(-4, -26), Vector2(-7, -18), Vector2(-9, -6), Vector2(-16, -2)], "hair", K.DECO),
+		P.new("band", "head", Vector2(0, 0), [Vector2(-12, -22), Vector2(12, -25), Vector2(12, -21), Vector2(-12, -18)], "band", K.DECO),
+		P.new("band_tail", "head", Vector2(-12, -20), [Vector2(0, -2), Vector2(-14, 2), Vector2(-20, 10), Vector2(-12, 5), Vector2(0, 2)], "band", K.DECO),
+		P.new("topknot", "head", Vector2(-6, -31), [Vector2(-5, 0), Vector2(4, -1), Vector2(6, -8), Vector2(-3, -9)], "hair", K.DECO),
+		P.new("lapel", "torso", Vector2(0, 0), [Vector2(-12, -56), Vector2(2, -56), Vector2(8, -30), Vector2(13, -56), Vector2(14, -56), Vector2(17, -28), Vector2(13, 0), Vector2(-12, 0), Vector2(-15, -30)], "garment", K.CLOTHING),
+		P.new("collar", "torso", Vector2(0, 0), [Vector2(2, -56), Vector2(5, -56), Vector2(9, -34), Vector2(8, -30)], "secondary", K.CLOTHING),
+		P.new("obi", "torso", Vector2(0, 0), [Vector2(-13, 3), Vector2(14, 3), Vector2(15, -9), Vector2(-14, -9)], "accent", K.CLOTHING),
+		P.new("saya_k", "hips", Vector2(4, -10), [Vector2(-2.5, 0), Vector2(2.5, 0), Vector2(2, 74), Vector2(-2, 74)], "lacquer", K.CLOTHING),
+		P.new("saya_w", "hips", Vector2(8, -8), [Vector2(-2.5, 0), Vector2(2.5, 0), Vector2(2, 48), Vector2(-2, 48)], "lacquer", K.CLOTHING),
+		# The trailing (far) side: the katana arm and the back leg.
+		P.new("trail_upper", "torso", "trail_shoulder", sleeve, "garment", K.ARM_UPPER),
+		P.new("trail_fore", "trail_upper", Vector2(1, 29), forearm, "skin", K.ARM_FORE),
+		P.new("trail_weapon", "trail_fore", Vector2(0, 22), [Vector2(-2, -5), Vector2(2.5, -5), Vector2(2.5, 14), Vector2(-2, 14)], "hilt", K.WEAPON),
+		P.new("trail_tsuba", "trail_weapon", Vector2(0, 14), [Vector2(-5, 0), Vector2(5, 0), Vector2(5, 3), Vector2(-5, 3)], "accent", K.DECO),
+		P.new("trail_blade", "trail_weapon", Vector2(0, 17), [Vector2(-3, 0), Vector2(3, 0), Vector2(2, 80), Vector2(-1, 86), Vector2(-2, 3)], "steel", K.DECO),
+		P.new("trail_thigh", "hips", "trail_hip", thigh, "garment", K.LEG),
+		P.new("trail_shin", "trail_thigh", Vector2(0, 40), shin, "garment", K.LEG),
+		P.new("trail_foot", "trail_shin", Vector2(0, 37), foot, "tabi", K.LEG),
+		# The lead (near) side: the wakizashi arm with the crest on its sleeve,
+		# and the front leg with the hakama's pleats.
+		P.new("lead_thigh", "hips", "lead_hip", thigh, "garment", K.LEG),
+		P.new("pleat_1", "lead_thigh", Vector2(0, 0), [Vector2(-4, 2), Vector2(-2, 2), Vector2(-5, 42), Vector2(-7, 42)], "fold", K.DECO),
+		P.new("pleat_2", "lead_thigh", Vector2(0, 0), [Vector2(4, 2), Vector2(6, 2), Vector2(9, 42), Vector2(7, 42)], "fold", K.DECO),
+		P.new("lead_shin", "lead_thigh", Vector2(0, 40), shin, "garment", K.LEG),
+		P.new("pleat_3", "lead_shin", Vector2(0, 0), [Vector2(-6, 0), Vector2(-4, 0), Vector2(-8, 37), Vector2(-10, 37)], "fold", K.DECO),
+		P.new("pleat_4", "lead_shin", Vector2(0, 0), [Vector2(6, 0), Vector2(8, 0), Vector2(12, 37), Vector2(10, 37)], "fold", K.DECO),
+		P.new("lead_foot", "lead_shin", Vector2(0, 37), foot, "tabi", K.LEG),
+		P.new("lead_upper", "torso", "lead_shoulder", sleeve, "garment", K.ARM_UPPER),
+		P.new("mon", "lead_upper", Vector2(1, 14), [Vector2(0, -5), Vector2(3.5, -3.5), Vector2(5, 0), Vector2(3.5, 3.5), Vector2(0, 5), Vector2(-3.5, 3.5), Vector2(-5, 0), Vector2(-3.5, -3.5)], "mon", K.DECO),
+		P.new("lead_fore", "lead_upper", Vector2(1, 30), forearm, "skin", K.ARM_FORE),
+		P.new("lead_weapon", "lead_fore", Vector2(0, 23), [Vector2(-2, -4), Vector2(2, -4), Vector2(2, 9), Vector2(-2, 9)], "hilt", K.WEAPON),
+		P.new("lead_tsuba", "lead_weapon", Vector2(0, 8), [Vector2(-4, 0), Vector2(4, 0), Vector2(4, 2.5), Vector2(-4, 2.5)], "accent", K.DECO),
+		P.new("lead_blade", "lead_weapon", Vector2(0, 10), [Vector2(-3, 0), Vector2(3, 0), Vector2(1.5, 52), Vector2(-1, 56), Vector2(-2, 2)], "steel", K.DECO),
 	]
 	var ink := "ink"
 	d.face_teru = [
@@ -80,78 +89,78 @@ static func definition() -> PuppetDefinition:
 	# Side-on, feet split; the wakizashi levelled at the opponent, the katana
 	# held high and back; the scabbards pointing back from the obi.
 	d.rest = {torso = 6.0,
-			upper_arm_f = -40.0, lower_arm_f = -45.0, weapon_f = -10.0,
-			upper_arm_b = -160.0, lower_arm_b = -30.0, weapon_b = -26.0,
-			thigh_f = -24.0, shin_f = 16.0, thigh_b = 30.0, shin_b = 6.0,
+			lead_upper = -40.0, lead_fore = -45.0, lead_weapon = -10.0,
+			trail_upper = -160.0, trail_fore = -30.0, trail_weapon = -26.0,
+			lead_thigh = -24.0, lead_shin = 16.0, trail_thigh = 30.0, trail_shin = 6.0,
 			saya_k = 75.0, saya_w = 68.0}
 
 	# Both blades wound most near the tip and least near the guard.
 	var edge := [[0.0, 0.25, 0.4], [0.25, 0.7, 0.8], [0.7, 1.0, 1.0]]
 	d.weapons = [
-		{name = "katana", bone = "weapon_b", from = Vector2(0, 17), to = Vector2(0, 103), width = 5.0, zones = edge},
-		{name = "wakizashi", bone = "weapon_f", from = Vector2(0, 10), to = Vector2(0, 66), width = 5.0, zones = edge},
+		{name = "katana", bone = "trail_weapon", from = Vector2(0, 17), to = Vector2(0, 103), width = 5.0, zones = edge},
+		{name = "wakizashi", bone = "lead_weapon", from = Vector2(0, 10), to = Vector2(0, 66), width = 5.0, zones = edge},
 	]
 	# Lights are the wakizashi (near hand), heavies the katana (far hand).
-	var double_thrust := {upper_arm_f = -95.0, lower_arm_f = 0.0, weapon_f = 0.0,
-			upper_arm_b = -60.0, lower_arm_b = 0.0, weapon_b = -2.0, torso = 10.0}
-	var grab := {upper_arm_f = -75.0, lower_arm_f = -20.0, upper_arm_b = -70.0, lower_arm_b = -20.0, torso = 12.0}
+	var double_thrust := {lead_upper = -95.0, lead_fore = 0.0, lead_weapon = 0.0,
+			trail_upper = -60.0, trail_fore = 0.0, trail_weapon = -2.0, torso = 10.0}
+	var grab := {lead_upper = -75.0, lead_fore = -20.0, trail_upper = -70.0, trail_fore = -20.0, torso = 12.0}
 	d.swings = {
 		stand_light = {strikes = ["wakizashi"], keys = [
-			[1.0, {upper_arm_f = -20.0, lower_arm_f = -110.0, weapon_f = -40.0, torso = 0.0}],
-			[1.3, {upper_arm_f = -88.0, lower_arm_f = -2.0, weapon_f = 0.0, torso = 12.0}],
-			[2.0, {upper_arm_f = -90.0, lower_arm_f = 0.0, weapon_f = 0.0, torso = 12.0}]]},
+			[1.0, {lead_upper = -20.0, lead_fore = -110.0, lead_weapon = -40.0, torso = 0.0}],
+			[1.3, {lead_upper = -88.0, lead_fore = -2.0, lead_weapon = 0.0, torso = 12.0}],
+			[2.0, {lead_upper = -90.0, lead_fore = 0.0, lead_weapon = 0.0, torso = 12.0}]]},
 		# From jōdan straight down: level through the middle, low by the end.
 		stand_heavy = {strikes = ["katana"], keys = [
-			[1.0, {upper_arm_b = -175.0, lower_arm_b = -20.0, weapon_b = -20.0, torso = -6.0}],
-			[1.75, {upper_arm_b = -45.0, lower_arm_b = -5.0, weapon_b = -5.0, torso = 18.0}],
-			[2.0, {upper_arm_b = -40.0, lower_arm_b = -5.0, weapon_b = -5.0, torso = 18.0}]]},
+			[1.0, {trail_upper = -175.0, trail_fore = -20.0, trail_weapon = -20.0, torso = -6.0}],
+			[1.75, {trail_upper = -45.0, trail_fore = -5.0, trail_weapon = -5.0, torso = 18.0}],
+			[2.0, {trail_upper = -40.0, trail_fore = -5.0, trail_weapon = -5.0, torso = 18.0}]]},
 		crouch_light = {base = "crouch", strikes = ["wakizashi"], keys = [
-			[1.0, {upper_arm_f = -20.0, lower_arm_f = -100.0, weapon_f = -30.0}],
-			[1.3, {upper_arm_f = -58.0, lower_arm_f = -5.0, weapon_f = -22.0}],
-			[2.0, {upper_arm_f = -58.0, lower_arm_f = -5.0, weapon_f = -22.0}]]},
+			[1.0, {lead_upper = -20.0, lead_fore = -100.0, lead_weapon = -30.0}],
+			[1.3, {lead_upper = -58.0, lead_fore = -5.0, lead_weapon = -22.0}],
+			[2.0, {lead_upper = -58.0, lead_fore = -5.0, lead_weapon = -22.0}]]},
 		crouch_heavy = {base = "crouch", strikes = ["katana"], keys = [
-			[1.0, {upper_arm_b = 40.0, lower_arm_b = -30.0, weapon_b = 10.0}],
-			[2.0, {upper_arm_b = -55.0, lower_arm_b = -5.0, weapon_b = -32.0}]]},
+			[1.0, {trail_upper = 40.0, trail_fore = -30.0, trail_weapon = 10.0}],
+			[2.0, {trail_upper = -55.0, trail_fore = -5.0, trail_weapon = -32.0}]]},
 		jump_light = {base = "air", strikes = ["wakizashi"], keys = [
-			[1.0, {upper_arm_f = -10.0, lower_arm_f = -100.0, weapon_f = -20.0}],
-			[1.3, {upper_arm_f = -40.0, lower_arm_f = 10.0, weapon_f = 20.0}],
-			[2.0, {upper_arm_f = -40.0, lower_arm_f = 10.0, weapon_f = 20.0}]]},
+			[1.0, {lead_upper = -10.0, lead_fore = -100.0, lead_weapon = -20.0}],
+			[1.3, {lead_upper = -40.0, lead_fore = 10.0, lead_weapon = 20.0}],
+			[2.0, {lead_upper = -40.0, lead_fore = 10.0, lead_weapon = 20.0}]]},
 		jump_heavy = {base = "air", strikes = ["katana"], keys = [
-			[1.0, {upper_arm_b = -170.0, lower_arm_b = -20.0, weapon_b = -10.0}],
-			[2.0, {upper_arm_b = -40.0, lower_arm_b = 10.0, weapon_b = 10.0}]]},
+			[1.0, {trail_upper = -170.0, trail_fore = -20.0, trail_weapon = -10.0}],
+			[2.0, {trail_upper = -40.0, trail_fore = 10.0, trail_weapon = 10.0}]]},
 		# Two Heavens: a double thrust, the wakizashi high to the upper body
 		# and the katana low.
 		two_heavens = {strikes = ["wakizashi", "katana"], keys = [
-			[1.0, {upper_arm_f = -20.0, lower_arm_f = -110.0, weapon_f = -40.0,
-					upper_arm_b = -10.0, lower_arm_b = -110.0, weapon_b = -30.0, torso = -4.0}],
+			[1.0, {lead_upper = -20.0, lead_fore = -110.0, lead_weapon = -40.0,
+					trail_upper = -10.0, trail_fore = -110.0, trail_weapon = -30.0, torso = -4.0}],
 			[1.3, double_thrust],
 			[2.0, double_thrust]]},
 		# Void Stance: katana high, wakizashi guarding, waiting.
 		void_stance = {keys = [
-			[0.5, {upper_arm_b = -170.0, lower_arm_b = -10.0, weapon_b = 0.0, upper_arm_f = -60.0, lower_arm_f = -60.0, weapon_f = -10.0}],
-			[2.5, {upper_arm_b = -170.0, lower_arm_b = -10.0, weapon_b = 0.0, upper_arm_f = -60.0, lower_arm_f = -60.0, weapon_f = -10.0}]]},
+			[0.5, {trail_upper = -170.0, trail_fore = -10.0, trail_weapon = 0.0, lead_upper = -60.0, lead_fore = -60.0, lead_weapon = -10.0}],
+			[2.5, {trail_upper = -170.0, trail_fore = -10.0, trail_weapon = 0.0, lead_upper = -60.0, lead_fore = -60.0, lead_weapon = -10.0}]]},
 		# ...and its answer, a level cut with the katana.
 		void_cut = {strikes = ["katana"], keys = [
-			[1.0, {upper_arm_b = 50.0, lower_arm_b = -60.0, weapon_b = -20.0}],
-			[2.0, {upper_arm_b = -95.0, lower_arm_b = 0.0, weapon_b = 0.0, torso = 14.0}]]},
+			[1.0, {trail_upper = 50.0, trail_fore = -60.0, trail_weapon = -20.0}],
+			[2.0, {trail_upper = -95.0, trail_fore = 0.0, trail_weapon = 0.0, torso = 14.0}]]},
 		throw = {keys = [
 			[1.0, grab], [2.0, grab],
-			[2.5, {upper_arm_f = -20.0, lower_arm_f = -110.0, upper_arm_b = 10.0, lower_arm_b = -100.0, torso = -10.0}]]},
+			[2.5, {lead_upper = -20.0, lead_fore = -110.0, trail_upper = 10.0, trail_fore = -100.0, torso = -10.0}]]},
 		rush = {strikes = ["katana"], keys = [
-			[1.0, {upper_arm_b = -40.0, lower_arm_b = -90.0, weapon_b = -10.0}],
-			[1.2, {upper_arm_b = -90.0, lower_arm_b = 0.0, weapon_b = 0.0, torso = 18.0}],
-			[2.0, {upper_arm_b = -90.0, lower_arm_b = 0.0, weapon_b = 0.0, torso = 18.0}]]},
+			[1.0, {trail_upper = -40.0, trail_fore = -90.0, trail_weapon = -10.0}],
+			[1.2, {trail_upper = -90.0, trail_fore = 0.0, trail_weapon = 0.0, torso = 18.0}],
+			[2.0, {trail_upper = -90.0, trail_fore = 0.0, trail_weapon = 0.0, torso = 18.0}]]},
 		rising = {strikes = ["katana"], keys = [
-			[0.5, {upper_arm_b = 0.0, lower_arm_b = -20.0, weapon_b = 40.0}],
-			[1.0, {upper_arm_b = -120.0, lower_arm_b = -10.0, weapon_b = 0.0}],
-			[2.0, {upper_arm_b = -175.0, lower_arm_b = 0.0, weapon_b = 0.0}]]},
+			[0.5, {trail_upper = 0.0, trail_fore = -20.0, trail_weapon = 40.0}],
+			[1.0, {trail_upper = -120.0, trail_fore = -10.0, trail_weapon = 0.0}],
+			[2.0, {trail_upper = -175.0, trail_fore = 0.0, trail_weapon = 0.0}]]},
 		summon = {keys = [
-			[1.0, {upper_arm_f = -150.0, lower_arm_f = -20.0, head = -10.0}],
-			[2.0, {upper_arm_f = -150.0, lower_arm_f = -20.0, head = -10.0}]]},
+			[1.0, {lead_upper = -150.0, lead_fore = -20.0, head = -10.0}],
+			[2.0, {lead_upper = -150.0, lead_fore = -20.0, head = -10.0}]]},
 		# The finisher's cut lands exactly as its active frames begin.
 		finisher = {keys = [
-			[0.7, {upper_arm_b = -175.0, lower_arm_b = -10.0, weapon_b = -10.0, upper_arm_f = -150.0, torso = -8.0}],
-			[1.0, {upper_arm_b = -60.0, lower_arm_b = 0.0, weapon_b = -20.0, upper_arm_f = 30.0, torso = 18.0}],
-			[2.0, {upper_arm_b = -60.0, lower_arm_b = 0.0, weapon_b = -20.0, upper_arm_f = 30.0, torso = 18.0}]]},
+			[0.7, {trail_upper = -175.0, trail_fore = -10.0, trail_weapon = -10.0, lead_upper = -150.0, torso = -8.0}],
+			[1.0, {trail_upper = -60.0, trail_fore = 0.0, trail_weapon = -20.0, lead_upper = 30.0, torso = 18.0}],
+			[2.0, {trail_upper = -60.0, trail_fore = 0.0, trail_weapon = -20.0, lead_upper = 30.0, torso = 18.0}]]},
 	}
 	return d
