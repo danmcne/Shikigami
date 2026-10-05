@@ -55,6 +55,8 @@ class Part:
 	var kind: int
 	## "lead", "trail" or "" (from the name's prefix, or the parent's for a deco).
 	var side := ""
+	## Hangs straight down whatever its parent does (a lantern on its stick).
+	var hangs := false
 
 	func _init(part_name: String, parent_name: String, at: Variant, outline: Variant, colour_slot: String,
 			part_kind: int) -> void:
@@ -112,6 +114,14 @@ var hidden_during: Dictionary = {}
 ## The arm that strikes in moves without a swing of their own (the one
 ## holding the weapon).
 var attack_arm := "lead"
+## Two-handed holds: the other hand grips a segment of a held part and may
+## slide along it. {side: {part, from: Vector2, to: Vector2}}. A swing key
+## may release it: release = ["trail"].
+var grips: Dictionary = {}
+## Joint limits in degrees, as [least, most] of the joint's angle relative
+## to its parent: elbows bend only forward, knees only backward. A puppet
+## whose legs are not human legs may clear them.
+var limits: Dictionary = {fore = [-160.0, 0.0], shin = [0.0, 160.0]}
 
 const DEFAULTS := {
 	torso = 4.0, head = -2.0,
@@ -235,12 +245,55 @@ func pivot_of(part: Part, v: int) -> Vector2:
 ## The resting angles for a context: standing, crouching or in the air.
 func base_angles(context: String) -> Dictionary:
 	var a := DEFAULTS.duplicate()
-	a.merge(rest, true)
+	for joint in rest:
+		if rest[joint] is float or rest[joint] is int:
+			a[joint] = float(rest[joint])
 	if context == "crouch":
 		a.merge(CROUCH, true)
 	elif context == "air":
 		a.merge(AIR, true)
+	limit(a)
+	# A guard may be described by where a hand is and where a weapon points.
+	resolve(a, rest, Vector2(0, CROUCH_DROP if context == "crouch" else 0.0))
 	return a
+
+
+## Applies a pose's reaches and aims, in that order: ik = {side: {to, bend}}
+## puts a hand on a point; aim = {part: angle} points a part (a weapon) at an
+## absolute angle, whatever the arm holding it is doing.
+func resolve(a: Dictionary, pose: Dictionary, root := Vector2.ZERO) -> void:
+	var reaches: Dictionary = pose.get("ik", {})
+	for side in reaches:
+		var reach: Dictionary = reaches[side]
+		reach_with(a, side, reach.to, reach.get("bend", -1.0), root)
+	var aims: Dictionary = pose.get("aim", {})
+	for part_name in aims:
+		var above := 0.0
+		var q := find(part_name)
+		while q != null and q.parent != "":
+			q = find(q.parent)
+			above += a.get(q.name, 0.0)
+		a[part_name] = aims[part_name] - above
+
+
+## Keeps every elbow and knee within its limits.
+func limit(a: Dictionary) -> Dictionary:
+	for side in ["lead", "trail"]:
+		for joint in limits:
+			var key: String = side + "_" + joint
+			if a.has(key):
+				a[key] = clampf(a[key], limits[joint][0], limits[joint][1])
+	return a
+
+
+## The free hand: one that neither holds a weapon nor grips one. Light
+## attacks are thrown with it; anything else with the weapon arm.
+func striking_arm(m: MoveDefinition) -> String:
+	if String(m.id).contains("light"):
+		for side in ["lead", "trail"]:
+			if find(side + "_weapon") == null and not grips.has(side):
+				return side
+	return attack_arm
 
 
 ## Where move `m` (animated by `swing`) has the puppet at `frame`: joint
@@ -263,19 +316,40 @@ func swing_pose(swing: Dictionary, m: MoveDefinition, frame: int) -> Dictionary:
 	var a := a0.duplicate()
 	for joint in a1:
 		a[joint] = lerpf(a0.get(joint, a1[joint]), a1[joint], w)
+	limit(a)
+	apply_grips(a, root, keys[k][1].get("release", []))
 	return {angles = a, root = root, root_rot = 0.0}
+
+
+## Puts each gripping hand on its grip: on the point of the grip, sliding
+## along it, at which its arm is comfortably bent.
+func apply_grips(a: Dictionary, root := Vector2.ZERO, released: Array = []) -> void:
+	for side in grips:
+		if side in released or find(side + "_upper") == null:
+			continue
+		var g: Dictionary = grips[side]
+		var placed := pose_transforms(a, root)
+		var t: Transform2D = placed[g.part]
+		var shoulder: Vector2 = placed[side + "_upper"].origin
+		var full := find(side + "_fore").pivot.length() + _wrist(side).length()
+		var best := Vector2.INF
+		var best_gap := INF
+		for i in 9:
+			var q: Vector2 = t * (g.from as Vector2).lerp(g.to, i / 8.0)
+			var gap := absf(q.distance_to(shoulder) - 0.85 * full)
+			if gap < best_gap:
+				best_gap = gap
+				best = q
+		reach_with(a, side, best, -1.0, root)
 
 
 ## A key's full angles: the base, the key's own angles, then its reaches.
 func _key_angles(base: Dictionary, key: Dictionary, root: Vector2) -> Dictionary:
 	var a := base.duplicate()
 	for joint in key:
-		if joint != "ik":
-			a[joint] = key[joint]
-	var reaches: Dictionary = key.get("ik", {})
-	for side in reaches:
-		var reach: Dictionary = reaches[side]
-		reach_with(a, side, reach.to, reach.get("bend", 1.0), root)
+		if key[joint] is float or key[joint] is int:
+			a[joint] = float(key[joint])
+	resolve(a, key, root)
 	return a
 
 
@@ -298,14 +372,24 @@ func reach_with(a: Dictionary, side: String, target: Variant, bend: float, root 
 	var d := clampf(to_goal.length(), absf(l1 - l2) + 0.01, l1 + l2 - 0.01)
 	var cos_a := clampf((l1 * l1 + d * d - l2 * l2) / (2.0 * l1 * d), -1.0, 1.0)
 	var toward := _hanging(to_goal)
-	var upper_abs := toward + bend * acos(cos_a)
-	var elbow := shoulder + Vector2(-sin(upper_abs), cos(upper_abs)) * l1
-	var fore_abs := _hanging(goal - elbow)
-	# Bones whose child pivot is slightly off their axis.
-	upper_abs -= _hanging(fore.pivot)
-	fore_abs -= _hanging(wrist_local)
-	a[upper.name] = rad_to_deg(upper_abs - parent_angle)
-	a[fore.name] = rad_to_deg(fore_abs - upper_abs)
+	# Of the two ways the elbow could bend, take the one the joint allows
+	# (preferring `bend` when both do).
+	var best: Array = []
+	for way in [bend, -bend]:
+		var upper_abs: float = toward + way * acos(cos_a)
+		var elbow := shoulder + Vector2(-sin(upper_abs), cos(upper_abs)) * l1
+		var fore_abs := _hanging(goal - elbow)
+		# Bones whose child pivot is slightly off their axis.
+		upper_abs -= _hanging(fore.pivot)
+		fore_abs -= _hanging(wrist_local)
+		var upper_deg := rad_to_deg(upper_abs - parent_angle)
+		var fore_deg := wrapf(rad_to_deg(fore_abs - upper_abs), -180.0, 180.0)
+		var allowed: bool = not limits.has("fore") or (fore_deg >= limits.fore[0] - 0.5 and fore_deg <= limits.fore[1] + 0.5)
+		if best.is_empty() or (allowed and not best[2]):
+			best = [upper_deg, fore_deg, allowed]
+	a[upper.name] = best[0]
+	a[fore.name] = best[1]
+	limit(a)
 
 
 ## Where the hand is on the forearm: the pivot of the hand, or of whatever the
@@ -344,7 +428,8 @@ func weapon_strikes(swing: Dictionary, m: MoveDefinition, frame: int, scale: flo
 		var t: Transform2D = transforms[w.bone]
 		var a: Vector2 = t * w.from
 		var b: Vector2 = t * w.to
-		for zone in w.zones:
+		# A swing may wound with only part of the weapon (the Drying Pole's tip).
+		for zone in swing.get("zones", w.zones):
 			if zone[2] <= 0.0:
 				continue
 			var p0 := a.lerp(b, zone[0])
@@ -365,6 +450,9 @@ func _place(part: Part, angles: Dictionary, out: Dictionary, top: Transform2D) -
 	var t := top * own
 	if part.parent != "":
 		t = _place(find(part.parent), angles, out, top) * own
+	if part.hangs:
+		# Straight down, whatever holds it.
+		t = Transform2D(top.get_rotation(), t.origin)
 	out[part.name] = t
 	return t
 

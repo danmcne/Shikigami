@@ -4,7 +4,7 @@ A 2D fighting game set in a fantasy Japan, in the lineage of Street Fighter and 
 
 The guiding principle: **the fighting is the game; the campaign exists to produce unusual fights.** There are no levels, stat sheets or grinding.
 
-This is version 14.1: sixteen humans and yokai and three giants. Musashi and Shuten-dōji are now cut-paper puppets against a painted shore, the first art test, and they strike with their actual weapons; the rest are still rectangles. History is in [CHANGELOG.md](CHANGELOG.md), and the first art and audio direction is in [docs/art_and_audio.md](docs/art_and_audio.md).
+This is version 15: sixteen humans and yokai and three giants. Musashi and Shuten-dōji are now cut-paper puppets against a painted shore, the first art test, and they strike with their actual weapons; the rest are still rectangles. History is in [CHANGELOG.md](CHANGELOG.md), and the first art and audio direction is in [docs/art_and_audio.md](docs/art_and_audio.md).
 
 ## Running
 
@@ -212,12 +212,32 @@ Musashi and Shuten-dōji are drawn as cut-paper puppets on a shared humanoid rig
 - **Reaching.** Hands can reach for named points, such as the oni's mouth when he drinks, by two-bone inverse kinematics with fixed lengths.
 - **Decorations** (pleats, rings, horns, blades) ride on their part's layer and depth.
 - **Appendages** that grow from the back or hips (tails, wings, a spider's legs, a kappa's shell) are drawn behind everything in every view.
+- **Joints.** Elbows bend only forward and knees only backward, and the solver always picks the bend the joint allows. Spider legs are exempt. Key poses can route a hand through a point, so a drink arcs out in front rather than folding up.
+- **Two-handed weapons.** The second hand grips the weapon and slides along a long grip, the rig's one flexible joint. A key pose can release it, as in Kojirō's lunge.
+- **Guards and swings** can name where a hand goes and where a weapon points, as a fencer would describe a guard.
+- **Hanging parts,** such as a lantern on its stick, stay upright whatever holds them.
+- **Walking.** In profile, fighters break into a real stride after the first steps; in the diagonal view they shuffle.
+- **Light attacks** are thrown with the free hand; others with the weapon.
 - **Props** can appear and disappear at a chosen moment within a move. The oni's gourd stays at his hip until his hand reaches it, and goes back afterwards. Hiding a part hides what's attached to it, so Rokurokubi's head and hair are gone while her head flies.
 
 Every fighter now has a puppet:
 
-- **In detail:** Musashi and Shuten-dōji.
+- **In detail:** Musashi and Shuten-dōji, and Kojirō's main moves:
+  - he stands diagonally with both hands on the long grip, in the tail guard;
+  - his light is a quick stab;
+  - his heavy rises and falls;
+  - the Swallow Cut cuts down and back up;
+  - the Drying Pole is a fencer's lunge that carries him about 50 px forward, his trailing hand letting go, wounding only with the tip.
+
+  His hitboxes are traced from his blade.
 - **Basic rigs:** the other fourteen, built by a template from short descriptions (view, build, what each hand holds, headgear, appendages). Their resting guards follow the art direction, and their weapons are drawn only, so their hitboxes stay their own until their moves are animated. Meanwhile an unanimated attack shows the weapon arm reaching toward the move's hitbox.
+
+Projectiles and effects have pictures:
+
+- shuriken, paper birds, the water jet and its wave, the icicle;
+- the web with its strand, the lantern and its fire;
+- Rokurokubi's own head on its neck;
+- frost breath, and the belly drum's shockwave.
 
 The oni carries his kanabō diagonally on his trailing shoulder. His heavy raises it in front of him to overhead and brings it down, with a 15-frame start-up.
 
@@ -245,7 +265,7 @@ Every effect lands when the blow visibly lands: a traced weapon's boxes are wher
 - **Weapons.** Musashi's katana and wakizashi wound most near the tip. Shuten-dōji's kanabō, about half his height, wounds most with its head; right under it, the club passes overhead.
 - **Boxes.** The puppets are scaled to each fighter's standing hurtbox. Their weapons, with damage zones, are part of the puppet data, so the boxes and the drawing come from one source.
 
-`tests/shot.gd` renders posed scenes to PNG files for art review, `tests/gallery.gd` renders every fighter at rest, and `tests/measure.gd` prints each traced move's reach and damage by distance against standing and crouching opponents. It needs a display, for instance `xvfb-run godot --path . --rendering-driver opengl3 --script res://tests/shot.gd`.
+`tests/shot.gd` renders posed scenes to PNG files for art review, `tests/gallery.gd` renders every fighter at rest, `tests/scenes.gd` performs chosen moves and renders them mid-flight, and `tests/measure.gd` prints each traced move's reach and damage by distance against standing and crouching opponents. It needs a display, for instance `xvfb-run godot --path . --rendering-driver opengl3 --script res://tests/shot.gd`.
 
 ## Healing
 
@@ -335,7 +355,7 @@ godot --headless --path . --import          # once, to build the class cache
 godot --headless --path . --script res://tests/selftest.gd
 ```
 
-There are 124 checks. They cover:
+There are 130 checks. They cover:
 
 - **The rules:** guards, throws, combos, commands, timing.
 - **Every fighter's specials:** each one completes.

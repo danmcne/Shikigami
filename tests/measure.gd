@@ -16,9 +16,9 @@ func damage(who: FighterDefinition, move_id: StringName, d: float, crouch: bool)
 	return 1000 - b.fighters[1].health
 
 func _init():
-	for id in [&"musashi", &"shuten"]:
+	for id in [&"musashi", &"shuten", &"kojiro"]:
 		var who: FighterDefinition = Roster.by_id(id)
-		for move_id in [&"stand_light", &"stand_heavy", &"crouch_light", &"crouch_heavy", &"two_heavens", &"kanabo_quake"]:
+		for move_id in [&"stand_light", &"stand_heavy", &"crouch_light", &"crouch_heavy", &"two_heavens", &"kanabo_quake", &"swallow_cut", &"drying_pole"]:
 			if not who.moves.has(move_id):
 				continue
 			var standing := []

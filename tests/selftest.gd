@@ -142,6 +142,12 @@ func _init() -> void:
 	_test_rig_reaches_a_point()
 	_test_every_fighter_has_a_sound_rig()
 	_test_props_appear_when_reached()
+	_test_joints_stay_within_limits()
+	_test_two_handed_grip()
+	_test_kojiro_strikes_with_his_blade()
+	_test_water_jet_from_the_head()
+	_test_icicle_falls_over_the_opponent()
+	_test_pieces_have_pictures()
 	print("CPU, run, calibration")
 	_test_cpu_enters_motions()
 	_test_cpu_attacks()
@@ -419,8 +425,9 @@ func _kappa_bout(distance: float) -> Bout:
 func _test_projectile_travels_and_hits() -> void:
 	var b := _kappa_bout(400.0)
 	_run(b, 90, _at({0: [4, "C"]}))
-	_check("the kappa's water jet crosses the stage and hits",
-			_taken(b, 1) == Roster.by_id(&"kappa").moves[&"water_jet"].spawn.damage, "took %d" % _taken(b, 1))
+	var jet: MoveDefinition = Roster.by_id(&"kappa").moves[&"water_jet"].spawn
+	_check("the kappa's water jet crosses the stage and hits, in the air or as the wave it leaves",
+			_taken(b, 1) in [jet.damage, jet.leaves.damage], "took %d" % _taken(b, 1))
 
 
 func _test_one_projectile_at_a_time() -> void:
@@ -524,7 +531,7 @@ func _test_spirit_releases_projectile_for_summoner() -> void:
 		for e in x.entities:
 			owners[e.owner_index] = true)
 	_check("a spirit's projectile belongs to the summoner and hits",
-			owners.keys() == [0] and _taken(b, 1) == kappa.moves[&"water_jet"].spawn.damage,
+			owners.keys() == [0] and _taken(b, 1) in [kappa.moves[&"water_jet"].spawn.damage, kappa.moves[&"water_jet"].spawn.leaves.damage],
 			"owners %s, took %d" % [owners.keys(), _taken(b, 1)])
 
 
@@ -2113,7 +2120,7 @@ func _test_every_fighter_has_a_sound_rig() -> void:
 			if part.kind == PuppetDefinition.Kind.APPENDAGE and not _before(order, part.name, "torso"):
 				problems.append("%s.%s is not behind the torso" % [d.id, part.name])
 		# Basic rigs draw their weapons but leave the hitboxes alone.
-		if not d.id in [&"musashi", &"shuten"]:
+		if not d.id in [&"musashi", &"shuten", &"kojiro"]:
 			for m in d.moves.values():
 				if not m.frame_strikes.is_empty():
 					problems.append("%s.%s is traced" % [d.id, m.id])
@@ -2137,3 +2144,136 @@ func _test_props_appear_when_reached() -> void:
 	_check("the gourd stays at the hip until the hand reaches it; Rokurokubi's head (and hair) is away while it flies",
 			at_hip_first and in_hand_later and head_gone,
 			"hip first %s, hand later %s, head away %s" % [at_hip_first, in_hand_later, head_gone])
+
+
+func _test_joints_stay_within_limits() -> void:
+	const Registry := preload("res://game/art/puppets/registry.gd")
+	var bad: Array[String] = []
+	for d in Roster.all():
+		var p: PuppetDefinition = Registry.for_id(d.id)
+		if not p.limits.has("fore"):
+			continue
+		var lo: float = p.limits.fore[0] - 0.5
+		var hi: float = p.limits.fore[1] + 0.5
+		var check := func(a: Dictionary, what: String) -> void:
+			for side in ["lead", "trail"]:
+				var v: float = a.get(side + "_fore", 0.0)
+				if v < lo or v > hi:
+					bad.append("%s %s %s_fore %.0f" % [d.id, what, side, v])
+		check.call(p.base_angles("stand"), "rest")
+		for id in p.swings:
+			var m: MoveDefinition = d.moves.get(StringName(id), null)
+			if m == null:
+				continue
+			for frame in range(0, m.total_frames(), 3):
+				check.call(p.swing_pose(p.swings[id], m, frame).angles, String(id))
+		# The placeholder reach of moves without swings.
+		var f := Fighter.new(d)
+		for id in [&"stand_light", &"stand_heavy", &"crouch_heavy"]:
+			if p.swings.has(String(id)):
+				continue
+			f.state = Fighter.State.MOVE
+			f.move = d.moves[id]
+			f.state_frame = f.move.startup
+			check.call(Puppet._pose(f, p, d.stand_hurtbox.size.y / p.height * Puppet.FIT).angles, String(id))
+	_check("no elbow bends backward, at rest, in any swing, or in a placeholder reach", bad.is_empty(), "%s" % [bad.slice(0, 6)])
+
+
+func _test_two_handed_grip() -> void:
+	const Registry := preload("res://game/art/puppets/registry.gd")
+	var p: PuppetDefinition = Registry.for_id(&"kojiro")
+	var d := Roster.by_id(&"kojiro")
+	var on_grip := func(a: Dictionary) -> float:
+		var placed := p.pose_transforms(a)
+		var g: Dictionary = p.grips.trail
+		var t: Transform2D = placed[g.part]
+		var hand: Vector2 = placed["trail_hand"].origin
+		return Geometry2D.get_closest_point_to_segment(hand, t * (g.from as Vector2), t * (g.to as Vector2)).distance_to(hand)
+	var rest := p.base_angles("stand")
+	p.apply_grips(rest)
+	var gap_at_rest: float = on_grip.call(rest)
+	var lunge: MoveDefinition = d.moves[&"drying_pole"]
+	var gap_in_lunge: float = on_grip.call(p.swing_pose(p.swings.drying_pole, lunge, lunge.startup + 1).angles)
+	var heavy: MoveDefinition = d.moves[&"stand_heavy"]
+	var gap_in_heavy: float = on_grip.call(p.swing_pose(p.swings.stand_heavy, heavy, heavy.startup + 1).angles)
+	_check("Kojirō holds his blade in both hands, the second sliding on the grip, and lets go to lunge",
+			gap_at_rest < 3.0 and gap_in_heavy < 3.0 and gap_in_lunge > 12.0,
+			"rest %.1f, heavy %.1f, lunge %.1f" % [gap_at_rest, gap_in_heavy, gap_in_lunge])
+
+
+func _test_kojiro_strikes_with_his_blade() -> void:
+	var k := _r(&"kojiro")
+	var pole: MoveDefinition = k.moves[&"drying_pole"]
+	var near_reach := INF
+	for frame in pole.frame_strikes:
+		for strike in frame:
+			near_reach = minf(near_reach, strike[0].position.x)
+	var far := Bout.new(k, def)
+	far.fighters[0].position.x = -125
+	far.fighters[1].position.x = 125
+	_run(far, 40, _at({0: [4, "C"]}, 4))
+	var close := Bout.new(k, def)
+	close.fighters[0].position.x = -40
+	close.fighters[1].position.x = 40
+	_run(close, 40, _at({0: [4, "C"]}, 4))
+	_check("Kojirō's moves are traced from his blade; the Drying Pole lunges, and wounds only with its tip",
+			not k.moves[&"stand_light"].frame_strikes.is_empty() and near_reach > 90.0
+			and _taken(far, 1) == pole.damage and _taken(close, 1) == 0,
+			"nearest wounding box at %.0f; far %d, close %d" % [near_reach, _taken(far, 1), _taken(close, 1)])
+
+
+func _test_water_jet_from_the_head() -> void:
+	var kappa := _r(&"kappa")
+	var b := Bout.new(kappa, def)
+	b.fighters[0].position.x = -500
+	b.fighters[1].position.x = 500
+	var heights := []
+	var waves := [0]
+	var wave_moved := [0.0, 0.0]
+	_run(b, 70, _at({0: [4, "C"]}, 4), null, func(x: Bout) -> void:
+		for e in x.entities:
+			if e.move.id == &"water":
+				heights.append(e.position.y)
+			elif e.move.id == &"water_wave":
+				waves[0] += 1
+				if wave_moved[0] == 0.0:
+					wave_moved[0] = e.position.x
+				wave_moved[1] = e.position.x)
+	var starts_high: bool = not heights.is_empty() and heights[0] < -100.0
+	var descends: bool = heights.size() > 2 and heights[-1] > heights[0]
+	_check("the water jet leaves his head, drives down, and runs on along the ground as a low wave",
+			starts_high and descends and waves[0] > 0 and wave_moved[1] > wave_moved[0],
+			"first %.0f, descends %s, wave frames %d" % [heights[0] if heights else 0.0, descends, waves[0]])
+
+
+func _test_icicle_falls_over_the_opponent() -> void:
+	var yuki := _r(&"yuki_onna")
+	var spots := []
+	for x in [100.0, 450.0]:
+		var b := Bout.new(yuki, def)
+		b.fighters[0].position.x = -200
+		b.fighters[1].position.x = x
+		_run(b, 20, _at({0: [4, "C"]}, 4), null, func(z: Bout) -> void:
+			for e in z.entities:
+				if e.move.id == &"icicle_shard" and spots.size() < 2 and (spots.is_empty() or spots[-1][0] != x):
+					spots.append([x, e.position.x]))
+	# Over a giant it forms above the core; Ushi-oni's rideable back reaches up
+	# to meet it, so it strikes him at once.
+	var giant := Bout.versus_monster(yuki, [], Monster.new(Bestiary.by_id(&"ushi_oni"), 3))
+	giant.fighters[1].position.x = 300
+	var oni: Monster = giant.fighters[1]
+	oni._rest = 100000
+	var before := oni.health
+	_run(giant, 30, _at({0: [4, "C"]}, 4))
+	var ok := spots.size() == 2 and spots.all(func(s: Array) -> bool: return absf(s[0] - s[1]) < 1.0) and oni.health < before
+	_check("the icicle falls from above the opponent wherever they are, and on a giant", ok,
+			"%s; giant %d -> %d" % [spots, before, oni.health])
+
+
+func _test_pieces_have_pictures() -> void:
+	var missing: Array[String] = []
+	for id in [&"shuriken_star", &"paper_bird", &"water", &"water_wave", &"icicle_shard", &"web_strand",
+			&"thrown_lantern", &"lantern_fire", &"flying_head"]:
+		if not Pieces.has_art(id):
+			missing.append(String(id))
+	_check("projectiles, traps and the flying head have pictures", missing.is_empty(), "%s" % [missing])

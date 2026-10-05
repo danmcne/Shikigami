@@ -12,6 +12,9 @@ var frame := 0
 var spent := false
 ## Current velocity: x along its facing, y downward.
 var velocity := Vector2.ZERO
+## The move that first sent this piece out: for a piece left behind (a jet's
+## wave), the one that left it, so it still counts as that projectile.
+var origin: MoveDefinition
 ## Released by a spirit: only spirit guard stops it.
 var from_spirit := false
 ## For a converging piece: the centreline it travels to, and whether it has
@@ -35,6 +38,7 @@ func _init(m: MoveDefinition, at: Vector2, face: int, index: int, spirit := fals
 	facing = face
 	from_spirit = spirit
 	velocity = m.motion
+	origin = m
 
 
 func step() -> void:
@@ -59,7 +63,8 @@ func step() -> void:
 		spent = true
 	if move.returns and velocity.y > 0.0 and position.y >= move.turn_height:
 		turn_back()
-	elif move.gravity > 0.0 and position.y >= 0.0:
+	elif (move.gravity > 0.0 or velocity.y > 0.0) and position.y >= 0.0:
+		# Whatever falls or is driven downward ends on meeting the ground.
 		spent = true
 
 

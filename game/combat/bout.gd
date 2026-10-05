@@ -157,8 +157,12 @@ func _fight_step(intents: Array[Intent]) -> void:
 			me.face_toward(them.position.x)
 		me.threatened = _threatens(1 - i)
 		me.spirit_threatened = _spirit_threatens(1 - i)
-		me.live_spawns = entities.filter(func(e: Entity) -> bool: return e.owner_index == i) \
-				.map(func(e: Entity) -> MoveDefinition: return e.move)
+		# What is out there, and what first sent it (a wave counts as its jet).
+		me.live_spawns = []
+		for e in entities:
+			if e.owner_index == i:
+				me.live_spawns.append(e.move)
+				me.live_spawns.append(e.origin)
 	_update_surfaces()
 	var monster_before := _monster_x()
 	for f in fighters:
@@ -186,8 +190,9 @@ func _fight_step(intents: Array[Intent]) -> void:
 	var left_behind: Array[Entity] = []
 	for e in entities:
 		if e.spent and e.move.leaves:
-			left_behind.append(Entity.new(e.move.leaves, Vector2(e.position.x, Fighter.FLOOR_Y),
-					e.facing, e.owner_index, e.from_spirit))
+			var left := Entity.new(e.move.leaves, Vector2(e.position.x, Fighter.FLOOR_Y), e.facing, e.owner_index, e.from_spirit)
+			left.origin = e.origin
+			left_behind.append(left)
 	entities.assign(entities.filter(func(e: Entity) -> bool: return not e.spent))
 	entities.append_array(left_behind)
 	spirits.assign(spirits.filter(func(s: Fighter) -> bool: return s.state == Fighter.State.MOVE))
@@ -238,7 +243,11 @@ func _release(f: Fighter, side: int) -> Array[Entity]:
 	for offset in offsets:
 		var at := f.position + Vector2(f.facing * offset.x, offset.y)
 		if m.spawn_origin == MoveDefinition.SpawnOrigin.TARGET:
-			at = target.position + Vector2(offset.x * spread, offset.y)
+			# Over the opponent; over a giant's core, its heart.
+			var over := target.position
+			if target is Monster and (target as Monster).monster.core.has_area():
+				over.x = target.to_world((target as Monster).monster.core).get_center().x
+			at = over + Vector2(offset.x * spread, offset.y)
 		var e := Entity.new(f.pending_spawn, at, f.facing, side, f.summoner >= 0)
 		if f.pending_spawn.converges:
 			e.centre_x = f.position.x

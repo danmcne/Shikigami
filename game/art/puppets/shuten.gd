@@ -20,7 +20,7 @@ static func definition() -> PuppetDefinition:
 	d.view = V.DIAGONAL
 	d.anchors = {V.DIAGONAL: {lead_shoulder = Vector2(24, -54), trail_shoulder = Vector2(-22, -54),
 			lead_hip = Vector2(12, 12), trail_hip = Vector2(-12, 12), neck = Vector2(3, -56)}}
-	d.points = {mouth = ["head", Vector2(13, -8)], gourd = ["hips", Vector2(12, 0)]}
+	d.points = {mouth = ["head", Vector2(13, -8)], gourd = ["hips", Vector2(12, 0)], before = ["torso", Vector2(46, -24)]}
 	var ring := [Vector2(-10, 0), Vector2(10, 0), Vector2(10, 5), Vector2(-10, 5)]
 	var gourd := [Vector2(-1, -4), Vector2(1, -4), Vector2(1, 0), Vector2(5, 0), Vector2(7, 8), Vector2(4, 12),
 			Vector2(8, 20), Vector2(0, 26), Vector2(-8, 20), Vector2(-4, 12), Vector2(-7, 8), Vector2(-5, 0), Vector2(-1, 0)]
@@ -136,6 +136,9 @@ static func definition() -> PuppetDefinition:
 	# He reaches down for the gourd at his hip, takes it up to his mouth (elbow
 	# raised, gourd tipped up), and puts it back afterwards.
 	var take := {ik = {lead = {to = "gourd", bend = 1.0}}, torso = 6.0}
+	# On the way up and down the hand passes out in front of him, so the drink
+	# arcs rather than folding straight up.
+	var out_front := {ik = {lead = {to = "before"}}, gourd_hand = 90.0, torso = 0.0}
 	var drink := {ik = {lead = {to = "mouth", bend = -1.0}}, gourd_hand = 175.0, head = -22.0, torso = -8.0}
 	d.swings = {
 		# The jab: the free lead fist, straight out.
@@ -168,7 +171,7 @@ static func definition() -> PuppetDefinition:
 		# The quake: both hands heave the club up and slam it into the ground,
 		# landing exactly as the quake begins.
 		kanabo_quake = {keys = [[0.8, heave], [1.0, slam], [2.0, slam]]},
-		sake = {keys = [[0.3, take], [0.45, take], [0.8, drink], [2.2, drink], [2.65, take], [2.85, take]]},
+		sake = {keys = [[0.3, take], [0.45, take], [0.62, out_front], [0.85, drink], [2.2, drink], [2.42, out_front], [2.65, take], [2.85, take]]},
 		# A one-handed lift and slam; the club stays on the shoulder.
 		throw = {keys = [
 			[1.0, lift], [2.0, lift],

@@ -2,6 +2,34 @@
 
 Newest first. The README describes the current version only.
 
+## 15
+
+- **Rig:**
+  - **Joints.** Elbows and knees are limited, and the solver takes the bend the joint allows; this fixes elbows bending backward everywhere. Key poses can route a hand through a point, so the oni's drink arcs out in front.
+  - **Two-handed grips.** The second hand slides along a long grip, the one flexible joint, and a key pose can release it.
+  - **Hands and weapons.** Poses can place a hand by reaching and point a weapon at an absolute angle. Hanging parts stay upright.
+  - **Walking.** A real stride in profile after the first steps; the diagonal view keeps its shuffle.
+  - **Light attacks** use the free hand.
+  - **Swings** may wound with only part of a weapon.
+- **Pictures for pieces and effects:** shuriken, paper birds, water jet and wave, icicle, web and strand, lantern, fire, Rokurokubi's own head and skin-coloured neck, frost breath, belly drum shockwave.
+- **Kojirō:**
+  - diagonal, both hands on the grip, in the tail guard; traced swings for a quick stab, a rising and falling heavy, a Swallow Cut down and back up, and the Drying Pole lunge;
+  - the lunge carries him about 50 px forward with the trailing hand letting go, tip only;
+  - his light now reaches 203 (about 100 before), and the Swallow Cut 205.
+- **Tomoe:** diagonal, the naginata in both hands in front of her.
+- **Hanzō:** a forward-grip short blade.
+- **En no Gyōja:** the staff planted in his trailing hand, the lead hand in a mudra.
+- **Seimei:** robes to the ankles, a shorter cap, both arms visible and lower; paper birds flung underhand.
+- **Tamamo-no-Mae:** three tails, fox ears, kitsune markings, reddish hair, a dagger.
+- **Sōjōbō:** smaller, lower wings; his rear arm visible.
+- **Kawatarō** is in profile. He leans in to spit his **water jet** from his head: it drives down at 30° and runs on along the ground as a low wave, and the wave counts as the same projectile.
+- **O-Yuki:** a kimono wide at the hem, wider behind and short of her feet; her rear arm visible. Her **icicle** falls from above the opponent wherever they are, and on a giant.
+- **Jorōgumo** is in profile: a kimono to the knee, spider legs below with a leg branching before and behind each, and two trailing low behind.
+- **Rokurokubi:** the same hem as O-Yuki; a lantern hanging from a stick, thrown underhand.
+- **Danzaburō** is in profile: round ears, straw hat pushed back, a leaf on his forehead during Leaf Disguise, both hands drumming his belly.
+- **The oni's drink** passes out in front of him on the way up and down.
+- **Tools:** `tests/scenes.gd` renders chosen moves mid-flight.
+
 ## 14.1
 
 - **The oni:**

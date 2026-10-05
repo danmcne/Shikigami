@@ -54,6 +54,33 @@ static func draw(ci: CanvasItem, f: Fighter, base: Transform2D, colourway: int, 
 	ci.draw_set_transform_matrix(base)
 
 
+## Just the head (with its hair and hat), as when Rokurokubi's head flies:
+## `centre` is the middle of the head in the world.
+static func draw_head(ci: CanvasItem, f: Fighter, p: PuppetDefinition, centre: Vector2, facing: int,
+		base: Transform2D, colourway: int) -> void:
+	var scale := f.definition.stand_hurtbox.size.y / p.height * FIT
+	var transforms := p.pose_transforms(p.base_angles("stand"))
+	var head_t: Transform2D = transforms["head"]
+	var at := base * Transform2D(0.0, Vector2(facing * scale, scale), 0.0, centre + Vector2(0, 15 * scale))
+	var colours: Dictionary = p.colourways[clampi(colourway, 0, p.colourways.size() - 1)]
+	for part in p.draw_order(p.view):
+		var q: PuppetDefinition.Part = part
+		var under_head := false
+		while q != null:
+			if q.name == "head":
+				under_head = true
+				break
+			q = p.find(q.parent) if q.parent != "" else null
+		if not under_head:
+			continue
+		var t: Transform2D = at * head_t.affine_inverse() * transforms[part.name]
+		_cut(ci, t, p.shape_of(part, p.view), colours.get(part.slot, Color.MAGENTA), 1.0)
+		if part.name == "head":
+			for feature in p.face_teru:
+				_cut(ci, t, PackedVector2Array(feature[0]), colours.get(feature[1], INK), 1.0, false)
+	ci.draw_set_transform_matrix(base)
+
+
 ## A cut-paper shape: flat colour with a fine ink edge.
 static func _cut(ci: CanvasItem, t: Transform2D, shape: PackedVector2Array, c: Color, alpha: float,
 		outline := true) -> void:
@@ -82,11 +109,18 @@ static func _pose(f: Fighter, p: PuppetDefinition, scale: float) -> Dictionary:
 		Fighter.State.STAND:
 			a.torso += 2.0 * sin(Time.get_ticks_msec() * 0.003)
 		Fighter.State.WALK:
+			# A shuffle about the stance; in profile, after the first steps, a
+			# real stride with the legs passing each other.
 			var phase := f.position.x * 0.06 * f.facing
-			a.lead_thigh += 20.0 * sin(phase)
-			a.trail_thigh -= 20.0 * sin(phase)
-			a.lead_shin += 18.0 * maxf(0.0, cos(phase))
-			a.trail_shin += 18.0 * maxf(0.0, -cos(phase))
+			var shuffle := {lead_thigh = a.lead_thigh + 20.0 * sin(phase), trail_thigh = a.trail_thigh - 20.0 * sin(phase),
+					lead_shin = a.lead_shin + 18.0 * maxf(0.0, cos(phase)), trail_shin = a.trail_shin + 18.0 * maxf(0.0, -cos(phase))}
+			var stride := {lead_thigh = 30.0 * sin(phase), trail_thigh = -30.0 * sin(phase),
+					lead_shin = 8.0 + 30.0 * maxf(0.0, cos(phase)), trail_shin = 8.0 + 30.0 * maxf(0.0, -cos(phase))}
+			var walking := 0.0
+			if p.view == PuppetDefinition.View.SIDE:
+				walking = clampf((t - 8.0) / 12.0, 0.0, 1.0)
+			for joint in shuffle:
+				a[joint] = lerpf(shuffle[joint], stride[joint], walking)
 			root.y = -2.0 * absf(sin(phase))
 		Fighter.State.CROUCH:
 			root.y = PuppetDefinition.CROUCH_DROP
@@ -132,6 +166,8 @@ static func _pose(f: Fighter, p: PuppetDefinition, scale: float) -> Dictionary:
 				a.merge(PuppetDefinition.AIR, true)
 			if f.move and not f.move.hitboxes.is_empty():
 				_reach_toward_hit(f.move, t, p, scale, a, root)
+	p.limit(a)
+	p.apply_grips(a, root)
 	return {angles = a, root = root, root_rot = root_rot}
 
 
@@ -141,7 +177,8 @@ static func _reach_toward_hit(m: MoveDefinition, frame: int, p: PuppetDefinition
 	var progress := clampf(t, 0.0, 1.0) if t < 2.0 else clampf(3.0 - t, 0.0, 1.0)
 	if progress <= 0.0:
 		return
+	var arm := p.striking_arm(m)
 	var reached := a.duplicate()
-	p.reach_with(reached, p.attack_arm, m.hitboxes[0].get_center() / scale, -1.0, root)
-	for joint in [p.attack_arm + "_upper", p.attack_arm + "_fore"]:
+	p.reach_with(reached, arm, m.hitboxes[0].get_center() / scale, -1.0, root)
+	for joint in [arm + "_upper", arm + "_fore"]:
 		a[joint] = lerpf(a[joint], reached[joint], progress)

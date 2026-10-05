@@ -53,9 +53,10 @@ static func _table() -> Array:
 			specials = [{id = &"swallow_cut", startup = 6, active = 8, recovery = 20, cooldown = 90, air = true,
 					damage = 90, knockdown = 40, knockback = 7.0, hitstop = 10,
 					hitboxes = [Rect2(0, -230, 90, 110), Rect2(20, -130, 100, 50)]},
-				# The Drying Pole, his overlong nodachi. Only its tip wounds: against
-				# someone too close the thrust passes harmlessly, its recharge spent.
-				{id = &"drying_pole", startup = 10, active = 4, recovery = 20, cooldown = 60,
+				# The Drying Pole, his overlong nodachi, in a fencer's lunge that
+				# carries him forward. Only its tip wounds: against someone too close
+				# the thrust passes harmlessly, its recharge spent.
+				{id = &"drying_pole", startup = 10, active = 4, recovery = 20, cooldown = 60, motion = Vector2(7, 0),
 					damage = 80, hitstun = 18, blockstun = 12, knockback = 12.0, hitstop = 9,
 					hitboxes = [Rect2(140, -115, 120, 25)]}]},
 		{id = &"tomoe", name = "Tomoe Gozen", kind = HUMAN,
@@ -172,11 +173,16 @@ static func _table() -> Array:
 					damage = 130, knockdown = 55, knockback = 14.0, hitstop = 14,
 					hitboxes = [Rect2(10, -140, 85, 140)]},
 				# Water from the dish on its head, along the ground: a low projectile.
-				{id = &"water_jet", startup = 10, active = 1, recovery = 20, cooldown = 60,
-					spawn_offset = Vector2(40, 0),
-					spawn = {id = &"water", startup = 0, active = 70, recovery = 0, motion = Vector2(9, 0),
-						damage = 45, hitstun = 16, blockstun = 12, knockback = 5.0, hitstop = 5, height = H.LOW,
-						hitboxes = [Rect2(-20, -20, 40, 20)]}}]},
+				# Leaning forward, he spits a jet from the water in his head: it
+				# drives down at 30 degrees, and on meeting the ground runs on along it.
+				{id = &"water_jet", startup = 12, active = 1, recovery = 20, cooldown = 60,
+					spawn_offset = Vector2(45, -125),
+					spawn = {id = &"water", startup = 0, active = 70, recovery = 0, motion = Vector2(8, 4.6),
+						damage = 45, hitstun = 16, blockstun = 12, knockback = 5.0, hitstop = 5, height = H.MID,
+						hitboxes = [Rect2(-14, -14, 28, 28)],
+						leaves = {id = &"water_wave", startup = 0, active = 45, recovery = 0, motion = Vector2(8, 0),
+							damage = 40, hitstun = 14, blockstun = 10, knockback = 5.0, hitstop = 5, height = H.LOW,
+							hitboxes = [Rect2(-20, -20, 40, 20)]}}}]},
 		{id = &"yuki_onna", name = "O-Yuki", kind = YOKAI,
 			p = {health = 950, size = 0.95, speed = 1.05, jump = 1.0, power = 0.95, tempo = 0},
 			# The snow woman's breath: it chills, and the chilled are slow.
@@ -184,8 +190,10 @@ static func _table() -> Array:
 					damage = 40, hitstun = 16, blockstun = 12, knockback = 4.0, hitstop = 6, slows = 180,
 					hitboxes = [Rect2(15, -140, 110, 60)]},
 				# An icicle falling from above, some way ahead: an overhead.
+				# Forms high above the opponent, wherever they are (above a giant's
+				# core), and falls.
 				{id = &"icicle", startup = 14, active = 1, recovery = 18, cooldown = 75,
-					spawn_offset = Vector2(180, -300),
+					spawn_origin = MoveDefinition.SpawnOrigin.TARGET, spawn_offset = Vector2(0, -300),
 					spawn = {id = &"icicle_shard", startup = 0, active = 50, recovery = 0, motion = Vector2(0, 9),
 						damage = 70, hitstun = 18, blockstun = 12, knockback = 4.0, hitstop = 8, height = H.HIGH,
 						hitboxes = [Rect2(-12, -30, 24, 30)]}}]},

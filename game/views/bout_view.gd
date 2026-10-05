@@ -1,5 +1,6 @@
 class_name BoutView
 extends RefCounted
+const PuppetsRegistry := preload("res://game/art/puppets/registry.gd")
 ## Draws a Bout as rectangles onto any CanvasItem: stage, fighters, spirits,
 ## projectiles, health, spirit slots and round messages. Reads the bout; never
 ## changes it.
@@ -35,6 +36,7 @@ static func draw(ci: CanvasItem, bout: Bout, names: Array[String], show_boxes: b
 			_monster(ci, f, show_boxes)
 		elif Puppet.has_puppet(f):
 			Puppet.draw(ci, f, base, colourways[i])
+			Pieces.draw_effect(ci, f, base)
 			_labels(ci, f, show_boxes)
 		else:
 			_fighter(ci, f, COLORS[i], show_boxes)
@@ -44,12 +46,17 @@ static func draw(ci: CanvasItem, bout: Bout, names: Array[String], show_boxes: b
 		else:
 			_fighter(ci, s, Color(COLORS[s.summoner].lightened(0.5), 0.4), show_boxes)
 	for e in bout.entities:
-		# A tethered piece is joined to its performer: a neck from the shoulders.
+		# A tethered piece is joined to its performer: a neck from the shoulders,
+		# in the performer's skin.
 		if e.move.tethered:
 			var owner: Fighter = bout.fighters[e.owner_index]
 			var top := owner.hurtbox()
-			var neck := Vector2(top.get_center().x + owner.facing * top.size.x * 0.2, top.position.y + 12)
-			ci.draw_line(neck, e.position, COLORS[e.owner_index].lightened(0.2), 6.0)
+			var neck := Vector2(top.get_center().x + owner.facing * top.size.x * 0.1, top.position.y + 22)
+			var skin := COLORS[e.owner_index].lightened(0.2)
+			var rig := PuppetsRegistry.for_id(owner.definition.id)
+			if rig:
+				skin = rig.colourways[colourways[e.owner_index]].get("skin", skin)
+			ci.draw_line(neck, e.position + Vector2(0, 12), skin, 7.0)
 		# Before it strikes, a piece with a start-up shows where it will.
 		if e.frame < e.move.startup:
 			for local in e.move.hitboxes:
@@ -61,6 +68,11 @@ static func draw(ci: CanvasItem, bout: Bout, names: Array[String], show_boxes: b
 		if e.move.motion.y > 0.0 and e.position.y < -20.0:
 			for box in e.active_hitboxes():
 				ci.draw_rect(Rect2(box.position.x, -6, box.size.x, 6), Color(0, 0, 0, 0.45))
+		if Pieces.draw(ci, bout, e, base, colourways):
+			if show_boxes:
+				for box in e.active_hitboxes():
+					ci.draw_rect(box, Color.RED, false, 2.0)
+			continue
 		# A returning piece is still drawn on its way back, though it can't strike.
 		var drawn := e.boxes() if e.returning else e.active_hitboxes()
 		for box in drawn:
