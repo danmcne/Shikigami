@@ -140,6 +140,8 @@ func _init() -> void:
 	_test_rig_diagonal_view_layers()
 	_test_rig_front_view_layers()
 	_test_rig_reaches_a_point()
+	_test_every_fighter_has_a_sound_rig()
+	_test_props_appear_when_reached()
 	print("CPU, run, calibration")
 	_test_cpu_enters_motions()
 	_test_cpu_attacks()
@@ -2091,3 +2093,47 @@ func _test_rig_reaches_a_point() -> void:
 	_check("the rig reaches a hand to a named point, and toward one out of reach without stretching",
 			hand.distance_to(mouth) < 2.0 and stretched.distance_to(shoulder) <= full + 0.5,
 			"hand %.1f from the mouth; reach %.1f of %.1f" % [hand.distance_to(mouth), stretched.distance_to(shoulder), full])
+
+
+func _test_every_fighter_has_a_sound_rig() -> void:
+	const Registry := preload("res://game/art/puppets/registry.gd")
+	var problems: Array[String] = []
+	for d in Roster.all():
+		var p: PuppetDefinition = Registry.for_id(d.id)
+		if p == null:
+			problems.append("%s has no puppet" % d.id)
+			continue
+		for part in p.parts:
+			if part.parent != "" and p.find(part.parent) == null:
+				problems.append("%s.%s has no parent %s" % [d.id, part.name, part.parent])
+		var order := _order_names(p, p.view)
+		if order.size() != p.parts.size():
+			problems.append("%s draws %d of %d parts" % [d.id, order.size(), p.parts.size()])
+		for part in p.parts:
+			if part.kind == PuppetDefinition.Kind.APPENDAGE and not _before(order, part.name, "torso"):
+				problems.append("%s.%s is not behind the torso" % [d.id, part.name])
+		# Basic rigs draw their weapons but leave the hitboxes alone.
+		if not d.id in [&"musashi", &"shuten"]:
+			for m in d.moves.values():
+				if not m.frame_strikes.is_empty():
+					problems.append("%s.%s is traced" % [d.id, m.id])
+	_check("every fighter has a puppet whose parts join up, appendages behind; basic rigs leave hitboxes alone",
+			problems.is_empty(), "%s" % [problems])
+
+
+func _test_props_appear_when_reached() -> void:
+	const Registry := preload("res://game/art/puppets/registry.gd")
+	var oni: PuppetDefinition = Registry.for_id(&"shuten")
+	var sake: MoveDefinition = Roster.by_id(&"shuten").moves[&"sake"]
+	var before := int(sake.startup * 0.2)
+	var after := int(sake.startup * 0.6)
+	var at_hip_first: bool = oni.shows(oni.find("gourd_hip"), sake, before) and not oni.shows(oni.find("gourd_hand"), sake, before)
+	var in_hand_later: bool = oni.shows(oni.find("gourd_hand"), sake, after) and not oni.shows(oni.find("gourd_hip"), sake, after)
+	var roku: PuppetDefinition = Registry.for_id(&"rokurokubi")
+	var neck: MoveDefinition = Roster.by_id(&"rokurokubi").moves[&"long_neck"]
+	var away := neck.startup + 5
+	var head_gone: bool = not roku.shows(roku.find("head"), neck, away) and not roku.shows(roku.find("hair"), neck, away) \
+			and roku.shows(roku.find("neck"), neck, away) and roku.shows(roku.find("head"), neck, 0)
+	_check("the gourd stays at the hip until the hand reaches it; Rokurokubi's head (and hair) is away while it flies",
+			at_hip_first and in_hand_later and head_gone,
+			"hip first %s, hand later %s, head away %s" % [at_hip_first, in_hand_later, head_gone])

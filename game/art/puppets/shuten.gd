@@ -1,8 +1,9 @@
 extends RefCounted
 ## Shuten-dōji on the humanoid rig, in the diagonal (aspective) view of a
 ## boxer: torso and arms as seen from the front, head and legs in profile. His
-## free lead fist is up and forward; the iron kanabō drags low behind him in
-## his trailing hand; his sake gourd is tucked just inside his front hip.
+## free lead fist is up and forward; the iron kanabō rests diagonally on his
+## trailing shoulder, the arm bent in toward his torso; his sake gourd is
+## tucked just inside his front hip.
 ## Turning toward the viewer swings his lead side away, so his lead leg is the
 ## far one; both arms are drawn over his torso. Tiger-skin loincloth with its
 ## tail, a knotted rope sash, a necklace of great beads, iron rings, clawed
@@ -19,7 +20,7 @@ static func definition() -> PuppetDefinition:
 	d.view = V.DIAGONAL
 	d.anchors = {V.DIAGONAL: {lead_shoulder = Vector2(24, -54), trail_shoulder = Vector2(-22, -54),
 			lead_hip = Vector2(12, 12), trail_hip = Vector2(-12, 12), neck = Vector2(3, -56)}}
-	d.points = {mouth = ["head", Vector2(13, -8)]}
+	d.points = {mouth = ["head", Vector2(13, -8)], gourd = ["hips", Vector2(12, 0)]}
 	var ring := [Vector2(-10, 0), Vector2(10, 0), Vector2(10, 5), Vector2(-10, 5)]
 	var gourd := [Vector2(-1, -4), Vector2(1, -4), Vector2(1, 0), Vector2(5, 0), Vector2(7, 8), Vector2(4, 12),
 			Vector2(8, 20), Vector2(0, 26), Vector2(-8, 20), Vector2(-4, 12), Vector2(-7, 8), Vector2(-5, 0), Vector2(-1, 0)]
@@ -81,8 +82,9 @@ static func definition() -> PuppetDefinition:
 		P.new("studs_3", "club", Vector2(0, 0), [Vector2(-7, 52), Vector2(-3, 52), Vector2(-3, 56), Vector2(-7, 56)], "studs", K.DECO),
 		P.new("studs_4", "club", Vector2(0, 0), [Vector2(3, 64), Vector2(7, 64), Vector2(7, 68), Vector2(3, 68)], "studs", K.DECO),
 	]
-	d.props = {gourd_hand = [&"sake"]}
-	d.hidden_during = {gourd_hip = [&"sake"]}
+	# The gourd passes from hip to hand as his hand reaches it, and back again.
+	d.props = {gourd_hand = [[&"sake", 0.38, 2.78]]}
+	d.hidden_during = {gourd_hip = [[&"sake", 0.38, 2.78]]}
 	d.face_teru = [
 		[[Vector2(-3, -27), Vector2(17, -34), Vector2(18, -28), Vector2(-2, -23)], "ink"],     # brow, furious
 		[[Vector2(0, -23), Vector2(15, -26), Vector2(16, -17), Vector2(1, -15)], "eye"],      # eye, blazing
@@ -109,11 +111,11 @@ static func definition() -> PuppetDefinition:
 	uke.merge({skin = Color("2f5fa8"), shade = Color("21447d"), tiger = Color("b4b0a8"),
 			stripes = Color("3a3a46"), horn = Color("c7cdd3"), eye = Color("dde2e7")})
 	d.colourways = [tori, uke]
-	# Lead fist up and forward; the rear arm hanging, the club trailing behind
-	# him with its head near the ground.
+	# Lead fist up and forward; the trailing arm bent in, the club lying
+	# diagonally up and back over the trailing shoulder.
 	d.rest = {torso = 4.0,
 			lead_upper = -50.0, lead_fore = -100.0,
-			trail_upper = 10.0, trail_fore = 5.0, trail_weapon = 31.0,
+			trail_upper = -15.0, trail_fore = -110.0, trail_weapon = -94.0,
 			lead_thigh = -22.0, lead_shin = 14.0, trail_thigh = 26.0, trail_shin = 6.0,
 			pelt_tail = 10.0}
 
@@ -124,15 +126,16 @@ static func definition() -> PuppetDefinition:
 		{name = "fist", bone = "lead_hand", from = Vector2(0, 0), to = Vector2(0, 10), width = 16.0,
 			zones = [[0.0, 1.0, 1.0]]},
 	]
-	# Angles beyond 180 carry a swing on over the top rather than back down
-	# the way it came: 300 is straight-up-and-over to forward-down.
-	var hauled := {trail_upper = 130.0, trail_fore = 10.0, trail_weapon = 20.0, torso = -10.0}
-	var overhead := {trail_upper = 175.0, trail_fore = 10.0, trail_weapon = 10.0, torso = -8.0}
-	var heave := {trail_upper = 178.0, trail_fore = 5.0, trail_weapon = 5.0, lead_upper = -170.0, lead_fore = -10.0, torso = -12.0}
-	var slam := {trail_upper = 305.0, trail_fore = -10.0, trail_weapon = -4.0, lead_upper = -50.0, lead_fore = -20.0, torso = 28.0}
+	# From the shoulder the club is raised in front of him to overhead (the
+	# arm swinging forward and up, never round behind), then brought over and
+	# down: angles fall from rest to -180 and rise again to strike.
+	var overhead := {trail_upper = -180.0, trail_fore = -20.0, trail_weapon = -30.0, torso = -8.0}
+	var heave := {trail_upper = -180.0, trail_fore = -10.0, trail_weapon = -20.0, lead_upper = -170.0, lead_fore = -10.0, torso = -12.0}
+	var slam := {trail_upper = -55.0, trail_fore = -10.0, trail_weapon = -4.0, lead_upper = -50.0, lead_fore = -20.0, torso = 28.0}
 	var lift := {lead_upper = -80.0, lead_fore = -20.0, torso = 14.0}
-	# The gourd from his front hip to his mouth in his lead hand, reached for
-	# rather than posed: elbow raised, the gourd tipped up as he drinks.
+	# He reaches down for the gourd at his hip, takes it up to his mouth (elbow
+	# raised, gourd tipped up), and puts it back afterwards.
+	var take := {ik = {lead = {to = "gourd", bend = 1.0}}, torso = 6.0}
 	var drink := {ik = {lead = {to = "mouth", bend = -1.0}}, gourd_hand = 175.0, head = -22.0, torso = -8.0}
 	d.swings = {
 		# The jab: the free lead fist, straight out.
@@ -140,17 +143,18 @@ static func definition() -> PuppetDefinition:
 			[1.0, {lead_upper = -40.0, lead_fore = -120.0, torso = 0.0}],
 			[1.2, {lead_upper = -88.0, lead_fore = -2.0, torso = 10.0}],
 			[2.0, {lead_upper = -90.0, lead_fore = 0.0, torso = 10.0}]]},
-		# The club hauled up from behind, over the head, and down in front with
-		# the elbow bent; it ends low enough to catch a crouching opponent.
+		# From the shoulder to overhead, then down in front with the elbow
+		# bent; it ends low enough to catch a crouching opponent.
 		stand_heavy = {strikes = ["club"], keys = [
-			[0.45, hauled], [1.0, overhead],
-			[1.75, {trail_upper = 300.0, trail_fore = -55.0, trail_weapon = 40.0, torso = 22.0}],
-			[2.0, {trail_upper = 305.0, trail_fore = -55.0, trail_weapon = 42.0, torso = 22.0}]]},
+			[1.0, overhead],
+			[1.75, {trail_upper = -60.0, trail_fore = -55.0, trail_weapon = 40.0, torso = 22.0}],
+			[2.0, {trail_upper = -55.0, trail_fore = -55.0, trail_weapon = 42.0, torso = 22.0}]]},
 		crouch_light = {base = "crouch", strikes = ["fist"], keys = [
 			[1.0, {lead_upper = -30.0, lead_fore = -100.0}],
 			[1.2, {lead_upper = -62.0, lead_fore = 0.0}],
 			[2.0, {lead_upper = -62.0, lead_fore = 0.0}]]},
-		# Out of the drag, the club sweeps forward along the ground.
+		# The club brought down off the shoulder behind him, then swept forward
+		# along the ground.
 		crouch_heavy = {base = "crouch", strikes = ["club"], keys = [
 			[1.0, {trail_upper = 40.0, trail_fore = 10.0, trail_weapon = 50.0}],
 			[2.0, {trail_upper = -50.0, trail_fore = -10.0, trail_weapon = -48.0}]]},
@@ -160,17 +164,16 @@ static func definition() -> PuppetDefinition:
 			[2.0, {lead_upper = -40.0, lead_fore = 20.0}]]},
 		jump_heavy = {base = "air", strikes = ["club"], keys = [
 			[1.0, overhead],
-			[2.0, {trail_upper = 330.0, trail_fore = 10.0, trail_weapon = 10.0}]]},
+			[2.0, {trail_upper = -30.0, trail_fore = 10.0, trail_weapon = 10.0}]]},
 		# The quake: both hands heave the club up and slam it into the ground,
 		# landing exactly as the quake begins.
-		kanabo_quake = {keys = [[0.4, hauled], [0.8, heave], [1.0, slam], [2.0, slam]]},
-		sake = {keys = [[0.6, drink], [2.2, drink]]},
-		# A one-handed lift and slam; the club stays in the other hand.
+		kanabo_quake = {keys = [[0.8, heave], [1.0, slam], [2.0, slam]]},
+		sake = {keys = [[0.3, take], [0.45, take], [0.8, drink], [2.2, drink], [2.65, take], [2.85, take]]},
+		# A one-handed lift and slam; the club stays on the shoulder.
 		throw = {keys = [
 			[1.0, lift], [2.0, lift],
 			[2.4, {lead_upper = -170.0, lead_fore = -20.0, torso = -12.0}],
 			[2.7, {lead_upper = -30.0, lead_fore = 0.0, torso = 30.0}]]},
-		# The rush swings the club forward out of the drag.
 		rush = {strikes = ["club"], keys = [
 			[1.0, {trail_upper = 60.0, trail_fore = 0.0, trail_weapon = 60.0}],
 			[1.2, {trail_upper = -70.0, trail_fore = -10.0, trail_weapon = -20.0, torso = 22.0}],
@@ -182,6 +185,6 @@ static func definition() -> PuppetDefinition:
 		summon = {keys = [
 			[1.0, {lead_upper = -160.0, lead_fore = -10.0, head = -14.0}],
 			[2.0, {lead_upper = -160.0, lead_fore = -10.0, head = -14.0}]]},
-		finisher = {keys = [[0.4, hauled], [0.8, heave], [1.0, slam], [2.0, slam]]},
+		finisher = {keys = [[0.8, heave], [1.0, slam], [2.0, slam]]},
 	}
 	return d

@@ -25,7 +25,7 @@ static func has_puppet(f: Fighter) -> bool:
 static func draw(ci: CanvasItem, f: Fighter, base: Transform2D, colourway: int, alpha := 1.0) -> void:
 	var p := PuppetsRegistry.for_id(f.definition.id)
 	var scale := f.definition.stand_hurtbox.size.y / p.height * FIT
-	var pose := _pose(f, p)
+	var pose := _pose(f, p, scale)
 	var kumoru := f.state in CLOUDED
 	# Like a noh mask: tilted up it shines (teru), tilted down it clouds (kumoru).
 	pose.angles.head = pose.angles.get("head", 0.0) + (16.0 if kumoru else -6.0)
@@ -34,11 +34,9 @@ static func draw(ci: CanvasItem, f: Fighter, base: Transform2D, colourway: int, 
 	var colours: Dictionary = p.colourways[clampi(colourway, 0, p.colourways.size() - 1)]
 	var dim := 1.25 if f.state == Fighter.State.HITSTUN else 1.0
 	var transforms := p.pose_transforms(pose.angles)
-	var current: StringName = f.move.id if f.state == Fighter.State.MOVE and f.move else &""
+	var current: MoveDefinition = f.move if f.state == Fighter.State.MOVE else null
 	for part in p.draw_order(p.view):
-		if p.props.has(part.name) and not current in p.props[part.name]:
-			continue
-		if p.hidden_during.has(part.name) and current in p.hidden_during[part.name]:
+		if not p.shows(part, current, f.state_frame):
 			continue
 		var t: Transform2D = placed * transforms[part.name]
 		var c: Color = colours.get(part.slot, Color.MAGENTA)
@@ -73,7 +71,7 @@ static func _cut(ci: CanvasItem, t: Transform2D, shape: PackedVector2Array, c: C
 ## Joint angles for the fighter's present state, plus a root offset and
 ## rotation. Reactions shift limbs from where they rest rather than replacing
 ## the rest pose, so whatever a hand holds stays plausible.
-static func _pose(f: Fighter, p: PuppetDefinition) -> Dictionary:
+static func _pose(f: Fighter, p: PuppetDefinition, scale: float) -> Dictionary:
 	var t := f.state_frame
 	if f.state == Fighter.State.MOVE and f.move and p.swings.has(String(f.move.id)):
 		return p.swing_pose(p.swings[String(f.move.id)], f.move, t)
@@ -124,10 +122,26 @@ static func _pose(f: Fighter, p: PuppetDefinition) -> Dictionary:
 			a.lead_thigh = -5.0
 			a.trail_thigh = 8.0
 		Fighter.State.MOVE:
-			# A move without a swing: crouched or tucked as the fighter is.
+			# A move without a swing: crouched or tucked as the fighter is, the
+			# striking arm reaching toward where the move hits (a placeholder
+			# until the move is animated).
 			if f.crouching and not f.airborne:
 				root.y = PuppetDefinition.CROUCH_DROP
 				a.merge(PuppetDefinition.CROUCH, true)
 			elif f.airborne:
 				a.merge(PuppetDefinition.AIR, true)
+			if f.move and not f.move.hitboxes.is_empty():
+				_reach_toward_hit(f.move, t, p, scale, a, root)
 	return {angles = a, root = root, root_rot = root_rot}
+
+
+static func _reach_toward_hit(m: MoveDefinition, frame: int, p: PuppetDefinition, scale: float,
+		a: Dictionary, root: Vector2) -> void:
+	var t := PuppetDefinition._phase(m, frame)
+	var progress := clampf(t, 0.0, 1.0) if t < 2.0 else clampf(3.0 - t, 0.0, 1.0)
+	if progress <= 0.0:
+		return
+	var reached := a.duplicate()
+	p.reach_with(reached, p.attack_arm, m.hitboxes[0].get_center() / scale, -1.0, root)
+	for joint in [p.attack_arm + "_upper", p.attack_arm + "_fore"]:
+		a[joint] = lerpf(a[joint], reached[joint], progress)

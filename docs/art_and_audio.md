@@ -39,6 +39,9 @@ That is two images per fighter, which the cut-out rig swaps at the head joint, a
   The diagonal view combines front and side views, as Egyptian figures do. When a profile turns its chest toward us, the lead side swings away, so the lead side is far and the trailing side near.
 - **Depth and layers.** Only depth darkens a part. Nothing changes layer to be seen: large weapons may sit on the far side; otherwise weapons are held up or out.
 - **Flexible joints are kept to a minimum.** The one planned is a hand sliding along a long grip.
+- **Appendages** (tails, wings, spider legs, shells) grow from the back or hips and are drawn behind everything.
+- **Props** pass between places at a chosen moment within a move: a gourd from hip to hand when the hand reaches it.
+- **Basic rigs** for the rest of the roster come from a template (view, build, held items, headgear, appendages); each is refined into a detailed puppet with its own swings in turn.
 - **What each character needs drawn:**
 
   | Parts | Views |

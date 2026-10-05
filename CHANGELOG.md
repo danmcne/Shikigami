@@ -2,6 +2,27 @@
 
 Newest first. The README describes the current version only.
 
+## 14.1
+
+- **The oni:**
+  - he rests with the kanabō diagonally on his trailing shoulder, arm bent in toward his torso;
+  - the heavy raises the club in front of him to overhead and down, with no windmilling at the shoulder, and its start-up drops from 20 frames to 15;
+  - the quake heaves the same way;
+  - to drink, his lead hand reaches down to the gourd at his hip, lifts it to his mouth, and puts it back.
+- **Rig:**
+  - appendages (tails, wings, spider legs, shell) are drawn behind everything in every view;
+  - props appear or hide within a window of a move, and hiding a part hides what's attached;
+  - each rig names the arm that strikes;
+  - unanimated attacks show that arm reaching toward the hitbox.
+- **Basic rigs for all fourteen other fighters,** from a template and short descriptions, with resting guards from the art direction:
+  - Kojirō in the tail guard; Tomoe's naginata low and forward; Benkei's polearm shouldered; Hanzō's reverse grip;
+  - En no Gyōja's planted staff; Okuni's fan and talisman; Seimei's raised talisman and tall cap;
+  - Tamamo-no-Mae's nine tails; Sōjōbō's wings, nose and feather fan; Kawatarō's sumo stance and shell;
+  - O-Yuki's floor-length kimono; the Jorōgumo's yellow-banded spider legs; Rokurokubi's neck and lantern; Danzaburō's belly, hat, tail and flask.
+
+  Their weapons are drawn only, so hitboxes are unchanged.
+- **Tests and tools:** every fighter's rig joins up, with appendages behind and hitboxes untouched; props and Rokurokubi's head show and hide on cue; `tests/gallery.gd` renders everyone.
+
 ## 14
 
 - **A shared humanoid rig** replaces the one-off puppets.

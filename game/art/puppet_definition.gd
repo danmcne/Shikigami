@@ -21,6 +21,9 @@ extends RefCounted
 ##             torso and lead leg; trailing leg; head and clothing; upper arms;
 ##             forearms; hands and weapons (far before near within each).
 ##
+## Appendages that grow from the back or hips (tails, wings, a spider's legs,
+## a kappa's shell) are drawn behind everything else in every view.
+##
 ## Depth, never lead or trail, decides shading: far parts are darkened.
 ## Nothing ever changes layer to be seen: a weapon behind the torso stays
 ## behind it, so weapons on the far side are large or held up and out.
@@ -33,7 +36,7 @@ enum View { SIDE, FRONT, DIAGONAL }
 ## What a part is, which decides its layer. A DECO rides on its parent, drawn
 ## just after it in the same layer and at the same depth (pleats on a leg,
 ## rings on an arm, horns on a head, a blade on its hilt).
-enum Kind { BODY, HEAD, LEG, CLOTHING, ARM_UPPER, ARM_FORE, HAND, WEAPON, DECO }
+enum Kind { BODY, HEAD, LEG, CLOTHING, ARM_UPPER, ARM_FORE, HAND, WEAPON, DECO, APPENDAGE }
 
 const VIEW_NAMES := {View.SIDE: "side", View.FRONT: "front", View.DIAGONAL: "diagonal"}
 enum Depth { FAR, MID, NEAR }
@@ -101,9 +104,14 @@ var weapons: Array = []
 ## through recovery.
 var swings: Dictionary = {}
 ## Parts drawn only during certain moves, and parts hidden during certain
-## moves: part name -> move ids.
+## moves: part name -> entries, each a move id (the whole move) or
+## [move id, from t, to t] (part of it, in the phase units of swings). Hiding
+## a part hides everything attached to it.
 var props: Dictionary = {}
 var hidden_during: Dictionary = {}
+## The arm that strikes in moves without a swing of their own (the one
+## holding the weapon).
+var attack_arm := "lead"
 
 const DEFAULTS := {
 	torso = 4.0, head = -2.0,
@@ -171,6 +179,8 @@ func draw_order(v: int) -> Array:
 func _layer_key(part: Part, v: int) -> Array:
 	var base := _base_of(part)
 	var depth := depth_of(base.side, v)
+	if base.kind == Kind.APPENDAGE:
+		return [-1, depth, parts.find(base)]
 	var group := 0
 	match v:
 		View.SIDE:
@@ -357,6 +367,32 @@ func _place(part: Part, angles: Dictionary, out: Dictionary, top: Transform2D) -
 		t = _place(find(part.parent), angles, out, top) * own
 	out[part.name] = t
 	return t
+
+
+## Whether a part is drawn during `move` at `frame` (no move: at rest).
+func shows(part: Part, move: MoveDefinition, frame: int) -> bool:
+	var p := part
+	while p != null:
+		if props.has(p.name) and not _during(props[p.name], move, frame):
+			return false
+		if hidden_during.has(p.name) and _during(hidden_during[p.name], move, frame):
+			return false
+		p = find(p.parent) if p.parent != "" else null
+	return true
+
+
+func _during(entries: Array, move: MoveDefinition, frame: int) -> bool:
+	if move == null:
+		return false
+	for e in entries:
+		if e is Array:
+			if e[0] == move.id:
+				var t := _phase(move, frame)
+				if t >= e[1] and t < e[2]:
+					return true
+		elif e == move.id:
+			return true
+	return false
 
 
 ## 0..1 start-up, 1..2 active, 2..3 recovery.

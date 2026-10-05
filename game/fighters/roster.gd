@@ -128,9 +128,9 @@ static func _table() -> Array:
 		# --- yokai ----------------------------------------------------------
 		{id = &"shuten", name = "Shuten-dōji", kind = YOKAI,
 			p = {health = 1400, size = 1.3, speed = 0.8, jump = 0.9, power = 1.3, tempo = 1},
-			# His heavy hauls the kanabō up from behind him, over his head and down:
-			# a long wind-up for a heavy blow.
-			frames = {stand_heavy = {startup = 20}},
+			# His heavy raises the kanabō off his shoulder to overhead and brings it
+			# down: a longer wind-up than a plain heavy.
+			frames = {stand_heavy = {startup = 15}},
 			# The sake-drinking oni: a long, exposed drink that restores a great deal,
 			# with a very slow recharge, so when to drink is a decision, not a habit.
 			# A hit during the drink spills it; the recharge is spent either way.

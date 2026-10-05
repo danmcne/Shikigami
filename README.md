@@ -4,7 +4,7 @@ A 2D fighting game set in a fantasy Japan, in the lineage of Street Fighter and 
 
 The guiding principle: **the fighting is the game; the campaign exists to produce unusual fights.** There are no levels, stat sheets or grinding.
 
-This is version 14: sixteen humans and yokai and three giants. Musashi and Shuten-dōji are now cut-paper puppets against a painted shore, the first art test, and they strike with their actual weapons; the rest are still rectangles. History is in [CHANGELOG.md](CHANGELOG.md), and the first art and audio direction is in [docs/art_and_audio.md](docs/art_and_audio.md).
+This is version 14.1: sixteen humans and yokai and three giants. Musashi and Shuten-dōji are now cut-paper puppets against a painted shore, the first art test, and they strike with their actual weapons; the rest are still rectangles. History is in [CHANGELOG.md](CHANGELOG.md), and the first art and audio direction is in [docs/art_and_audio.md](docs/art_and_audio.md).
 
 ## Running
 
@@ -211,6 +211,15 @@ Musashi and Shuten-dōji are drawn as cut-paper puppets on a shared humanoid rig
 - **No exceptions to layer order.** Nothing changes layer to be seen: weapons on the far side are large or held up and out.
 - **Reaching.** Hands can reach for named points, such as the oni's mouth when he drinks, by two-bone inverse kinematics with fixed lengths.
 - **Decorations** (pleats, rings, horns, blades) ride on their part's layer and depth.
+- **Appendages** that grow from the back or hips (tails, wings, a spider's legs, a kappa's shell) are drawn behind everything in every view.
+- **Props** can appear and disappear at a chosen moment within a move. The oni's gourd stays at his hip until his hand reaches it, and goes back afterwards. Hiding a part hides what's attached to it, so Rokurokubi's head and hair are gone while her head flies.
+
+Every fighter now has a puppet:
+
+- **In detail:** Musashi and Shuten-dōji.
+- **Basic rigs:** the other fourteen, built by a template from short descriptions (view, build, what each hand holds, headgear, appendages). Their resting guards follow the art direction, and their weapons are drawn only, so their hitboxes stay their own until their moves are animated. Meanwhile an unanimated attack shows the weapon arm reaching toward the move's hitbox.
+
+The oni carries his kanabō diagonally on his trailing shoulder. His heavy raises it in front of him to overhead and brings it down, with a 15-frame start-up.
 
 The puppets are flat paper parts with fine ink edges on a simple skeleton, under a faint washi grain. Poses must be anatomically plausible, with obvious exceptions for some yokai. Among the plausible poses we choose the clearest and most striking, and ignore handedness:
 
@@ -236,7 +245,7 @@ Every effect lands when the blow visibly lands: a traced weapon's boxes are wher
 - **Weapons.** Musashi's katana and wakizashi wound most near the tip. Shuten-dōji's kanabō, about half his height, wounds most with its head; right under it, the club passes overhead.
 - **Boxes.** The puppets are scaled to each fighter's standing hurtbox. Their weapons, with damage zones, are part of the puppet data, so the boxes and the drawing come from one source.
 
-`tests/shot.gd` renders posed scenes to PNG files for art review, and `tests/measure.gd` prints each traced move's reach and damage by distance against standing and crouching opponents. It needs a display, for instance `xvfb-run godot --path . --rendering-driver opengl3 --script res://tests/shot.gd`.
+`tests/shot.gd` renders posed scenes to PNG files for art review, `tests/gallery.gd` renders every fighter at rest, and `tests/measure.gd` prints each traced move's reach and damage by distance against standing and crouching opponents. It needs a display, for instance `xvfb-run godot --path . --rendering-driver opengl3 --script res://tests/shot.gd`.
 
 ## Healing
 
@@ -326,7 +335,7 @@ godot --headless --path . --import          # once, to build the class cache
 godot --headless --path . --script res://tests/selftest.gd
 ```
 
-There are 122 checks. They cover:
+There are 124 checks. They cover:
 
 - **The rules:** guards, throws, combos, commands, timing.
 - **Every fighter's specials:** each one completes.
