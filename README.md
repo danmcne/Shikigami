@@ -4,7 +4,7 @@ A 2D fighting game set in a fantasy Japan, in the lineage of Street Fighter and 
 
 The guiding principle: **the fighting is the game; the campaign exists to produce unusual fights.** There are no levels, stat sheets or grinding.
 
-This is version 15: sixteen humans and yokai and three giants. Musashi and Shuten-dōji are now cut-paper puppets against a painted shore, the first art test, and they strike with their actual weapons; the rest are still rectangles. History is in [CHANGELOG.md](CHANGELOG.md), and the first art and audio direction is in [docs/art_and_audio.md](docs/art_and_audio.md).
+This is version 15.1: sixteen humans and yokai and three giants. Musashi and Shuten-dōji are now cut-paper puppets against a painted shore, the first art test, and they strike with their actual weapons; the rest are still rectangles. History is in [CHANGELOG.md](CHANGELOG.md), and the first art and audio direction is in [docs/art_and_audio.md](docs/art_and_audio.md).
 
 ## Running
 
@@ -216,7 +216,7 @@ Musashi and Shuten-dōji are drawn as cut-paper puppets on a shared humanoid rig
 - **Two-handed weapons.** The second hand grips the weapon and slides along a long grip, the rig's one flexible joint. A key pose can release it, as in Kojirō's lunge.
 - **Guards and swings** can name where a hand goes and where a weapon points, as a fencer would describe a guard.
 - **Hanging parts,** such as a lantern on its stick, stay upright whatever holds them.
-- **Walking.** In profile, fighters break into a real stride after the first steps; in the diagonal view they shuffle.
+- **Walking.** In profile, fighters break into a real stride after the first steps, and it plants its feet. Each planted foot sweeps back exactly as fast as the body travels while the other leg swings forward with its knee lifted, and the hips ride at the height the planted leg allows. In the diagonal view, and on the Jorōgumo's spider legs, they shuffle.
 - **Light attacks** are thrown with the free hand; others with the weapon.
 - **Props** can appear and disappear at a chosen moment within a move. The oni's gourd stays at his hip until his hand reaches it, and goes back afterwards. Hiding a part hides what's attached to it, so Rokurokubi's head and hair are gone while her head flies.
 
@@ -355,7 +355,7 @@ godot --headless --path . --import          # once, to build the class cache
 godot --headless --path . --script res://tests/selftest.gd
 ```
 
-There are 130 checks. They cover:
+There are 134 checks. They cover:
 
 - **The rules:** guards, throws, combos, commands, timing.
 - **Every fighter's specials:** each one completes.

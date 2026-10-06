@@ -94,14 +94,18 @@ static func draw_effect(ci: CanvasItem, f: Fighter, base: Transform2D) -> void:
 		return
 	var k := f.state_frame - f.move.startup
 	ci.draw_set_transform_matrix(base)
+	# Drawn from the move itself, so the effect shows whether or not it struck.
+	var boxes: Array[Rect2] = []
+	for box in f.move.hitboxes:
+		boxes.append(f.to_world(box))
 	match f.move.id:
 		&"frost_breath":
-			for box in f.active_hitboxes():
+			for box in boxes:
 				for i in 6:
 					var at := box.position + Vector2(fmod(i * 23.0 + k * 6.0, box.size.x), box.size.y * (0.3 + 0.4 * sin(i * 1.9)))
 					ci.draw_circle(at, 8.0 + (i % 3) * 3.0, Color(0.85, 0.95, 1.0, 0.55))
 		&"belly_drum":
-			for box in f.active_hitboxes():
+			for box in boxes:
 				var centre := Vector2(box.get_center().x, 0)
 				for r in [16.0 + k * 8.0, 32.0 + k * 8.0]:
 					ci.draw_arc(centre, r, PI, TAU, 18, Color(0.95, 0.85, 0.6, 0.7), 2.5)

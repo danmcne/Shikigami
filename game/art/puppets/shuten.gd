@@ -136,10 +136,10 @@ static func definition() -> PuppetDefinition:
 	# He reaches down for the gourd at his hip, takes it up to his mouth (elbow
 	# raised, gourd tipped up), and puts it back afterwards.
 	var take := {ik = {lead = {to = "gourd", bend = 1.0}}, torso = 6.0}
-	# On the way up and down the hand passes out in front of him, so the drink
-	# arcs rather than folding straight up.
-	var out_front := {ik = {lead = {to = "before"}}, gourd_hand = 90.0, torso = 0.0}
-	var drink := {ik = {lead = {to = "mouth", bend = -1.0}}, gourd_hand = 175.0, head = -22.0, torso = -8.0}
+
+	# Of the two ways an arm can bring a hand to the mouth, the elbow raised
+	# forward (not dropped back).
+	var drink := {ik = {lead = {to = "mouth", bend = 1.0}}, gourd_hand = 175.0, head = -22.0, torso = -8.0}
 	d.swings = {
 		# The jab: the free lead fist, straight out.
 		stand_light = {strikes = ["fist"], keys = [
@@ -171,7 +171,10 @@ static func definition() -> PuppetDefinition:
 		# The quake: both hands heave the club up and slam it into the ground,
 		# landing exactly as the quake begins.
 		kanabo_quake = {keys = [[0.8, heave], [1.0, slam], [2.0, slam]]},
-		sake = {keys = [[0.3, take], [0.45, take], [0.62, out_front], [0.85, drink], [2.2, drink], [2.42, out_front], [2.65, take], [2.85, take]]},
+		# Between hip and mouth, both ways, the hand passes through its guard
+		# (a key with no lead arm in it), so the drink arcs out in front.
+		sake = {keys = [[0.25, take], [0.4, take], [0.58, {gourd_hand = 60.0}], [0.85, drink], [2.2, drink],
+				[2.42, {gourd_hand = 60.0}], [2.62, take], [2.8, take]]},
 		# A one-handed lift and slam; the club stays on the shoulder.
 		throw = {keys = [
 			[1.0, lift], [2.0, lift],

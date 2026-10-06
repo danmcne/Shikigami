@@ -247,6 +247,8 @@ func _release(f: Fighter, side: int) -> Array[Entity]:
 			var over := target.position
 			if target is Monster and (target as Monster).monster.core.has_area():
 				over.x = target.to_world((target as Monster).monster.core).get_center().x
+			if m.spawn_range > 0.0 and absf(over.x - f.position.x) > m.spawn_range:
+				over.x = f.position.x + signf(over.x - f.position.x) * m.spawn_range
 			at = over + Vector2(offset.x * spread, offset.y)
 		var e := Entity.new(f.pending_spawn, at, f.facing, side, f.summoner >= 0)
 		if f.pending_spawn.converges:
@@ -323,9 +325,15 @@ func _spawn() -> void:
 			var across := signf(target.position.x - f.position.x)
 			if across == 0.0:
 				across = f.facing
-			var beyond := target.definition.pushbox.size.x / 2.0 + f.pending_teleport
-			f.position = Vector2(target.position.x + across * beyond, Fighter.FLOOR_Y)
-			f.facing = -int(across)
+			var half := target.definition.pushbox.size.x / 2.0
+			var gap := absf(target.position.x - f.position.x) - half
+			if f.move.teleport_range > 0.0 and gap > f.move.teleport_range:
+				# Out of range: only so far, landing before the opponent.
+				f.position.x += across * f.move.teleport_range
+				f.facing = int(across)
+			else:
+				f.position = Vector2(target.position.x + across * (half + f.pending_teleport), Fighter.FLOOR_Y)
+				f.facing = -int(across)
 			_clamp(f)
 		if f.pending_summon >= 0:
 			var binding := f.spirits[f.pending_summon]

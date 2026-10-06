@@ -2,6 +2,25 @@
 
 Newest first. The README describes the current version only.
 
+## 15.1
+
+- **Walking without moonwalking.**
+  - The old walk bent each knee while that leg was planted, and its sine-wave sweep could not match the body's speed. The new stride plants each foot: it sweeps back at exactly the body's speed (the thigh at the arcsine of the foot's offset over the leg), the other leg swings forward knee-high, and the hips dip to keep the planted foot on the ground.
+  - Measured: planted feet slide about 0.1 px a frame against the body's 4, forward and back.
+- **Arms:**
+  - in profile, every character rests with the near arm low and the far arm high, and none rests behind;
+  - wings are rooted at the shoulder blades and smaller;
+  - the solver writes each answer in the turn nearest the arm's previous angle, so moves take the short way round.
+- **Oni's drink:** passes through his guard between hip and mouth both ways, and lifts with the elbow forward.
+- **Skirts** (Seimei, O-Yuki, Rokurokubi): wider; they cover the legs but not the feet, in two pieces jointed at the knee for kneeling.
+- **Kojirō** is in chūdan-no-kamae: hands before the navel, the point at the throat.
+- **Fox Step** reaches about a body length (160 px to the opponent's near edge). Within it she steps behind the opponent, however wide; beyond it she covers that distance and lands before them.
+- **O-Yuki's icicle** forms no further than two body lengths (300 px) away.
+- **Jorōgumo** keeps the shuffle in profile, with crouch and jump poses for spider legs.
+- **Rokurokubi's long neck** grows from her own neck and curves along her head's path.
+- **Strike effects** (the drum's shockwave, frost) show whether or not they connect.
+- **Tests:** ranges, side-view guards, skirt coverage, the drink's path, planted feet.
+
 ## 15
 
 - **Rig:**

@@ -145,7 +145,7 @@ static func _table() -> Array:
 		{id = &"kitsune", name = "Tamamo-no-Mae", kind = YOKAI,
 			p = {health = 850, size = 0.85, speed = 1.35, jump = 1.06, power = 0.8, tempo = -1},
 			# Fox illusion: gone, then behind you.
-			specials = [{id = &"fox_step", startup = 20, active = 4, recovery = 16, cooldown = 240,
+			specials = [{id = &"fox_step", startup = 20, active = 4, recovery = 16, cooldown = 240, teleport_range = 160.0,
 					invulnerable = 16, teleport_frame = 14, teleport_distance = 45.0,
 					damage = 70, hitstun = 18, blockstun = 12, knockback = 7.0, hitstop = 8,
 					hitboxes = [Rect2(10, -120, 70, 50)]},
@@ -190,10 +190,10 @@ static func _table() -> Array:
 					damage = 40, hitstun = 16, blockstun = 12, knockback = 4.0, hitstop = 6, slows = 180,
 					hitboxes = [Rect2(15, -140, 110, 60)]},
 				# An icicle falling from above, some way ahead: an overhead.
-				# Forms high above the opponent, wherever they are (above a giant's
-				# core), and falls.
+				# Forms high above the opponent (above a giant's core), and falls; no
+				# further than two of her body lengths away.
 				{id = &"icicle", startup = 14, active = 1, recovery = 18, cooldown = 75,
-					spawn_origin = MoveDefinition.SpawnOrigin.TARGET, spawn_offset = Vector2(0, -300),
+					spawn_origin = MoveDefinition.SpawnOrigin.TARGET, spawn_offset = Vector2(0, -300), spawn_range = 300.0,
 					spawn = {id = &"icicle_shard", startup = 0, active = 50, recovery = 0, motion = Vector2(0, 9),
 						damage = 70, hitstun = 18, blockstun = 12, knockback = 4.0, hitstop = 8, height = H.HIGH,
 						hitboxes = [Rect2(-12, -30, 24, 30)]}}]},

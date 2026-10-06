@@ -122,6 +122,12 @@ var grips: Dictionary = {}
 ## to its parent: elbows bend only forward, knees only backward. A puppet
 ## whose legs are not human legs may clear them.
 var limits: Dictionary = {fore = [-160.0, 0.0], shin = [0.0, 160.0]}
+## "stride" walks with legs passing each other (in profile); "shuffle" keeps
+## the stance, as in the diagonal view or on legs that are not human.
+var gait := "stride"
+## A puppet's own crouch and jump leg poses, over the shared ones.
+var crouch_pose: Dictionary = {}
+var air_pose: Dictionary = {}
 
 const DEFAULTS := {
 	torso = 4.0, head = -2.0,
@@ -250,8 +256,10 @@ func base_angles(context: String) -> Dictionary:
 			a[joint] = float(rest[joint])
 	if context == "crouch":
 		a.merge(CROUCH, true)
+		a.merge(crouch_pose, true)
 	elif context == "air":
 		a.merge(AIR, true)
+		a.merge(air_pose, true)
 	limit(a)
 	# A guard may be described by where a hand is and where a weapon points.
 	resolve(a, rest, Vector2(0, CROUCH_DROP if context == "crouch" else 0.0))
@@ -387,7 +395,10 @@ func reach_with(a: Dictionary, side: String, target: Variant, bend: float, root 
 		var allowed: bool = not limits.has("fore") or (fore_deg >= limits.fore[0] - 0.5 and fore_deg <= limits.fore[1] + 0.5)
 		if best.is_empty() or (allowed and not best[2]):
 			best = [upper_deg, fore_deg, allowed]
-	a[upper.name] = best[0]
+	# The same direction written nearest the arm's angle before, so that
+	# moving between poses takes the short way round, not behind the back.
+	var before: float = a.get(upper.name, 0.0)
+	a[upper.name] = before + wrapf(best[0] - before, -180.0, 180.0)
 	a[fore.name] = best[1]
 	limit(a)
 

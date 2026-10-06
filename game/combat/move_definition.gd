@@ -88,6 +88,13 @@ enum SpawnOrigin { PERFORMER, TARGET }
 ## edge of its opponent's body, facing them. -1: no teleport.
 @export var teleport_frame: int = -1
 @export var teleport_distance: float = 70.0
+## The farthest a teleport reaches: with the opponent's near edge further
+## than this, the performer only covers this distance and lands before them.
+## Zero: no limit.
+@export var teleport_range: float = 0.0
+## For a spawn over the target: the farthest from the performer it may form;
+## beyond, it forms this far ahead. Zero: no limit.
+@export var spawn_range: float = 0.0
 ## Frames before this move can be used again. Zero: no recharge.
 @export var cooldown: int = 0
 ## Frames of armour granted when the move starts: hits still deal damage but

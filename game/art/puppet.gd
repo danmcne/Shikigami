@@ -54,6 +54,18 @@ static func draw(ci: CanvasItem, f: Fighter, base: Transform2D, colourway: int, 
 	ci.draw_set_transform_matrix(base)
 
 
+## Where a point on a part of `f`'s puppet is in the world, in its present pose.
+static func world_point(f: Fighter, part_name: String, local: Vector2) -> Vector2:
+	var p := PuppetsRegistry.for_id(f.definition.id)
+	if p == null or p.find(part_name) == null:
+		return f.position
+	var scale := f.definition.stand_hurtbox.size.y / p.height * FIT
+	var pose := _pose(f, p, scale)
+	var placed := Transform2D(0.0, Vector2(f.facing * scale, scale), 0.0, f.position) \
+			* Transform2D(deg_to_rad(pose.root_rot), pose.root)
+	return placed * (p.pose_transforms(pose.angles)[part_name] * local)
+
+
 ## Just the head (with its hair and hat), as when Rokurokubi's head flies:
 ## `centre` is the middle of the head in the world.
 static func draw_head(ci: CanvasItem, f: Fighter, p: PuppetDefinition, centre: Vector2, facing: int,
@@ -110,21 +122,21 @@ static func _pose(f: Fighter, p: PuppetDefinition, scale: float) -> Dictionary:
 			a.torso += 2.0 * sin(Time.get_ticks_msec() * 0.003)
 		Fighter.State.WALK:
 			# A shuffle about the stance; in profile, after the first steps, a
-			# real stride with the legs passing each other.
-			var phase := f.position.x * 0.06 * f.facing
-			var shuffle := {lead_thigh = a.lead_thigh + 20.0 * sin(phase), trail_thigh = a.trail_thigh - 20.0 * sin(phase),
-					lead_shin = a.lead_shin + 18.0 * maxf(0.0, cos(phase)), trail_shin = a.trail_shin + 18.0 * maxf(0.0, -cos(phase))}
-			var stride := {lead_thigh = 30.0 * sin(phase), trail_thigh = -30.0 * sin(phase),
-					lead_shin = 8.0 + 30.0 * maxf(0.0, cos(phase)), trail_shin = 8.0 + 30.0 * maxf(0.0, -cos(phase))}
+			# real stride.
 			var walking := 0.0
-			if p.view == PuppetDefinition.View.SIDE:
+			if p.view == PuppetDefinition.View.SIDE and p.gait == "stride":
 				walking = clampf((t - 8.0) / 12.0, 0.0, 1.0)
+			var stride := _stride(f, p)
+			var phase := f.position.x * PI / 68.0 * f.facing
+			var shuffle := {lead_thigh = a.lead_thigh + 14.0 * sin(phase), trail_thigh = a.trail_thigh - 14.0 * sin(phase),
+					lead_shin = a.lead_shin + 16.0 * maxf(0.0, -cos(phase)), trail_shin = a.trail_shin + 16.0 * maxf(0.0, cos(phase))}
 			for joint in shuffle:
 				a[joint] = lerpf(shuffle[joint], stride[joint], walking)
-			root.y = -2.0 * absf(sin(phase))
+			root.y = stride.drop * walking
 		Fighter.State.CROUCH:
 			root.y = PuppetDefinition.CROUCH_DROP
 			a.merge(PuppetDefinition.CROUCH, true)
+			a.merge(p.crouch_pose, true)
 		Fighter.State.GUARD, Fighter.State.BLOCKSTUN:
 			# Both forearms raised before the body.
 			a.lead_upper = -60.0
@@ -137,6 +149,7 @@ static func _pose(f: Fighter, p: PuppetDefinition, scale: float) -> Dictionary:
 				a.merge(PuppetDefinition.CROUCH, true)
 		Fighter.State.JUMP:
 			a.merge(PuppetDefinition.AIR, true)
+			a.merge(p.air_pose, true)
 		Fighter.State.HITSTUN:
 			# Reeling: thrown back, arms flung from wherever they rested.
 			a.torso = -16.0
@@ -169,6 +182,37 @@ static func _pose(f: Fighter, p: PuppetDefinition, scale: float) -> Dictionary:
 	p.limit(a)
 	p.apply_grips(a, root)
 	return {angles = a, root = root, root_rot = root_rot}
+
+
+## A walk that plants its feet. Over a cycle of two strides each leg is
+## planted for half: its foot sweeps back from a half-stride ahead of the hip
+## to a half-stride behind, exactly as fast as the body travels (the thigh's
+## angle is the arcsine of the foot's offset over the leg's length), while the
+## other leg swings forward, knee lifted. The hips ride at the height the
+## planted leg allows. Walking backward runs the same cycle in reverse.
+static func _stride(f: Fighter, p: PuppetDefinition) -> Dictionary:
+	const STEP := 68.0  # travel per stride, in puppet units
+	var leg := p.find("lead_shin").pivot.length() + p.find("lead_foot").pivot.length()
+	var cycle := fposmod(f.position.x * f.facing / (2.0 * STEP), 1.0)
+	var out := {}
+	var drop := 0.0
+	for side in ["lead", "trail"]:
+		var u := fposmod(cycle + (0.0 if side == "lead" else 0.5), 1.0)
+		var offset: float
+		var lift := 0.0
+		if u < 0.5:
+			offset = STEP / 2.0 - STEP * (u / 0.5)
+		else:
+			var w := (u - 0.5) / 0.5
+			offset = -STEP / 2.0 + STEP * smoothstep(0.0, 1.0, w)
+			lift = 38.0 * sin(PI * w)
+		var thigh := asin(clampf(-offset / leg, -1.0, 1.0))
+		out[side + "_thigh"] = rad_to_deg(thigh)
+		out[side + "_shin"] = 4.0 + lift
+		if u < 0.5:
+			drop = leg * (1.0 - cos(thigh))
+	out["drop"] = drop
+	return out
 
 
 static func _reach_toward_hit(m: MoveDefinition, frame: int, p: PuppetDefinition, scale: float,

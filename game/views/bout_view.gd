@@ -49,14 +49,19 @@ static func draw(ci: CanvasItem, bout: Bout, names: Array[String], show_boxes: b
 		# A tethered piece is joined to its performer: a neck from the shoulders,
 		# in the performer's skin.
 		if e.move.tethered:
+			# The neck grows from her own neck and follows the path her head has
+			# taken, curving as it did.
 			var owner: Fighter = bout.fighters[e.owner_index]
-			var top := owner.hurtbox()
-			var neck := Vector2(top.get_center().x + owner.facing * top.size.x * 0.1, top.position.y + 22)
 			var skin := COLORS[e.owner_index].lightened(0.2)
 			var rig := PuppetsRegistry.for_id(owner.definition.id)
+			var neck := owner.hurtbox().get_center()
 			if rig:
 				skin = rig.colourways[colourways[e.owner_index]].get("skin", skin)
-			ci.draw_line(neck, e.position + Vector2(0, 12), skin, 7.0)
+				neck = Puppet.world_point(owner, "neck" if rig.find("neck") else "torso", Vector2(0, -8))
+			var line := PackedVector2Array([neck])
+			line.append_array(e._path)
+			line.append(e.position + Vector2(0, 12))
+			ci.draw_polyline(line, skin, 7.0)
 		# Before it strikes, a piece with a start-up shows where it will.
 		if e.frame < e.move.startup:
 			for local in e.move.hitboxes:

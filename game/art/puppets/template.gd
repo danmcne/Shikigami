@@ -15,7 +15,10 @@ extends RefCounted
 ##   ears = "fox" | "tanuki";  face = "fox" (kitsune mask markings);  nose = "tengu"
 ##   tails = count;  tail = "fox" | "tanuki";  wings = scale (0 for none);  shell = true
 ##   belly = true;  sleeves = true;  neck = true
-##   hem = "robe" (to the ankles, wider below and toward the back) | "dress" (to the knee)
+##   hem = "robe" (covering the legs, not the feet; wide below and toward the
+##         back; jointed at the knee, for kneeling) | "dress" (to the knee)
+##   gait = "stride" | "shuffle";  crouch_pose, air_pose = leg angles for legs
+##         that are not human
 ##   spider = true: the legs are a spider's, each with a leg branching before
 ##            and behind, and two more trailing low from the hips
 ##   leaf = move id during which a leaf shows on the forehead
@@ -68,8 +71,11 @@ static func build(spec: Dictionary) -> PuppetDefinition:
 			"front": _sx([Vector2(-21, 3), Vector2(21, 3), Vector2(22, -8), Vector2(-21, -8)], w)}, "accent", K.CLOTHING))
 	match spec.get("hem", ""):
 		"robe":
-			parts.append(P.new("hem", "hips", Vector2.ZERO, {"side": _sx([Vector2(-15, -6), Vector2(17, -6), Vector2(26, 76), Vector2(-38, 76)], w),
-					"front": _sx([Vector2(-23, -6), Vector2(23, -6), Vector2(32, 76), Vector2(-36, 76)], w)}, "garment", K.CLOTHING))
+			# Two pieces jointed at the knee, so a kneeling pose can fold it.
+			parts.append(P.new("hem", "hips", Vector2.ZERO, {"side": _sx([Vector2(-17, -6), Vector2(19, -6), Vector2(30, 40), Vector2(-38, 40)], w),
+					"front": _sx([Vector2(-25, -6), Vector2(25, -6), Vector2(34, 40), Vector2(-38, 40)], w)}, "garment", K.CLOTHING))
+			parts.append(P.new("hem_lower", "hem", Vector2(-4 * w, 40), {"side": _sx([Vector2(-34, 0), Vector2(34, 0), Vector2(42, 36), Vector2(-54, 36)], w),
+					"front": _sx([Vector2(-34, 0), Vector2(38, 0), Vector2(46, 36), Vector2(-46, 36)], w)}, "garment", K.DECO))
 		"dress":
 			parts.append(P.new("hem", "hips", Vector2.ZERO, {"side": _sx([Vector2(-15, -6), Vector2(17, -6), Vector2(24, 46), Vector2(-28, 46)], w),
 					"front": _sx([Vector2(-23, -6), Vector2(23, -6), Vector2(28, 46), Vector2(-30, 46)], w)}, "garment", K.CLOTHING))
@@ -116,7 +122,19 @@ static func build(spec: Dictionary) -> PuppetDefinition:
 	var uke: Dictionary = common.duplicate()
 	uke.merge(spec.colours.uke, true)
 	d.colourways = [tori, uke]
-	d.rest = spec.get("rest", {})
+	# In profile, the near arm rests low (guarding the belly, ready to come
+	# up) and the far arm high (guarding the face, ready to jab); no arm rests
+	# behind. A description's own rest goes over this.
+	var guard := {}
+	if d.view == V.SIDE:
+		var near := "lead" if d.side_lead_near else "trail"
+		var far := "trail" if d.side_lead_near else "lead"
+		guard = {near + "_upper": -40.0, near + "_fore": -70.0, far + "_upper": -55.0, far + "_fore": -110.0}
+	guard.merge(spec.get("rest", {}), true)
+	d.rest = guard
+	d.gait = spec.get("gait", "stride")
+	d.crouch_pose = spec.get("crouch_pose", {})
+	d.air_pose = spec.get("air_pose", {})
 	d.swings = spec.get("swings", {})
 	d.weapons = spec.get("weapons", [])
 	for key in ["props", "hidden_during"]:
@@ -203,9 +221,10 @@ static func _appendages(parts: Array, spec: Dictionary, w: float) -> void:
 		parts.append(P.new("tail_%d" % (i + 1), "hips", Vector2(-14 * w, 4), tail_shape, "extra", K.APPENDAGE))
 	var wings: float = spec.get("wings", 0.0)
 	if wings > 0.0:
-		var wing := _s([Vector2(0, 0), Vector2(10, 0), Vector2(30, 40), Vector2(26, 80), Vector2(10, 96), Vector2(-4, 70), Vector2(-6, 30)], wings)
-		parts.append(P.new("lead_wing", "torso", Vector2(-4, -44), wing, "extra", K.APPENDAGE))
-		parts.append(P.new("trail_wing", "torso", Vector2(-8, -42), wing, "extra", K.APPENDAGE))
+		# Rooted broad at the shoulder blades, so they grow from the back.
+		var wing := _s([Vector2(-10, -4), Vector2(12, -4), Vector2(30, 40), Vector2(26, 80), Vector2(10, 96), Vector2(-4, 70), Vector2(-12, 20)], wings)
+		parts.append(P.new("lead_wing", "torso", Vector2(-6, -46), wing, "extra", K.APPENDAGE))
+		parts.append(P.new("trail_wing", "torso", Vector2(-8, -44), wing, "extra", K.APPENDAGE))
 	if spec.get("shell", false):
 		parts.append(P.new("shell", "torso", Vector2(-10 * w, -30), _sx([Vector2(-14, -22), Vector2(-2, -28), Vector2(6, -20), Vector2(8, 0), Vector2(6, 24), Vector2(-6, 30), Vector2(-16, 22), Vector2(-18, 0)], w), "extra", K.APPENDAGE))
 

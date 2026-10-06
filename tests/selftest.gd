@@ -148,6 +148,10 @@ func _init() -> void:
 	_test_water_jet_from_the_head()
 	_test_icicle_falls_over_the_opponent()
 	_test_pieces_have_pictures()
+	_test_fox_step_has_a_range()
+	_test_side_view_guards()
+	_test_drink_passes_the_guard()
+	_test_walk_plants_the_feet()
 	print("CPU, run, calibration")
 	_test_cpu_enters_motions()
 	_test_cpu_attacks()
@@ -513,7 +517,7 @@ func _test_spirit_cooldown() -> void:
 
 func _test_spirit_with_motion() -> void:
 	var kitsune := _r(&"kitsune")
-	var b := _spirit_bout(SpiritBinding.new(kitsune, &"fox_step"), 300.0)
+	var b := _spirit_bout(SpiritBinding.new(kitsune, &"fox_step"), 180.0)  # within its range
 	var crossed := [false]
 	_run(b, 60, _at({0: [5, "D"]}), null, func(x: Bout) -> void:
 		for s in x.spirits:
@@ -839,11 +843,11 @@ func _test_invincible_takes_no_damage() -> void:
 # --- signatures, spirit guard, tiers, saving ---------------------------------
 
 
-func _test_fox_step_crosses_over() -> void:
+func _test_fox_step_crosses_over() -> void:  # within its range of about a body length
 	var kitsune := _r(&"kitsune")
 	var b := Bout.new(kitsune, def)
-	b.fighters[0].position.x = -100
-	b.fighters[1].position.x = 100
+	b.fighters[0].position.x = -80
+	b.fighters[1].position.x = 80
 	_run(b, 40, _at({0: [5, "C"]}))
 	_check("Fox Step reappears behind the opponent and strikes",
 			b.fighters[0].position.x > b.fighters[1].position.x
@@ -1419,7 +1423,7 @@ func _test_ushi_oni_turns_slowly() -> void:
 func _test_teleport_lands_behind_a_monster() -> void:
 	var b := _oni_setup(_r(&"kitsune"))
 	(b.fighters[1] as Monster).health = 99999
-	b.fighters[0].position.x = -250
+	b.fighters[0].position.x = -100  # within range of its near edge
 	_run(b, 30, _at({0: [5, "C"]}))
 	var oni: Monster = b.fighters[1]
 	var far_edge := oni.position.x + oni.definition.pushbox.size.x / 2.0
@@ -2265,8 +2269,9 @@ func _test_icicle_falls_over_the_opponent() -> void:
 	oni._rest = 100000
 	var before := oni.health
 	_run(giant, 30, _at({0: [4, "C"]}, 4))
-	var ok := spots.size() == 2 and spots.all(func(s: Array) -> bool: return absf(s[0] - s[1]) < 1.0) and oni.health < before
-	_check("the icicle falls from above the opponent wherever they are, and on a giant", ok,
+	# Within two of her body lengths it falls on the opponent; beyond, at that limit.
+	var ok := spots.size() == 2 and absf(spots[0][1] - 100.0) < 1.0 and absf(spots[1][1] - (-200.0 + 300.0)) < 1.0 and oni.health < before
+	_check("the icicle falls over the opponent within two body lengths, at that limit beyond, and on a giant", ok,
 			"%s; giant %d -> %d" % [spots, before, oni.health])
 
 
@@ -2277,3 +2282,86 @@ func _test_pieces_have_pictures() -> void:
 		if not Pieces.has_art(id):
 			missing.append(String(id))
 	_check("projectiles, traps and the flying head have pictures", missing.is_empty(), "%s" % [missing])
+
+
+
+func _test_fox_step_has_a_range() -> void:
+	var fox := _r(&"kitsune")
+	var b := Bout.new(fox, def)
+	b.fighters[0].position.x = -300
+	b.fighters[1].position.x = 300
+	_run(b, 40, _at({0: [5, "C"]}))
+	var range_cap: float = fox.moves[&"fox_step"].teleport_range
+	var f := b.fighters[0]
+	_check("Fox Step only reaches about a body length: from afar she lands before the opponent, not behind",
+			f.position.x < b.fighters[1].position.x and absf(f.position.x - (-300.0 + range_cap)) < 30.0,
+			"landed at %.0f (cap %.0f)" % [f.position.x, range_cap])
+
+
+func _test_side_view_guards() -> void:
+	const Registry := preload("res://game/art/puppets/registry.gd")
+	var behind: Array[String] = []
+	var robes: Array[String] = []
+	for d in Roster.all():
+		var p: PuppetDefinition = Registry.for_id(d.id)
+		var placed := p.pose_transforms(p.base_angles("stand"))
+		if p.view == PuppetDefinition.View.SIDE:
+			var back: float = placed["torso"].origin.x - 14.0
+			for side in ["lead", "trail"]:
+				var hand: String = side + "_hand" if p.find(side + "_hand") else side + "_fore"
+				if placed[hand].origin.x < back:
+					behind.append("%s %s" % [d.id, side])
+		var lower := p.find("hem_lower")
+		if lower:
+			var t: Transform2D = placed["hem_lower"]
+			var bottom := -INF
+			for q in p.shape_of(lower, p.view):
+				bottom = maxf(bottom, (t * q).y)
+			if bottom > -2.0 or bottom < -16.0:
+				robes.append("%s hem at %.0f" % [d.id, bottom])
+	_check("in profile no arm rests behind the body; robes cover the legs but not the feet",
+			behind.is_empty() and robes.is_empty(), "behind %s, robes %s" % [behind, robes])
+
+
+func _test_drink_passes_the_guard() -> void:
+	const Registry := preload("res://game/art/puppets/registry.gd")
+	var p: PuppetDefinition = Registry.for_id(&"shuten")
+	var sake: MoveDefinition = Roster.by_id(&"shuten").moves[&"sake"]
+	var guard: Vector2 = p.pose_transforms(p.base_angles("stand"))["lead_hand"].origin
+	var hand_at := func(frame: int) -> Vector2:
+		return p.pose_transforms(p.swing_pose(p.swings.sake, sake, frame).angles)["lead_hand"].origin
+	var closest := INF
+	var elbow_forward := true
+	for k in range(int(0.45 * sake.startup), sake.startup):
+		closest = minf(closest, (hand_at.call(k) as Vector2).distance_to(guard))
+	# At the mouth the elbow is raised forward, not dropped back.
+	var drinking: Dictionary = p.swing_pose(p.swings.sake, sake, sake.startup + 2).angles
+	elbow_forward = wrapf(drinking.lead_upper, -180.0, 180.0) < -60.0 and drinking.lead_upper < 0.0
+	_check("the oni's drink passes through his guard and is lifted with the elbow forward",
+			closest < 4.0 and elbow_forward, "closest %.1f from the guard; upper arm %.0f" % [closest, drinking.lead_upper])
+
+
+func _test_walk_plants_the_feet() -> void:
+	var worst := 0.0
+	for direction in [6, 4]:
+		var b := Bout.new(_r(&"musashi"), def)
+		b.phase = Bout.Phase.FIGHT
+		b.fighters[0].position.x = -100
+		b.fighters[1].position.x = 600
+		var f := b.fighters[0]
+		var slides: Array = []
+		var prev := {}
+		for n in 100:
+			var intents: Array[Intent] = [Intent.from_numpad(direction, f.facing, ""), Intent.new()]
+			b.step(intents)
+			if n < 25:
+				continue
+			var feet := {lead = Puppet.world_point(f, "lead_foot", Vector2(4, 2)), trail = Puppet.world_point(f, "trail_foot", Vector2(4, 2))}
+			var planted: String = "lead" if feet.lead.y >= feet.trail.y else "trail"
+			if prev.get("planted", "") == planted:
+				slides.append(absf(feet[planted].x - prev[planted].x))
+			prev = feet.duplicate()
+			prev.planted = planted
+		slides.sort()
+		worst = maxf(worst, slides[int(slides.size() * 0.9)])
+	_check("walking in profile plants the feet: no sliding, forward or back", worst < 1.0, "planted foot slides %.1f px a frame" % worst)
