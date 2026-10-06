@@ -8,7 +8,7 @@ const INK := Color(0.08, 0.06, 0.06, 0.6)
 const PuppetsRegistry := preload("res://game/art/puppets/registry.gd")
 
 const DRAWN := [&"shuriken_star", &"paper_bird", &"water", &"water_wave", &"icicle_shard", &"web_strand",
-		&"thrown_lantern", &"lantern_fire", &"flying_head"]
+		&"thrown_lantern", &"lantern_fire", &"flying_head", &"poison_cloud"]
 
 
 static func has_art(id: StringName) -> bool:
@@ -77,6 +77,11 @@ static func draw(ci: CanvasItem, bout: Bout, e: Entity, base: Transform2D, colou
 				var h := 34.0 + sin(f * 0.4 + k * 1.7) * 10.0
 				_cut(ci, PackedVector2Array([Vector2(x - 12, 0), Vector2(x - 4, -h * 0.6), Vector2(x, -h), Vector2(x + 5, -h * 0.5), Vector2(x + 12, 0)]), Color("e2572b", 0.9), false)
 				_cut(ci, PackedVector2Array([Vector2(x - 6, 0), Vector2(x, -h * 0.55), Vector2(x + 6, 0)]), Color("f6c24a", 0.95), false)
+		&"poison_cloud":
+			# A drifting cloud of poison, puffs swelling and thinning.
+			for k in 5:
+				var at := Vector2(cos(k * 1.3 + f * 0.05) * 18.0, sin(k * 2.1 + f * 0.07) * 12.0)
+				ci.draw_circle(at, 14.0 + 4.0 * sin(f * 0.1 + k), Color(0.55, 0.35, 0.65, 0.45))
 		&"flying_head":
 			var owner := bout.fighters[e.owner_index]
 			var p := PuppetsRegistry.for_id(owner.definition.id)

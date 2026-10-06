@@ -2,6 +2,27 @@
 
 Newest first. The README describes the current version only.
 
+## 15.2
+
+- **Ushi-oni in cut paper,** the first giant drawn:
+  - a plated carapace with a spined ridge;
+  - six jointed spider legs, near and far;
+  - an ox head with horns and glowing eyes;
+  - a walking scuttle, and its own motion for each attack (Leg Stab, Stomp, Charge, Poison Breath, Buck);
+  - stumps for broken legs, a glowing head when exposed;
+  - the poison cloud has a picture;
+  - telegraphs show as outlines over the art.
+- **Ushi-oni's back** reaches only 50 units up, not 170. Standing blows from his back pass over him; strike from his head, or crouched on his back. O-Yuki's icicle is now seen falling before it strikes him.
+- **Skirts move:**
+  - the upper piece follows the thighs (the forward one most);
+  - the lower piece bends at its knee with the shins;
+  - cloth that would reach below the floor rests on it.
+
+  Crouching no longer pushes skirts through the floor, and a jumping knee stays covered.
+- **Rokurokubi's head** flies on a circle from her own neck: up, over, and down onto the opponent at mid-height, about 380 ahead. The neck follows it with no kink.
+- **Kojirō** is in side view.
+- **Tools:** `tests/giants.gd` renders a giant through its attacks.
+
 ## 15.1
 
 - **Walking without moonwalking.**

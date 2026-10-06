@@ -26,6 +26,8 @@ var holding: Fighter = null
 var pushing: Fighter = null
 ## A returning piece: heading back along the path it took.
 var returning := false
+var _centre := Vector2.ZERO
+var _angle := 0.0
 ## Frames retraced per frame on the way back.
 const RETURN_SPEED := 2
 var _path := PackedVector2Array()
@@ -39,6 +41,9 @@ func _init(m: MoveDefinition, at: Vector2, face: int, index: int, spirit := fals
 	from_spirit = spirit
 	velocity = m.motion
 	origin = m
+	if m.orbit_radius > 0.0:
+		_centre = at + Vector2(face * m.orbit_centre.x, m.orbit_centre.y)
+		_angle = atan2(-m.orbit_centre.y, -m.orbit_centre.x)
 
 
 func step() -> void:
@@ -53,7 +58,12 @@ func step() -> void:
 		return
 	if move.returns:
 		_path.append(position)
-	if not arrived:
+	if move.orbit_radius > 0.0:
+		_angle += move.orbit_speed
+		var was := position
+		position = _centre + Vector2(facing * cos(_angle), sin(_angle)) * move.orbit_radius
+		velocity = Vector2((position.x - was.x) * facing, position.y - was.y)
+	elif not arrived:
 		position += Vector2(facing * velocity.x, velocity.y)
 		velocity.y += move.gravity
 		if move.converges and (centre_x - position.x) * facing <= 0.0:

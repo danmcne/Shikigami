@@ -76,6 +76,12 @@ enum SpawnOrigin { PERFORMER, TARGET }
 ## started, harmless on the way back (Rokurokubi's head).
 @export var returns: bool = false
 @export var turn_height: float = -80.0
+## For a spawned move: it flies on a circle of this radius about a centre at
+## `orbit_centre` from where it starts (forward, down), at `orbit_speed`
+## radians a frame, over the top toward the opponent. Zero: in a line.
+@export var orbit_radius: float = 0.0
+@export var orbit_centre: Vector2 = Vector2.ZERO
+@export var orbit_speed: float = 0.0
 ## Traced from a weapon: for each active frame, the boxes the weapon occupies
 ## and the damage scale of each ([Rect2, scale] pairs). When present these
 ## replace `hitboxes` while the move is active; `hitboxes` then holds them

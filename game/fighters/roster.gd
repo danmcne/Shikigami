@@ -216,10 +216,12 @@ static func _table() -> Array:
 			# fighter's mid-height, and returning along the same path. It stays joined
 			# to her, so a blow to the head is a blow to her, and it snaps back the
 			# moment she is struck. Her recovery lasts the whole flight out and back.
+			# Her head leaves from her own neck and swings on a circle, up, over, and
+			# down onto the opponent at mid-height, about 380 ahead.
 			specials = [{id = &"long_neck", startup = 12, active = 1, recovery = 66, cooldown = 120,
-					spawn_offset = Vector2(20, -150),
+					spawn_offset = Vector2(4, -168),
 					spawn = {id = &"flying_head", startup = 0, active = 80, recovery = 0,
-						motion = Vector2(9, -11), gravity = 0.6, tethered = true, returns = true,
+						orbit_radius = 200.0, orbit_centre = Vector2(179, 88), orbit_speed = 0.064, tethered = true, returns = true,
 						turn_height = -80.0,
 						damage = 80, hitstun = 20, blockstun = 12, knockback = 6.0, hitstop = 9, height = H.HIGH,
 						hitboxes = [Rect2(-25, -25, 50, 50)]}},

@@ -48,7 +48,9 @@ static func definition() -> MonsterDefinition:
 	# The head's top is low enough for the heaviest fighters' jump, and the
 	# back is one jump above it.
 	d.parts = [
-		MonsterDefinition.Part.new("shell", Rect2(-180, -210, 360, 140), 0.5, 0, false, true, 170.0),
+		# Its back can be stood on; standing blows from there pass over it, so
+		# strike it from its head, or crouched on its back.
+		MonsterDefinition.Part.new("shell", Rect2(-180, -210, 360, 140), 0.5, 0, false, true, 50.0),
 		MonsterDefinition.Part.new("front legs", Rect2(110, -70, 90, 70), 1.0, 350),
 		MonsterDefinition.Part.new("back legs", Rect2(-200, -70, 90, 70), 1.0, 350),
 		MonsterDefinition.Part.new("head", Rect2(170, -130, 80, 60), 2.0, 0, true, true),

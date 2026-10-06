@@ -181,6 +181,7 @@ static func _pose(f: Fighter, p: PuppetDefinition, scale: float) -> Dictionary:
 				_reach_toward_hit(f.move, t, p, scale, a, root)
 	p.limit(a)
 	p.apply_grips(a, root)
+	p.apply_follows(a)
 	return {angles = a, root = root, root_rot = root_rot}
 
 

@@ -33,7 +33,7 @@ static func draw(ci: CanvasItem, bout: Bout, names: Array[String], show_boxes: b
 	for i in 2:
 		var f := bout.fighters[i]
 		if f is Monster:
-			_monster(ci, f, show_boxes)
+			_monster(ci, f, show_boxes, base)
 		elif Puppet.has_puppet(f):
 			Puppet.draw(ci, f, base, colourways[i])
 			Pieces.draw_effect(ci, f, base)
@@ -102,7 +102,11 @@ static func lines(ci: CanvasItem, at: Vector2, rows: Array, width: float,
 ## A monster: each part drawn by its state (shell, legs, a weak point open or
 ## closed, broken parts greyed), its attacks' start-up shown in red as a
 ## warning of where they will land.
-static func _monster(ci: CanvasItem, m: Monster, show_boxes: bool) -> void:
+const GIANT_ART := {&"ushi_oni": preload("res://game/art/giants/ushi_oni_art.gd")}
+
+
+static func _monster(ci: CanvasItem, m: Monster, show_boxes: bool, base := Transform2D()) -> void:
+	var art: GDScript = GIANT_ART.get(m.definition.id)
 	var font := ThemeDB.fallback_font
 	var tint := Color(1, 1, 1, 1)
 	if m.state == Fighter.State.HITSTUN:
@@ -115,7 +119,16 @@ static func _monster(ci: CanvasItem, m: Monster, show_boxes: bool) -> void:
 		ci.draw_rect(Rect2(under.position.x + 20, -6, under.size.x - 40, 6), Color(0, 0, 0, 0.4))
 	for shape in m.monster.backdrop:
 		ci.draw_rect(m.to_world(shape), Color(0.85, 0.82, 0.7, 0.12) * tint)
-	for k in m.monster.parts.size():
+	if art:
+		# Drawn in cut paper over its gameplay parts; their health still shows.
+		art.draw(ci, m, base, tint)
+		for k in m.monster.parts.size():
+			var part: MonsterDefinition.Part = m.monster.parts[k]
+			if part.health > 0 and m.part_health[k] > 0:
+				var box := m.to_world(part.box)
+				var frac := float(m.part_health[k]) / part.health
+				ci.draw_rect(Rect2(box.position.x, box.end.y + 4, box.size.x * frac, 4), Color(0.9, 0.6, 0.2))
+	for k in (0 if art else m.monster.parts.size()):
 		var part: MonsterDefinition.Part = m.monster.parts[k]
 		var box := m.to_world(part.box)
 		var color := m.monster.colour.darkened(0.2)
@@ -146,7 +159,11 @@ static func _monster(ci: CanvasItem, m: Monster, show_boxes: bool) -> void:
 				ci.draw_rect(box, Color(1.0, 0.1, 0.1, 0.12 + 0.25 * urgency))
 				ci.draw_rect(box, Color(1.0, 0.2, 0.2, 0.8), false, 2.0)
 			elif mv.is_active_on(m.state_frame):
-				ci.draw_rect(box, Color(1.0, 0.3, 0.1, 0.85))
+				# Over cut-paper art, an outline; over bare parts, a fill.
+				if art:
+					ci.draw_rect(box, Color(1.0, 0.35, 0.1, 0.9), false, 3.0)
+				else:
+					ci.draw_rect(box, Color(1.0, 0.3, 0.1, 0.85))
 	if m.state == Fighter.State.DAZED and m.monster.core.has_area():
 		var core := m.to_world(m.monster.core)
 		var pulse := 0.5 + 0.4 * sin(m.state_frame * 0.2)

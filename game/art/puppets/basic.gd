@@ -40,13 +40,13 @@ static func _spec(id: StringName) -> Dictionary:
 	var edge := [[0.0, 0.25, 0.4], [0.25, 0.7, 0.8], [0.7, 1.0, 1.0]]
 	match id:
 		&"kojiro":
-			# Diagonal, both hands on the long grip, in chūdan-no-kamae: hands
+			# In profile, both hands on the long grip, in chūdan-no-kamae: hands
 			# before the navel, the point at the opponent's throat. Lights stab; the heavy rises and falls; the Swallow Cut
 			# cuts down and back up; the Drying Pole is a fencer's lunge, the
 			# trailing hand letting go.
 			var lunge := {release = ["trail"], ik = {lead = {to = Vector2(68, -124)}}, aim = {lead_weapon = -90.0},
 				torso = 22.0, lead_thigh = -55.0, lead_shin = 45.0, trail_thigh = 55.0, trail_shin = 0.0, trail_upper = 70.0, trail_fore = -20.0}
-			return {view = "diagonal", hair = "tied", weapon = {type = "nodachi", hand = "lead"},
+			return {view = "side", hair = "tied", weapon = {type = "nodachi", hand = "lead"},
 				# Hands on the centre line before the navel, within reach of both arms.
 				rest = r.call({ik = {lead = {to = Vector2(6, -100)}}, aim = {lead_weapon = -108.0}}),
 				weapons = [{name = "nodachi", bone = "lead_weapon", from = Vector2(0, 6), to = Vector2(0, 124), width = 5.0, zones = edge}],

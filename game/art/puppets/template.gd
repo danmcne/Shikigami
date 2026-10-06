@@ -76,9 +76,18 @@ static func build(spec: Dictionary) -> PuppetDefinition:
 					"front": _sx([Vector2(-25, -6), Vector2(25, -6), Vector2(34, 40), Vector2(-38, 40)], w)}, "garment", K.CLOTHING))
 			parts.append(P.new("hem_lower", "hem", Vector2(-4 * w, 40), {"side": _sx([Vector2(-34, 0), Vector2(34, 0), Vector2(42, 36), Vector2(-54, 36)], w),
 					"front": _sx([Vector2(-34, 0), Vector2(38, 0), Vector2(46, 36), Vector2(-46, 36)], w)}, "garment", K.DECO))
+			# It moves with the legs: the upper piece with the thighs (the forward
+			# one most), the lower bending at its knee with the shins; where it
+			# reaches the floor it rests on it.
+			d.follows["hem"] = {joints = ["lead_thigh", "trail_thigh"], lead = 0.7}
+			d.follows["hem_lower"] = {joints = ["lead_shin", "trail_shin"], lead = 0.0, scale = 0.5}
+			for part in parts:
+				if part.name in ["hem", "hem_lower"]:
+					part.rests_on_floor = true
 		"dress":
 			parts.append(P.new("hem", "hips", Vector2.ZERO, {"side": _sx([Vector2(-15, -6), Vector2(17, -6), Vector2(24, 46), Vector2(-28, 46)], w),
 					"front": _sx([Vector2(-23, -6), Vector2(23, -6), Vector2(28, 46), Vector2(-30, 46)], w)}, "garment", K.CLOTHING))
+			d.follows["hem"] = {joints = ["lead_thigh", "trail_thigh"], lead = 0.5, scale = 0.5}
 	if spec.get("spider", false):
 		_spider_legs(parts, d, w)
 	else:

@@ -152,6 +152,8 @@ func _init() -> void:
 	_test_side_view_guards()
 	_test_drink_passes_the_guard()
 	_test_walk_plants_the_feet()
+	_test_skirts_follow_the_legs()
+	_test_icicle_seen_over_ushi_oni()
 	print("CPU, run, calibration")
 	_test_cpu_enters_motions()
 	_test_cpu_attacks()
@@ -1366,15 +1368,20 @@ func _test_ride_strike_and_drop_behind() -> void:
 	var f := b.fighters[0]
 	var oni: Monster = b.fighters[1]
 	var riding := f.on_raised_ground() and oni.ridden
+	oni._rest = 100000  # bucking is tested separately
+	# Standing on its back, a blow passes over the shell; crouched, it lands.
 	var before := oni.health
 	_run(b, 20, _at({0: [5, "A"]}))
-	var struck := before - oni.health == roundi(_dmg(&"stand_light") * 0.5)
+	var standing_missed := oni.health == before
+	before = oni.health
+	_run(b, 20, _at({0: [2, "A"]}, 2))
+	var struck: bool = standing_missed and oni.health < before
 	# Walk off the back (away from the head, to the right) and land behind it,
 	# with the monster kept from acting (bucking is tested separately).
 	oni._rest = 100000
 	_run(b, 80, func(n: int) -> Array: return [6 if f.facing == 1 else 4, ""])
 	var behind := not f.airborne and f.position.y == 0.0 and f.position.x > oni.position.x
-	_check("riding it, striking the shell from above, and dropping off behind",
+	_check("riding it, striking the shell crouched (not standing), and dropping off behind",
 			riding and struck and behind,
 			"riding %s struck %s behind %s (x %.0f vs %.0f)" % [riding, struck, behind, f.position.x, oni.position.x])
 
@@ -2365,3 +2372,48 @@ func _test_walk_plants_the_feet() -> void:
 		slides.sort()
 		worst = maxf(worst, slides[int(slides.size() * 0.9)])
 	_check("walking in profile plants the feet: no sliding, forward or back", worst < 1.0, "planted foot slides %.1f px a frame" % worst)
+
+
+func _test_skirts_follow_the_legs() -> void:
+	const Registry := preload("res://game/art/puppets/registry.gd")
+	var bad: Array[String] = []
+	for id in [&"onmyoji", &"yuki_onna", &"rokurokubi"]:
+		var p: PuppetDefinition = Registry.for_id(id)
+		for context in ["stand", "crouch", "air"]:
+			var a := p.base_angles(context)
+			p.apply_follows(a)
+			var root := Vector2(0, PuppetDefinition.CROUCH_DROP if context == "crouch" else 0.0)
+			var placed := p.pose_transforms(a, root)
+			var t: Transform2D = placed["hem_lower"]
+			var bottom := -INF
+			for q in p.shape_of(p.find("hem_lower"), p.view):
+				bottom = maxf(bottom, (t * q).y)
+			if context != "air" and bottom > 1.0:
+				bad.append("%s %s through the floor (%.0f)" % [id, context, bottom])
+			# The forward knee stays under the skirt.
+			var knee: Vector2 = placed["lead_shin"].origin
+			var upper := p.shape_of(p.find("hem"), p.view)
+			var reach := -INF
+			for q in upper:
+				reach = maxf(reach, ((placed["hem"] as Transform2D) * q).x)
+			for q in p.shape_of(p.find("hem_lower"), p.view):
+				reach = maxf(reach, (t * q).x)
+			if knee.x > reach + 2.0:
+				bad.append("%s %s knee out (%.0f > %.0f)" % [id, context, knee.x, reach])
+	_check("skirts move with the legs: never through the floor, the forward knee kept under them", bad.is_empty(), "%s" % [bad])
+
+
+func _test_icicle_seen_over_ushi_oni() -> void:
+	var yuki := _r(&"yuki_onna")
+	var giant := Bout.versus_monster(yuki, [], Monster.new(Bestiary.by_id(&"ushi_oni"), 3))
+	giant.fighters[1].position.x = 300
+	var oni: Monster = giant.fighters[1]
+	oni._rest = 100000
+	var seen := [0]
+	var before := oni.health
+	_run(giant, 60, _at({0: [4, "C"]}, 4), null, func(z: Bout) -> void:
+		for e in z.entities:
+			if e.move.id == &"icicle_shard":
+				seen[0] += 1)
+	_check("the icicle over Ushi-oni is seen falling before it strikes", seen[0] >= 5 and oni.health < before,
+			"seen %d frames; giant %d -> %d" % [seen[0], before, oni.health])

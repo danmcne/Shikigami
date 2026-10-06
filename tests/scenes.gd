@@ -18,6 +18,8 @@ func scene(name: String, a: int, b: int, move: StringName, frames: int, distance
 		bout.fighters[0].perform(move)
 	for n in frames:
 		var i0 := Intent.from_numpad(6, bout.fighters[0].facing, "") if walk else Intent.new()
+		if hold > 0:
+			i0 = Intent.from_numpad(hold, bout.fighters[0].facing, "")
 		var intents: Array[Intent] = [i0, Intent.new()]
 		bout.step(intents)
 	main.queue_redraw()
@@ -31,16 +33,10 @@ func _init():
 	for i in 3: await process_frame
 	var ids: Array = main.roster.map(func(d): return d.id)
 	var at := func(id: StringName) -> int: return ids.find(id)
-	for k in [4, 9, 14, 19, 24, 29]:
-		await scene("walk_%02d" % k, at.call(&"musashi"), 0, &"", k + 20, 600.0, true)
-	await scene("kojiro_rest", at.call(&"kojiro"), 0, &"", 1)
-	await scene("seimei_rest", at.call(&"onmyoji"), 0, &"", 1)
-	await scene("yuki_rest", at.call(&"yuki_onna"), 0, &"", 1)
-	await scene("roku_rest", at.call(&"rokurokubi"), 0, &"", 1)
-	await scene("tengu_rest", at.call(&"tengu"), 0, &"", 1)
-	await scene("kappa_rest", at.call(&"kappa"), 0, &"", 1)
-	await scene("roku_neck", at.call(&"rokurokubi"), 0, &"long_neck", 30, 500.0)
-	await scene("tanuki_drum_hit", at.call(&"tanuki"), 0, &"belly_drum", 16, 160.0)
-	for k in [14, 30, 48]:
-		await scene("drink_%02d" % k, at.call(&"shuten"), 0, &"sake", k, 500.0)
+	await scene("roku_neck_up", at.call(&"rokurokubi"), 0, &"long_neck", 24, 500.0)
+	await scene("roku_neck_down", at.call(&"rokurokubi"), 0, &"long_neck", 40, 500.0)
+	await scene("seimei_crouch", at.call(&"onmyoji"), 0, &"", 10, 500.0, false, 2)
+	await scene("yuki_jump", at.call(&"yuki_onna"), 0, &"", 14, 500.0, false, 8)
+	await scene("kojiro_side", at.call(&"kojiro"), 0, &"", 1)
+	await scene("kojiro_lunge", at.call(&"kojiro"), 0, &"drying_pole", 12, 360.0)
 	quit()

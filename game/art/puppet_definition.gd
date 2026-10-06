@@ -57,6 +57,9 @@ class Part:
 	var side := ""
 	## Hangs straight down whatever its parent does (a lantern on its stick).
 	var hangs := false
+	## Cloth that reaches the floor rests on it: drawn compressed about its
+	## joint rather than through the floor.
+	var rests_on_floor := false
 
 	func _init(part_name: String, parent_name: String, at: Variant, outline: Variant, colour_slot: String,
 			part_kind: int) -> void:
@@ -128,6 +131,11 @@ var gait := "stride"
 ## A puppet's own crouch and jump leg poses, over the shared ones.
 var crouch_pose: Dictionary = {}
 var air_pose: Dictionary = {}
+## Clothing that moves with the legs: part -> {joints, lead}. Its angle is
+## the forward-most of the joints' angles weighted by `lead` with the rest
+## (a skirt's upper piece swinging with the thighs, its lower piece bending
+## at the knee with the shins).
+var follows: Dictionary = {}
 
 const DEFAULTS := {
 	torso = 4.0, head = -2.0,
@@ -284,6 +292,16 @@ func resolve(a: Dictionary, pose: Dictionary, root := Vector2.ZERO) -> void:
 		a[part_name] = aims[part_name] - above
 
 
+## Swings clothing with the legs it covers.
+func apply_follows(a: Dictionary) -> void:
+	for part_name in follows:
+		var f: Dictionary = follows[part_name]
+		var values: Array = f.joints.map(func(j: String) -> float: return a.get(j, 0.0))
+		var lead: float = values.min() if f.get("forward_is_less", true) else values.max()
+		var mean: float = values.reduce(func(s: float, v: float) -> float: return s + v, 0.0) / values.size()
+		a[part_name] = lerpf(mean, lead, f.get("lead", 0.7)) * f.get("scale", 1.0)
+
+
 ## Keeps every elbow and knee within its limits.
 func limit(a: Dictionary) -> Dictionary:
 	for side in ["lead", "trail"]:
@@ -326,6 +344,7 @@ func swing_pose(swing: Dictionary, m: MoveDefinition, frame: int) -> Dictionary:
 		a[joint] = lerpf(a0.get(joint, a1[joint]), a1[joint], w)
 	limit(a)
 	apply_grips(a, root, keys[k][1].get("release", []))
+	apply_follows(a)
 	return {angles = a, root = root, root_rot = 0.0}
 
 
@@ -464,6 +483,14 @@ func _place(part: Part, angles: Dictionary, out: Dictionary, top: Transform2D) -
 	if part.hangs:
 		# Straight down, whatever holds it.
 		t = Transform2D(top.get_rotation(), t.origin)
+	if part.rests_on_floor:
+		var lowest := -INF
+		for q in shape_of(part, view):
+			lowest = maxf(lowest, (t * q).y)
+		var floor_y := 0.0
+		if lowest > floor_y and lowest > t.origin.y + 1.0:
+			var k := (floor_y - t.origin.y) / (lowest - t.origin.y)
+			t = Transform2D(Vector2(1, 0), Vector2(0, k), Vector2(0, t.origin.y * (1.0 - k))) * t
 	out[part.name] = t
 	return t
 
