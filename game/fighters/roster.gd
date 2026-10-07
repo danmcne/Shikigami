@@ -9,6 +9,8 @@ extends RefCounted
 ## throws, projectiles (including stationary traps and barriers), launches,
 ## teleports, counters, heals, armour, slow, and pulls (negative knockback).
 
+## The tallest any fighter crouches.
+const MAX_CROUCH := 115.0
 const PuppetsRegistry := preload("res://game/art/puppets/registry.gd")
 const PrototypeRect := preload("res://game/fighters/prototype_rect.gd")
 const H := MoveDefinition.Height
@@ -319,6 +321,12 @@ static func _scale_kit(d: FighterDefinition, p: Dictionary) -> void:
 	d.jump_velocity *= p.jump
 	d.stand_hurtbox = _scale(d.stand_hurtbox, p.size)
 	d.crouch_hurtbox = _scale(d.crouch_hurtbox, p.size)
+	# No one crouches taller than this: a big body folds lower. It keeps every
+	# crouch below the shortest standing fighter, so a high strike can catch
+	# anyone standing and miss anyone crouching (Gashadokuro's clap).
+	if -d.crouch_hurtbox.position.y > MAX_CROUCH:
+		d.crouch_hurtbox.position.y = -MAX_CROUCH
+		d.crouch_hurtbox.size.y = MAX_CROUCH
 	d.air_hurtbox = _scale(d.air_hurtbox, p.size)
 	d.pushbox = _scale(d.pushbox, p.size)
 	for m in d.moves.values() + [d.summon_move, d.finisher_move]:

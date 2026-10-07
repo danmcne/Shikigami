@@ -4,7 +4,7 @@ A 2D fighting game set in a fantasy Japan, in the lineage of Street Fighter and 
 
 The guiding principle: **the fighting is the game; the campaign exists to produce unusual fights.** There are no levels, stat sheets or grinding.
 
-This is version 15.2: sixteen humans and yokai and three giants. Musashi and Shuten-dōji are now cut-paper puppets against a painted shore, the first art test, and they strike with their actual weapons; the rest are still rectangles. History is in [CHANGELOG.md](CHANGELOG.md), and the first art and audio direction is in [docs/art_and_audio.md](docs/art_and_audio.md).
+This is version 15.3: sixteen humans and yokai and three giants. Musashi and Shuten-dōji are now cut-paper puppets against a painted shore, the first art test, and they strike with their actual weapons; the rest are still rectangles. History is in [CHANGELOG.md](CHANGELOG.md), and the first art and audio direction is in [docs/art_and_audio.md](docs/art_and_audio.md).
 
 ## Running
 
@@ -174,7 +174,7 @@ The giant skeleton looms behind the arena with no body to bump into.
 | Left / Right Slam, the hand on your side, an overhead | step out, or guard standing; then strike the open hand |
 | Skull Bite, at its centre | step out; then strike the skull, for double damage |
 | Left / Right Grab, a hand along the floor | be out of reach, or face it and guard; you are pushed unhurt beneath the skull and must clear the unguardable jaws. Caught, you are carried there and chewed |
-| High / Low Clap, both hands meeting beneath it; guarding one pushes you into the other | crouch under the high, jump the low |
+| High Clap, both hands meeting beneath it, from just above any crouch to well over a jump; guarding one pushes you into the other | crouch under it |
 | Bone Rain, three bones with narrow gaps (more often once a hand is broken) | stand in a gap, or guard standing |
 
 A broken hand takes its slam and grab with it, and ends the claps.
@@ -236,10 +236,19 @@ Every fighter now has a puppet:
 Ushi-oni is drawn in cut paper over its gameplay parts:
 
 - a plated, spined carapace;
-- six jointed spider legs, the near three before the body and the far three behind it;
+- eight jointed spider legs, the near four before the body and the far four behind it (with its front and back pairs broken, it walks on the middle four);
 - an ox head with sweeping horns and glowing eyes.
 
-It scuttles as it walks, and each attack has its own motion: the stab rears and strikes, the stomp lifts and slams, the charge goes low, the breath raises the head, the buck rears the body. Broken legs become stumps, and the head glows when exposed. Gashadokuro and Nue are still drawn as their parts.
+It scuttles as it walks, and each attack has its own motion: the stab rears and strikes, the stomp lifts and slams, the charge goes low, the breath raises the head, the buck rears the body. Broken legs become stumps, and the head glows when exposed.
+
+Gashadokuro is drawn in cut paper as a giant skeleton looming behind the arena:
+
+- **Body:** ribcage, spine and collarbones behind everything.
+- **Skull:** it hangs high with embers in its sockets, comes down to bite, drops its jaw for the jaws, and glows while it lies open.
+- **Arms:** they reach from its shoulders to its hands. The hands wait raised, come down over a slam's start-up, and lie open afterwards; a broken hand is a cracked stump.
+- **Out in the arena:** the grabbing and clapping hands are drawn as great bony hands sweeping across, with the arms reaching for them, and the bone rain tumbles.
+
+Nue is still drawn as its parts.
 
 Projectiles and effects have pictures:
 
@@ -364,7 +373,7 @@ godot --headless --path . --import          # once, to build the class cache
 godot --headless --path . --script res://tests/selftest.gd
 ```
 
-There are 136 checks. They cover:
+There are 137 checks. They cover:
 
 - **The rules:** guards, throws, combos, commands, timing.
 - **Every fighter's specials:** each one completes.

@@ -1,7 +1,8 @@
 extends RefCounted
 ## Ushi-oni in cut paper: an ox's head on a spider's body. The carapace is
-## built of lacquered plates with a spined ridge; six jointed legs carry it,
-## the near three before the body and the far three behind it, darker. It is
+## built of lacquered plates with a spined ridge; eight jointed legs carry it,
+## the near four before the body and the far four behind it, darker. With its
+## front and back pairs broken it still walks on the four in the middle. It is
 ## drawn over its gameplay parts (shell, legs, head), which stay the truth:
 ## a broken leg pair becomes stumps, and the head glows when exposed. Each
 ## attack has its own motion.
@@ -21,15 +22,17 @@ const INK := Color(0.08, 0.06, 0.06, 0.55)
 # and which gameplay part it belongs to.
 const LEGS := [
 	{at = Vector2(110, -100), knee = Vector2(165, -195), foot = Vector2(140, 0), part = "front legs", near = false},
-	{at = Vector2(10, -95), knee = Vector2(-20, -190), foot = Vector2(-30, 0), part = "", near = false},
+	{at = Vector2(40, -96), knee = Vector2(60, -192), foot = Vector2(48, 0), part = "", near = false},
+	{at = Vector2(-40, -96), knee = Vector2(-62, -190), foot = Vector2(-56, 0), part = "", near = false},
 	{at = Vector2(-110, -100), knee = Vector2(-150, -190), foot = Vector2(-130, 0), part = "back legs", near = false},
 	{at = Vector2(120, -100), knee = Vector2(195, -200), foot = Vector2(178, 0), part = "front legs", near = true},
-	{at = Vector2(15, -95), knee = Vector2(45, -195), foot = Vector2(62, 0), part = "", near = true},
+	{at = Vector2(50, -96), knee = Vector2(90, -198), foot = Vector2(96, 0), part = "", near = true},
+	{at = Vector2(-30, -96), knee = Vector2(-58, -198), foot = Vector2(-80, 0), part = "", near = true},
 	{at = Vector2(-115, -100), knee = Vector2(-180, -200), foot = Vector2(-168, 0), part = "back legs", near = true},
 ]
 
 
-static func draw(ci: CanvasItem, m: Monster, base: Transform2D, tint: Color) -> void:
+static func draw(ci: CanvasItem, m: Monster, base: Transform2D, tint: Color, _bout: Bout = null) -> void:
 	var pose := _pose(m)
 	var local := base * Transform2D(0.0, Vector2(m.facing, 1), 0.0, m.position)
 	var body := local * Transform2D(deg_to_rad(pose.tilt), Vector2(0, pose.drop))

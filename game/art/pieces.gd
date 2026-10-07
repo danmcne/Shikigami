@@ -8,7 +8,8 @@ const INK := Color(0.08, 0.06, 0.06, 0.6)
 const PuppetsRegistry := preload("res://game/art/puppets/registry.gd")
 
 const DRAWN := [&"shuriken_star", &"paper_bird", &"water", &"water_wave", &"icicle_shard", &"web_strand",
-		&"thrown_lantern", &"lantern_fire", &"flying_head", &"poison_cloud"]
+		&"thrown_lantern", &"lantern_fire", &"flying_head", &"poison_cloud", &"grasping_hand", &"clapping_hand", &"falling_bone"]
+const GashaArt := preload("res://game/art/giants/gashadokuro_art.gd")
 
 
 static func has_art(id: StringName) -> bool:
@@ -77,6 +78,15 @@ static func draw(ci: CanvasItem, bout: Bout, e: Entity, base: Transform2D, colou
 				var h := 34.0 + sin(f * 0.4 + k * 1.7) * 10.0
 				_cut(ci, PackedVector2Array([Vector2(x - 12, 0), Vector2(x - 4, -h * 0.6), Vector2(x, -h), Vector2(x + 5, -h * 0.5), Vector2(x + 12, 0)]), Color("e2572b", 0.9), false)
 				_cut(ci, PackedVector2Array([Vector2(x - 6, 0), Vector2(x, -h * 0.55), Vector2(x + 6, 0)]), Color("f6c24a", 0.95), false)
+		&"grasping_hand":
+			# A skeletal hand sweeping along the floor, fingers leading.
+			GashaArt.hand_shape(ci, Vector2(-30, -40), Vector2(1, 0), 0.9, GashaArt.BONE)
+		&"clapping_hand":
+			# Upright, palm forward, sweeping in at head height and above.
+			GashaArt.hand_shape(ci, Vector2(-30, -250), Vector2(1, -0.15), 1.4, GashaArt.BONE)
+		&"falling_bone":
+			ci.draw_set_transform_matrix(t * Transform2D(f * 0.15, Vector2(0, -20)))
+			GashaArt._bone(ci, Vector2(-34, 0), Vector2(34, 0), 12.0, GashaArt.BONE)
 		&"poison_cloud":
 			# A drifting cloud of poison, puffs swelling and thinning.
 			for k in 5:

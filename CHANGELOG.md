@@ -2,6 +2,18 @@
 
 Newest first. The README describes the current version only.
 
+## 15.3
+
+- **Gashadokuro in cut paper:**
+  - ribcage, spine and collarbones looming behind the arena;
+  - a skull with embered sockets that descends to bite, drops its jaw for the jaws, and glows when open;
+  - arms reaching from its shoulders to hands that wait raised, slam down, lie open, or break to stumps;
+  - pictures for the grabbing and clapping hands (the arms reach for them) and the falling bones.
+- **One clap, high.** The low clap is gone. The high clap runs from just above any crouch to well over a jump, 118 to 400 units up, so it catches anyone standing and passes over anyone crouching.
+- **Crouch height cap.** No fighter crouches taller than 115 units. Kawatarō, the shortest standing (128), was shorter than Shuten-dōji crouching (130), so no clap could have done both. The cap lowers only Shuten-dōji's crouch (130 to 115) and Benkei's (about 125 to 115), a small advantage to both.
+- **Ushi-oni** has eight legs; with its front and back pairs broken it walks on the middle four.
+- **Tests:** the clap against every fighter standing and crouching; the new pieces have pictures.
+
 ## 15.2
 
 - **Ushi-oni in cut paper,** the first giant drawn:

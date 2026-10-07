@@ -154,6 +154,7 @@ func _init() -> void:
 	_test_walk_plants_the_feet()
 	_test_skirts_follow_the_legs()
 	_test_icicle_seen_over_ushi_oni()
+	_test_clap_catches_anyone_standing_and_no_one_crouching()
 	print("CPU, run, calibration")
 	_test_cpu_enters_motions()
 	_test_cpu_attacks()
@@ -1622,8 +1623,8 @@ func _test_gashadokuro_grab_guarded_and_escaped() -> void:
 
 
 func _test_gashadokuro_clap_into_the_other_hand() -> void:
-	var guarded := _gasha_scene(&"low_clap", -300, -1)  # facing the left hand, guarding low
-	_run(guarded, 140, _at({}, 2, "G"))
+	var guarded := _gasha_scene(&"high_clap", -300, -1)  # facing the left hand, guarding standing
+	_run(guarded, 140, _at({}, 5, "G"))
 	var crouched := _gasha_scene(&"high_clap", -300, -1)
 	_run(crouched, 140, _at({}, 2, ""))
 	_check("guarding one clapping hand pushes you into the other, which strikes your back; crouch under the high clap",
@@ -2285,7 +2286,7 @@ func _test_icicle_falls_over_the_opponent() -> void:
 func _test_pieces_have_pictures() -> void:
 	var missing: Array[String] = []
 	for id in [&"shuriken_star", &"paper_bird", &"water", &"water_wave", &"icicle_shard", &"web_strand",
-			&"thrown_lantern", &"lantern_fire", &"flying_head"]:
+			&"thrown_lantern", &"lantern_fire", &"flying_head", &"poison_cloud", &"grasping_hand", &"clapping_hand", &"falling_bone"]:
 		if not Pieces.has_art(id):
 			missing.append(String(id))
 	_check("projectiles, traps and the flying head have pictures", missing.is_empty(), "%s" % [missing])
@@ -2417,3 +2418,21 @@ func _test_icicle_seen_over_ushi_oni() -> void:
 				seen[0] += 1)
 	_check("the icicle over Ushi-oni is seen falling before it strikes", seen[0] >= 5 and oni.health < before,
 			"seen %d frames; giant %d -> %d" % [seen[0], before, oni.health])
+
+
+
+func _test_clap_catches_anyone_standing_and_no_one_crouching() -> void:
+	var clap: Rect2 = Bestiary.by_id(&"gashadokuro").attacks.filter(
+			func(a: MonsterDefinition.Attack) -> bool: return a.move.id == &"high_clap")[0].move.spawn.hitboxes[0]
+	var low_gone := Bestiary.by_id(&"gashadokuro").attacks.all(
+			func(a: MonsterDefinition.Attack) -> bool: return a.move.id != &"low_clap")
+	var bad: Array[String] = []
+	for d in Roster.all():
+		var standing_top := d.stand_hurtbox.position.y
+		var crouching_top := d.crouch_hurtbox.position.y
+		if not clap.end.y > standing_top:
+			bad.append("%s standing is missed" % d.display_name)
+		if clap.end.y > crouching_top:
+			bad.append("%s crouching is hit" % d.display_name)
+	_check("the single high clap catches every fighter standing and passes over every fighter crouching",
+			bad.is_empty() and low_gone, "%s" % [bad])

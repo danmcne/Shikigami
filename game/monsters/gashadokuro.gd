@@ -105,14 +105,16 @@ static func definition() -> MonsterDefinition:
 		grab.follow_up = mouth
 		attacks.append(grab)
 
-	for clap in [["high_clap", Rect2(-50, -175, 100, 70), H.HIGH], ["low_clap", Rect2(-50, -55, 100, 55), H.LOW]]:
+	# One clap, high: from just above the tallest crouch (115) to well over a
+	# jump, so it catches anyone standing and anyone crouching passes under it.
+	for clap in [["high_clap", Rect2(-50, -400, 100, 282), H.HIGH]]:
 		var a := MonsterDefinition.Attack.new()
 		a.move = _move({id = StringName(clap[0]), startup = 36, active = 2, recovery = 40,
 			spawn_offsets = [Vector2(-REACH, 0), Vector2(REACH, 0)],
 			spawn = _move({id = &"clapping_hand", startup = 0, active = 90, recovery = 0, motion = Vector2(10, 0),
 				converges = true, pushes_on_guard = true, damage = 70, knockdown = 40, knockback = 6.0,
 				blockstun = 12, hitstop = 10, height = clap[2], hitboxes = [clap[1]]})})
-		a.weight = 1.5
+		a.weight = 2.0
 		a.requires = ["left hand", "right hand"]
 		attacks.append(a)
 

@@ -7,7 +7,7 @@ var main
 func snap(name: String) -> void:
 	main.queue_redraw()
 	for k in 2: await process_frame
-	root.get_viewport().get_texture().get_image().get_region(Rect2i(0, 200, 1280, 480)).save_png("/tmp/giant_%s.png" % name)
+	root.get_viewport().get_texture().get_image().get_region(Rect2i(0, 0, 1280, 720)).save_png("/tmp/giant_%s.png" % name)
 
 func at(m: Monster, id: StringName, t: float) -> void:
 	for a in m.monster.attacks:
@@ -32,16 +32,44 @@ func _init():
 	b.fighters[0].position = Vector2(-230, 0)
 	var m: Monster = b.fighters[1]
 	m.position.x = 120
-	m.facing = -1
+	if m.monster.turns:
+		m.facing = -1
 	await snap("rest")
-	for pair in [[&"leg_stab", 0.6], [&"leg_stab", 1.5], [&"stomp", 0.8], [&"stomp", 1.5], [&"charge", 1.3], [&"poison_breath", 1.2], [&"buck", 1.5]]:
+	var plan: Dictionary = {
+		"ushi_oni": [[&"leg_stab", 0.6], [&"leg_stab", 1.5], [&"stomp", 0.8], [&"stomp", 1.5], [&"charge", 1.3], [&"poison_breath", 1.2], [&"buck", 1.5]],
+		"gashadokuro": [[&"left_slam", 0.6], [&"left_slam", 1.5], [&"skull_bite", 0.6], [&"skull_bite", 1.5]],
+	}
+	for pair in plan.get(giant, []):
 		at(m, pair[0], pair[1])
 		await snap("%s_%s" % [pair[0], pair[1]])
-	m.state = Fighter.State.STAND
-	m.move = null
-	m.part_health[1] = 0
-	await snap("broken")
-	m.part_health[1] = 350
-	at(m, &"charge", 2.5)
-	await snap("exposed")
+	# Attacks whose pieces must be seen in flight: run the bout forward.
+	var stepped: Dictionary = {"gashadokuro": [[&"left_grab", 46], [&"high_clap", 48], [&"bone_rain", 44]]}
+	for pair in stepped.get(giant, []):
+		b.entities.clear()
+		at(m, pair[0], 0.0)
+		m._rest = 100000
+		b.fighters[0].invincible = true
+		for n in pair[1]:
+			var intents: Array[Intent] = [Intent.new(), Intent.new()]
+			b.step(intents)
+			if m.state != Fighter.State.MOVE and n < pair[1] - 1:
+				break
+		await snap("%s_flight" % pair[0])
+		m.state = Fighter.State.STAND
+		m.move = null
+	if giant == "ushi_oni":
+		m.state = Fighter.State.STAND
+		m.move = null
+		m.part_health[1] = 0
+		m.part_health[2] = 0
+		await snap("broken")
+		m.part_health[1] = 350
+		m.part_health[2] = 350
+		at(m, &"charge", 2.5)
+		await snap("exposed")
+	if giant == "gashadokuro":
+		m.state = Fighter.State.STAND
+		m.move = null
+		m.part_health[1] = 0
+		await snap("broken")
 	quit()

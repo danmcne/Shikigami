@@ -33,7 +33,7 @@ static func draw(ci: CanvasItem, bout: Bout, names: Array[String], show_boxes: b
 	for i in 2:
 		var f := bout.fighters[i]
 		if f is Monster:
-			_monster(ci, f, show_boxes, base)
+			_monster(ci, f, show_boxes, base, bout)
 		elif Puppet.has_puppet(f):
 			Puppet.draw(ci, f, base, colourways[i])
 			Pieces.draw_effect(ci, f, base)
@@ -102,10 +102,11 @@ static func lines(ci: CanvasItem, at: Vector2, rows: Array, width: float,
 ## A monster: each part drawn by its state (shell, legs, a weak point open or
 ## closed, broken parts greyed), its attacks' start-up shown in red as a
 ## warning of where they will land.
-const GIANT_ART := {&"ushi_oni": preload("res://game/art/giants/ushi_oni_art.gd")}
+const GIANT_ART := {&"ushi_oni": preload("res://game/art/giants/ushi_oni_art.gd"),
+		&"gashadokuro": preload("res://game/art/giants/gashadokuro_art.gd")}
 
 
-static func _monster(ci: CanvasItem, m: Monster, show_boxes: bool, base := Transform2D()) -> void:
+static func _monster(ci: CanvasItem, m: Monster, show_boxes: bool, base := Transform2D(), bout: Bout = null) -> void:
 	var art: GDScript = GIANT_ART.get(m.definition.id)
 	var font := ThemeDB.fallback_font
 	var tint := Color(1, 1, 1, 1)
@@ -117,11 +118,12 @@ static func _monster(ci: CanvasItem, m: Monster, show_boxes: bool, base := Trans
 		# Something flying casts a shadow on the floor beneath it.
 		var under := m.to_world(m.definition.pushbox)
 		ci.draw_rect(Rect2(under.position.x + 20, -6, under.size.x - 40, 6), Color(0, 0, 0, 0.4))
-	for shape in m.monster.backdrop:
-		ci.draw_rect(m.to_world(shape), Color(0.85, 0.82, 0.7, 0.12) * tint)
+	if not art:
+		for shape in m.monster.backdrop:
+			ci.draw_rect(m.to_world(shape), Color(0.85, 0.82, 0.7, 0.12) * tint)
 	if art:
 		# Drawn in cut paper over its gameplay parts; their health still shows.
-		art.draw(ci, m, base, tint)
+		art.draw(ci, m, base, tint, bout)
 		for k in m.monster.parts.size():
 			var part: MonsterDefinition.Part = m.monster.parts[k]
 			if part.health > 0 and m.part_health[k] > 0:
