@@ -2,6 +2,17 @@
 
 Newest first. The README describes the current version only.
 
+## 15.4
+
+- **Gashadokuro:**
+  - **Errors fixed.** Its ribs were polygons that crossed themselves, so they could not be filled (showing as outlines) and raised about a thousand errors a second. They are now chains of filled bone. Every cut-paper fill now falls back to the shape's hull, so no shape can flood the debugger again.
+  - **Duplicate hands fixed.** A sweeping hand outlived its attack, and the arm used to return to rest with a second hand. Each arm now follows its hand for as long as that hand is out.
+  - **Anatomy:** shoulders below the skull, collarbones from the neck, the spine running up through the ribcage, hands resting just below the shoulders.
+  - **Details:** thumbs turned inward; the nose cavity apex up.
+- **Layers.** Giants are drawn in two layers: body, skull and resting hands behind the fighters, striking hands in front of them. Gashadokuro's spine no longer covers player 1.
+- **Names.** Giants' names and notices are no longer clipped to their body width ("Gashadok").
+- **Skirts** are built each frame around the legs, so the trailing leg is covered and no gap opens at the leading edge when crouching or jumping. The two-piece skirt is gone.
+
 ## 15.3
 
 - **Gashadokuro in cut paper:**

@@ -60,6 +60,10 @@ class Part:
 	## Cloth that reaches the floor rests on it: drawn compressed about its
 	## joint rather than through the floor.
 	var rests_on_floor := false
+	## A skirt built each frame around the legs: "ankle" (covering them to
+	## just above the feet) or "knee". Its outline wraps the waist and both
+	## legs' knees (and ankles), padded outward, whatever the legs do.
+	var wraps := ""
 
 	func _init(part_name: String, parent_name: String, at: Variant, outline: Variant, colour_slot: String,
 			part_kind: int) -> void:
@@ -246,6 +250,33 @@ func shape_of(part: Part, v: int) -> PackedVector2Array:
 		if part.shapes.has(key):
 			return part.shapes[key]
 	return part.shapes.values()[0]
+
+
+## The outline drawn for a part in its pose: a skirt's built around the
+## legs, anything else its shape. In the part's own space.
+func outline_of(part: Part, transforms: Dictionary) -> PackedVector2Array:
+	if part.wraps == "":
+		return shape_of(part, view)
+	var waist: Transform2D = transforms["hips"]
+	var pad := 9.0
+	var points := PackedVector2Array([waist * Vector2(-19, -4), waist * Vector2(19, -4)])
+	for side in ["lead", "trail"]:
+		var knee: Vector2 = transforms[side + "_shin"].origin
+		points.append(knee + Vector2(pad, 0))
+		points.append(knee + Vector2(-pad, 0))
+		if part.wraps == "ankle":
+			var ankle: Vector2 = transforms[side + "_foot"].origin
+			points.append(ankle + Vector2(pad * 1.6, -3))
+			points.append(ankle + Vector2(-pad * 1.6, -3))
+		else:
+			points.append(knee + Vector2(pad, 10))
+			points.append(knee + Vector2(-pad, 10))
+	var hull := Geometry2D.convex_hull(points)
+	hull.resize(hull.size() - 1)
+	var inverse := (transforms[part.name] as Transform2D).affine_inverse()
+	for k in hull.size():
+		hull[k] = inverse * hull[k]
+	return hull
 
 
 ## Where a part joins its parent in a view.

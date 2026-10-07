@@ -32,6 +32,15 @@ const LEGS := [
 ]
 
 
+## Behind the fighters: all of it (a fighter can stand before it or on it).
+static func draw_back(ci: CanvasItem, m: Monster, base: Transform2D, tint: Color, bout: Bout = null) -> void:
+	draw(ci, m, base, tint, bout)
+
+
+static func draw_front(_ci: CanvasItem, _m: Monster, _base: Transform2D, _tint: Color, _bout: Bout = null) -> void:
+	pass
+
+
 static func draw(ci: CanvasItem, m: Monster, base: Transform2D, tint: Color, _bout: Bout = null) -> void:
 	var pose := _pose(m)
 	var local := base * Transform2D(0.0, Vector2(m.facing, 1), 0.0, m.position)
@@ -169,6 +178,8 @@ static func _limb(ci: CanvasItem, a: Vector2, b: Vector2, wa: float, wb: float, 
 
 
 static func _cut(ci: CanvasItem, shape: PackedVector2Array, c: Color) -> void:
+	if Geometry2D.triangulate_polygon(shape).is_empty():
+		shape = Geometry2D.convex_hull(shape)
 	ci.draw_colored_polygon(shape, c)
 	var loop := shape.duplicate()
 	loop.append(shape[0])

@@ -4,7 +4,7 @@ A 2D fighting game set in a fantasy Japan, in the lineage of Street Fighter and 
 
 The guiding principle: **the fighting is the game; the campaign exists to produce unusual fights.** There are no levels, stat sheets or grinding.
 
-This is version 15.3: sixteen humans and yokai and three giants. Musashi and Shuten-dōji are now cut-paper puppets against a painted shore, the first art test, and they strike with their actual weapons; the rest are still rectangles. History is in [CHANGELOG.md](CHANGELOG.md), and the first art and audio direction is in [docs/art_and_audio.md](docs/art_and_audio.md).
+This is version 15.4: sixteen humans and yokai and three giants. Musashi and Shuten-dōji are now cut-paper puppets against a painted shore, the first art test, and they strike with their actual weapons; the rest are still rectangles. History is in [CHANGELOG.md](CHANGELOG.md), and the first art and audio direction is in [docs/art_and_audio.md](docs/art_and_audio.md).
 
 ## Running
 
@@ -216,7 +216,8 @@ Musashi and Shuten-dōji are drawn as cut-paper puppets on a shared humanoid rig
 - **Two-handed weapons.** The second hand grips the weapon and slides along a long grip, the rig's one flexible joint. A key pose can release it, as in Kojirō's lunge.
 - **Guards and swings** can name where a hand goes and where a weapon points, as a fencer would describe a guard.
 - **Hanging parts,** such as a lantern on its stick, stay upright whatever holds them.
-- **Skirts move with the legs.** The upper piece swings with the thighs and the lower bends at its knee with the shins. Where a skirt would reach below the floor, it rests on it.
+- **Skirts are built around the legs.** Each frame a robe's outline wraps the waist and both knees and ankles, padded outward. Whatever the legs do (stride, crouch, leap, and later kneel), it covers both of them to just above the feet.
+- **Fills never fail.** A shape that crosses itself is filled by its outer hull rather than leaving an error.
 - **Walking.** In profile, fighters break into a real stride after the first steps, and it plants its feet. Each planted foot sweeps back exactly as fast as the body travels while the other leg swings forward with its knee lifted, and the hips ride at the height the planted leg allows. In the diagonal view, and on the Jorōgumo's spider legs, they shuffle.
 - **Light attacks** are thrown with the free hand; others with the weapon.
 - **Props** can appear and disappear at a chosen moment within a move. The oni's gourd stays at his hip until his hand reaches it, and goes back afterwards. Hiding a part hides what's attached to it, so Rokurokubi's head and hair are gone while her head flies.
@@ -243,10 +244,12 @@ It scuttles as it walks, and each attack has its own motion: the stab rears and 
 
 Gashadokuro is drawn in cut paper as a giant skeleton looming behind the arena:
 
-- **Body:** ribcage, spine and collarbones behind everything.
+- **Body:** skull high in the frame; below it the neck, collarbones out to the shoulders, a filled ribcage, and the spine running down through it to the ground, all behind the fighters.
 - **Skull:** it hangs high with embers in its sockets, comes down to bite, drops its jaw for the jaws, and glows while it lies open.
-- **Arms:** they reach from its shoulders to its hands. The hands wait raised, come down over a slam's start-up, and lie open afterwards; a broken hand is a cracked stump.
-- **Out in the arena:** the grabbing and clapping hands are drawn as great bony hands sweeping across, with the arms reaching for them, and the bone rain tumbles.
+- **Arms:** they reach from its shoulders to its hands, thumbs turned in. The hands wait raised, come down over a slam's start-up in front of the fighters, and lie open afterwards; a broken hand is a cracked stump.
+- **Out in the arena:** the grabbing and clapping hands are great bony hands sweeping across in front of the fighters. Each arm reaches for its hand for as long as that hand is out. The bone rain tumbles.
+
+Giants are drawn in two layers: their body behind the fighters, their striking hands in front.
 
 Nue is still drawn as its parts.
 

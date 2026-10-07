@@ -30,6 +30,10 @@ static func draw(ci: CanvasItem, bout: Bout, names: Array[String], show_boxes: b
 			x += spacing
 	else:
 		ci.draw_set_transform(ORIGIN)
+	# A giant's back layer goes behind the fighters.
+	for f in bout.fighters:
+		if f is Monster and GIANT_ART.has(f.definition.id):
+			GIANT_ART[f.definition.id].draw_back(ci, f, base, _giant_tint(f), bout)
 	for i in 2:
 		var f := bout.fighters[i]
 		if f is Monster:
@@ -45,6 +49,10 @@ static func draw(ci: CanvasItem, bout: Bout, names: Array[String], show_boxes: b
 			Puppet.draw(ci, s, base, colourways[s.summoner], 0.45)
 		else:
 			_fighter(ci, s, Color(COLORS[s.summoner].lightened(0.5), 0.4), show_boxes)
+	# A giant's front layer (a hand coming down) goes over the fighters.
+	for f in bout.fighters:
+		if f is Monster and GIANT_ART.has(f.definition.id):
+			GIANT_ART[f.definition.id].draw_front(ci, f, base, _giant_tint(f), bout)
 	for e in bout.entities:
 		# A tethered piece is joined to its performer: a neck from the shoulders,
 		# in the performer's skin.
@@ -106,6 +114,14 @@ const GIANT_ART := {&"ushi_oni": preload("res://game/art/giants/ushi_oni_art.gd"
 		&"gashadokuro": preload("res://game/art/giants/gashadokuro_art.gd")}
 
 
+static func _giant_tint(m: Monster) -> Color:
+	if m.state == Fighter.State.HITSTUN:
+		return Color(1.4, 1.4, 1.4)
+	if m.state == Fighter.State.KO:
+		return Color(0.4, 0.4, 0.4)
+	return Color(1, 1, 1, 1)
+
+
 static func _monster(ci: CanvasItem, m: Monster, show_boxes: bool, base := Transform2D(), bout: Bout = null) -> void:
 	var art: GDScript = GIANT_ART.get(m.definition.id)
 	var font := ThemeDB.fallback_font
@@ -122,8 +138,8 @@ static func _monster(ci: CanvasItem, m: Monster, show_boxes: bool, base := Trans
 		for shape in m.monster.backdrop:
 			ci.draw_rect(m.to_world(shape), Color(0.85, 0.82, 0.7, 0.12) * tint)
 	if art:
-		# Drawn in cut paper over its gameplay parts; their health still shows.
-		art.draw(ci, m, base, tint, bout)
+		# Its cut paper is drawn in layers around the fighters (see draw); here
+		# only the health of its breakable parts.
 		for k in m.monster.parts.size():
 			var part: MonsterDefinition.Part = m.monster.parts[k]
 			if part.health > 0 and m.part_health[k] > 0:
@@ -171,12 +187,14 @@ static func _monster(ci: CanvasItem, m: Monster, show_boxes: bool, base := Trans
 		var pulse := 0.5 + 0.4 * sin(m.state_frame * 0.2)
 		ci.draw_rect(core, Color(0.7, 0.9, 1.0, 0.35 + 0.3 * pulse))
 		ci.draw_rect(core, Color(0.8, 1.0, 1.0, 0.9), false, 3.0)
+	# Its name and notices, centred over it, never clipped to a narrow body.
 	var top := m.to_world(m.definition.stand_hurtbox)
-	ci.draw_string(font, Vector2(top.position.x, top.position.y - 26), m.definition.display_name,
-			HORIZONTAL_ALIGNMENT_CENTER, top.size.x, 16, Color(1, 1, 1, 0.8))
+	var label := Rect2(top.get_center().x - 200, top.position.y, 400, 0)
+	ci.draw_string(font, Vector2(label.position.x, label.position.y - 26), m.definition.display_name,
+			HORIZONTAL_ALIGNMENT_CENTER, label.size.x, 16, Color(1, 1, 1, 0.8))
 	if m.notice_frames > 0:
-		ci.draw_string(font, Vector2(top.position.x, top.position.y - 48), m.notice,
-				HORIZONTAL_ALIGNMENT_CENTER, top.size.x, 20, Color(1.0, 0.95, 0.5))
+		ci.draw_string(font, Vector2(label.position.x, label.position.y - 48), m.notice,
+				HORIZONTAL_ALIGNMENT_CENTER, label.size.x, 20, Color(1.0, 0.95, 0.5))
 	if show_boxes:
 		for box in m.hurtboxes():
 			ci.draw_rect(box, Color.CYAN, false, 1.0)

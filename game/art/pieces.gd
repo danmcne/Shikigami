@@ -80,10 +80,10 @@ static func draw(ci: CanvasItem, bout: Bout, e: Entity, base: Transform2D, colou
 				_cut(ci, PackedVector2Array([Vector2(x - 6, 0), Vector2(x, -h * 0.55), Vector2(x + 6, 0)]), Color("f6c24a", 0.95), false)
 		&"grasping_hand":
 			# A skeletal hand sweeping along the floor, fingers leading.
-			GashaArt.hand_shape(ci, Vector2(-30, -40), Vector2(1, 0), 0.9, GashaArt.BONE)
+			GashaArt.hand_shape(ci, Vector2(-30, -40), Vector2(1, 0), 0.9, GashaArt.BONE, 1.0)
 		&"clapping_hand":
 			# Upright, palm forward, sweeping in at head height and above.
-			GashaArt.hand_shape(ci, Vector2(-30, -250), Vector2(1, -0.15), 1.4, GashaArt.BONE)
+			GashaArt.hand_shape(ci, Vector2(-30, -250), Vector2(1, -0.15), 1.4, GashaArt.BONE, 1.0)
 		&"falling_bone":
 			ci.draw_set_transform_matrix(t * Transform2D(f * 0.15, Vector2(0, -20)))
 			GashaArt._bone(ci, Vector2(-34, 0), Vector2(34, 0), 12.0, GashaArt.BONE)
@@ -135,6 +135,8 @@ static func _lantern(ci: CanvasItem) -> void:
 
 
 static func _cut(ci: CanvasItem, shape: PackedVector2Array, c: Color, outline := true) -> void:
+	if Geometry2D.triangulate_polygon(shape).is_empty():
+		shape = Geometry2D.convex_hull(shape)
 	ci.draw_colored_polygon(shape, c)
 	if outline:
 		var loop := shape.duplicate()

@@ -43,7 +43,7 @@ func _init():
 		at(m, pair[0], pair[1])
 		await snap("%s_%s" % [pair[0], pair[1]])
 	# Attacks whose pieces must be seen in flight: run the bout forward.
-	var stepped: Dictionary = {"gashadokuro": [[&"left_grab", 46], [&"high_clap", 48], [&"bone_rain", 44]]}
+	var stepped: Dictionary = {"gashadokuro": [[&"left_grab", 46], [&"left_grab", 92], [&"high_clap", 48], [&"bone_rain", 44]]}
 	for pair in stepped.get(giant, []):
 		b.entities.clear()
 		at(m, pair[0], 0.0)
@@ -52,9 +52,8 @@ func _init():
 		for n in pair[1]:
 			var intents: Array[Intent] = [Intent.new(), Intent.new()]
 			b.step(intents)
-			if m.state != Fighter.State.MOVE and n < pair[1] - 1:
-				break
-		await snap("%s_flight" % pair[0])
+			# Keep stepping after the attack ends: its pieces may still be out.
+		await snap("%s_flight_%d" % [pair[0], pair[1]])
 		m.state = Fighter.State.STAND
 		m.move = null
 	if giant == "ushi_oni":

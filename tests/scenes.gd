@@ -33,10 +33,8 @@ func _init():
 	for i in 3: await process_frame
 	var ids: Array = main.roster.map(func(d): return d.id)
 	var at := func(id: StringName) -> int: return ids.find(id)
-	await scene("roku_neck_up", at.call(&"rokurokubi"), 0, &"long_neck", 24, 500.0)
-	await scene("roku_neck_down", at.call(&"rokurokubi"), 0, &"long_neck", 40, 500.0)
 	await scene("seimei_crouch", at.call(&"onmyoji"), 0, &"", 10, 500.0, false, 2)
 	await scene("yuki_jump", at.call(&"yuki_onna"), 0, &"", 14, 500.0, false, 8)
-	await scene("kojiro_side", at.call(&"kojiro"), 0, &"", 1)
-	await scene("kojiro_lunge", at.call(&"kojiro"), 0, &"drying_pole", 12, 360.0)
+	await scene("roku_stride", at.call(&"rokurokubi"), 0, &"", 40, 600.0, true)
+	await scene("yuki_stride", at.call(&"yuki_onna"), 0, &"", 47, 600.0, true)
 	quit()

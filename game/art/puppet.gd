@@ -42,7 +42,7 @@ static func draw(ci: CanvasItem, f: Fighter, base: Transform2D, colourway: int, 
 		var c: Color = colours.get(part.slot, Color.MAGENTA)
 		c = c.darkened(p.shade_of(part, p.view))
 		c = Color(c.r * dim, c.g * dim, c.b * dim, c.a * alpha)
-		var outline := p.shape_of(part, p.view)
+		var outline := p.outline_of(part, transforms)
 		_cut(ci, t, outline, c, alpha)
 		if part.name == "head":
 			for feature in (p.face_kumoru if kumoru else p.face_teru):
@@ -98,6 +98,9 @@ static func _cut(ci: CanvasItem, t: Transform2D, shape: PackedVector2Array, c: C
 		outline := true) -> void:
 	ci.draw_set_transform_matrix(t)
 	if shape.size() >= 3:
+		# A shape that crosses itself cannot be filled: fill its hull instead.
+		if Geometry2D.triangulate_polygon(shape).is_empty():
+			shape = Geometry2D.convex_hull(shape)
 		ci.draw_colored_polygon(shape, c)
 		if outline:
 			var loop := shape.duplicate()

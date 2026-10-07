@@ -2319,13 +2319,13 @@ func _test_side_view_guards() -> void:
 				var hand: String = side + "_hand" if p.find(side + "_hand") else side + "_fore"
 				if placed[hand].origin.x < back:
 					behind.append("%s %s" % [d.id, side])
-		var lower := p.find("hem_lower")
-		if lower:
-			var t: Transform2D = placed["hem_lower"]
+		var robe := p.find("hem")
+		if robe and robe.wraps == "ankle":
+			var t: Transform2D = placed["hem"]
 			var bottom := -INF
-			for q in p.shape_of(lower, p.view):
+			for q in p.outline_of(robe, placed):
 				bottom = maxf(bottom, (t * q).y)
-			if bottom > -2.0 or bottom < -16.0:
+			if bottom > -1.0 or bottom < -16.0:
 				robes.append("%s hem at %.0f" % [d.id, bottom])
 	_check("in profile no arm rests behind the body; robes cover the legs but not the feet",
 			behind.is_empty() and robes.is_empty(), "behind %s, robes %s" % [behind, robes])
@@ -2376,32 +2376,43 @@ func _test_walk_plants_the_feet() -> void:
 
 
 func _test_skirts_follow_the_legs() -> void:
+	# A robe is built around the legs: whatever they do (standing, crouching,
+	# leaping, mid-stride) both knees and ankles are inside it, its hem stays
+	# above the floor, and the feet show below it.
 	const Registry := preload("res://game/art/puppets/registry.gd")
 	var bad: Array[String] = []
 	for id in [&"onmyoji", &"yuki_onna", &"rokurokubi"]:
 		var p: PuppetDefinition = Registry.for_id(id)
-		for context in ["stand", "crouch", "air"]:
-			var a := p.base_angles(context)
-			p.apply_follows(a)
-			var root := Vector2(0, PuppetDefinition.CROUCH_DROP if context == "crouch" else 0.0)
-			var placed := p.pose_transforms(a, root)
-			var t: Transform2D = placed["hem_lower"]
+		var poses := {stand = p.base_angles("stand"), crouch = p.base_angles("crouch"), air = p.base_angles("air")}
+		var stride := p.base_angles("stand")
+		stride.lead_thigh = -25.0
+		stride.trail_thigh = 25.0
+		stride.trail_shin = 40.0
+		poses["stride"] = stride
+		for name in poses:
+			var root := Vector2(0, PuppetDefinition.CROUCH_DROP if name == "crouch" else 0.0)
+			var placed := p.pose_transforms(poses[name], root)
+			var robe := p.find("hem")
+			var t: Transform2D = placed["hem"]
+			var outline := PackedVector2Array()
+			for q in p.outline_of(robe, placed):
+				outline.append(t * q)
 			var bottom := -INF
-			for q in p.shape_of(p.find("hem_lower"), p.view):
-				bottom = maxf(bottom, (t * q).y)
-			if context != "air" and bottom > 1.0:
-				bad.append("%s %s through the floor (%.0f)" % [id, context, bottom])
-			# The forward knee stays under the skirt.
-			var knee: Vector2 = placed["lead_shin"].origin
-			var upper := p.shape_of(p.find("hem"), p.view)
-			var reach := -INF
-			for q in upper:
-				reach = maxf(reach, ((placed["hem"] as Transform2D) * q).x)
-			for q in p.shape_of(p.find("hem_lower"), p.view):
-				reach = maxf(reach, (t * q).x)
-			if knee.x > reach + 2.0:
-				bad.append("%s %s knee out (%.0f > %.0f)" % [id, context, knee.x, reach])
-	_check("skirts move with the legs: never through the floor, the forward knee kept under them", bad.is_empty(), "%s" % [bad])
+			for q in outline:
+				bottom = maxf(bottom, q.y)
+			for side in ["lead", "trail"]:
+				for joint in [side + "_shin", side + "_foot"]:
+					var at: Vector2 = placed[joint].origin + Vector2(0, -4)
+					if not Geometry2D.is_point_in_polygon(at, outline):
+						bad.append("%s %s: %s outside" % [id, name, joint])
+				# Each foot's sole lies outside the robe.
+				var sole: Vector2 = (placed[side + "_foot"] as Transform2D) * Vector2(8, 3)
+				if Geometry2D.is_point_in_polygon(sole, outline):
+					bad.append("%s %s: %s foot covered" % [id, name, side])
+			if name != "air" and bottom > 0.5:
+				bad.append("%s %s: through the floor (%.0f)" % [id, name, bottom])
+	_check("robes are built around the legs: both knees and ankles inside, above the floor, feet showing, in any pose",
+			bad.is_empty(), "%s" % [bad.slice(0, 6)])
 
 
 func _test_icicle_seen_over_ushi_oni() -> void:

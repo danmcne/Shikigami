@@ -64,7 +64,8 @@ static func definition() -> MonsterDefinition:
 	# Beaten, its skull rests on the ground: seal it there.
 	d.core = Rect2(-90, -120, 180, 120)
 
-	var raised := Vector2(0, -330)
+	# Drawn raised just below its shoulders while they can't be struck.
+	var raised := Vector2(0, -260)
 	var left := MonsterDefinition.Part.new("left hand", Rect2(-270, -70, 140, 70), 1.0, 450, true)
 	left.rest_offset = raised
 	var right := MonsterDefinition.Part.new("right hand", Rect2(130, -70, 140, 70), 1.0, 450, true)
