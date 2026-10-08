@@ -32,6 +32,13 @@ var input := InputHistory.new()
 var chord_window := InputHistory.DEFAULT_CHORD
 ## A practice cheat: hits still land and stun, but take no health.
 var invincible := false
+## Frames left swinging at phantoms: none of this fighter's own blows or
+## throws connect.
+var phantom_frames := 0
+## Where the blow's leading point (or the body) has been in recent frames, for
+## its motion trail. Drawing only.
+var trail: Array = []
+var trail_frame := -1
 ## Set by the Bout in some monster fights: this fighter does not turn to face
 ## its opponent but turns by input, and guard covers only the side it faces.
 var free_facing := false
@@ -228,6 +235,8 @@ func perform(id: StringName) -> void:
 
 
 func step() -> void:
+	if phantom_frames > 0:
+		phantom_frames -= 1
 	state_frame += 1
 	pending_spawn = null
 	pending_summon = -1
@@ -314,6 +323,8 @@ func receive(m: MoveDefinition, from_facing: int, from_spirit := false, scale :=
 		slide = from_facing * m.knockback
 		_set_state(State.BLOCKSTUN, true)
 		return
+	if m.phantom > 0:
+		phantom_frames = m.phantom
 	if m.slows > 0:
 		slow_frames = maxi(slow_frames, m.slows)
 		show_notice("SLOWED")
@@ -410,8 +421,10 @@ func threatens_low() -> bool:
 
 
 ## Whether this fighter's own counter stance is waiting for a strike.
+## A counter stance answers from its first frame to the end of its active
+## frames, so an answer taken a moment early still catches the blow.
 func counter_ready() -> bool:
-	return state == State.MOVE and move.counter != null and move.is_active_on(state_frame)
+	return state == State.MOVE and move.counter != null and state_frame < move.startup + move.active
 
 
 func trigger_counter() -> void:
@@ -480,7 +493,7 @@ func active_hitboxes() -> Array[Rect2]:
 ## full strength.
 func active_strikes() -> Array:
 	var out: Array = []
-	if state != State.MOVE or move_connected or not move.is_active_on(state_frame):
+	if state != State.MOVE or move_connected or not move.is_active_on(state_frame) or phantom_frames > 0:
 		return out
 	if not move.frame_strikes.is_empty():
 		var k := clampi(state_frame - move.startup, 0, move.frame_strikes.size() - 1)
@@ -602,8 +615,10 @@ func _continue_move() -> void:
 			_start_by(cmd.move, cmd.rank(), _consumed_before_start)
 			return
 	if state_frame >= move.total_frames():
+		# A crouching attack ends crouching (standing up only if down is let go).
+		var crouched := String(move.id).begins_with("crouch")
 		move = null
-		_set_state(State.JUMP if airborne else State.STAND)
+		_set_state(State.JUMP if airborne else (State.CROUCH if crouched else State.STAND))
 
 
 ## The highest-ranked command matching the input, above `above_rank`; in the

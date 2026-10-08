@@ -58,7 +58,9 @@ static func definition() -> MonsterDefinition:
 	d.core = Rect2(-90, -90, 180, 90)
 
 	d.parts = [
-		MonsterDefinition.Part.new("body", Rect2(-100, -90, 200, 90), 1.0, 0, false, true, 170.0),
+		# Its back can be ridden; standing blows from there pass over it, as on
+		# Ushi-oni: strike it crouched.
+		MonsterDefinition.Part.new("body", Rect2(-100, -90, 200, 90), 1.0, 0, false, true, 50.0),
 		MonsterDefinition.Part.new("face", Rect2(90, -120, 50, 50), 1.5),
 		MonsterDefinition.Part.new("tail", Rect2(-170, -80, 70, 40), 1.0),
 		MonsterDefinition.Part.new("thundercloud", Rect2(-130, 0, 260, 40), 1.0, 450),

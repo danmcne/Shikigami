@@ -28,6 +28,7 @@ var pushing: Fighter = null
 var returning := false
 var _centre := Vector2.ZERO
 var _angle := 0.0
+var _radius := 0.0
 ## Frames retraced per frame on the way back.
 const RETURN_SPEED := 2
 var _path := PackedVector2Array()
@@ -42,8 +43,20 @@ func _init(m: MoveDefinition, at: Vector2, face: int, index: int, spirit := fals
 	velocity = m.motion
 	origin = m
 	if m.orbit_radius > 0.0:
+		_radius = m.orbit_radius
 		_centre = at + Vector2(face * m.orbit_centre.x, m.orbit_centre.y)
 		_angle = atan2(-m.orbit_centre.y, -m.orbit_centre.x)
+
+
+## Sizes a seeking circle to come down on a point `distance` ahead: the whole
+## circle scales about where the piece starts.
+func seek(distance: float) -> void:
+	if not move.seeks or move.orbit_radius <= 0.0:
+		return
+	var full := move.orbit_centre.x + move.orbit_radius
+	var k := clampf(distance / full, 0.45, 1.1)
+	_radius = move.orbit_radius * k
+	_centre = position + Vector2(facing * move.orbit_centre.x * k, move.orbit_centre.y * k)
 
 
 func step() -> void:
@@ -61,7 +74,7 @@ func step() -> void:
 	if move.orbit_radius > 0.0:
 		_angle += move.orbit_speed
 		var was := position
-		position = _centre + Vector2(facing * cos(_angle), sin(_angle)) * move.orbit_radius
+		position = _centre + Vector2(facing * cos(_angle), sin(_angle)) * _radius
 		velocity = Vector2((position.x - was.x) * facing, position.y - was.y)
 	elif not arrived:
 		position += Vector2(facing * velocity.x, velocity.y)
@@ -72,6 +85,8 @@ func step() -> void:
 	if frame >= move.total_frames():
 		spent = true
 	if move.returns and velocity.y > 0.0 and position.y >= move.turn_height:
+		# A fast piece may overshoot in one frame: it turns exactly there.
+		position.y = move.turn_height
 		turn_back()
 	elif (move.gravity > 0.0 or velocity.y > 0.0) and position.y >= 0.0:
 		# Whatever falls or is driven downward ends on meeting the ground.

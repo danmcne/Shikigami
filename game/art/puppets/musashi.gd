@@ -11,7 +11,7 @@ const K := PuppetDefinition.Kind
 const V := PuppetDefinition.View
 
 
-static func definition() -> PuppetDefinition:
+static func definition(world_scale := 1.0) -> PuppetDefinition:
 	var d := PuppetDefinition.new()
 	d.height = 172.0
 	d.view = V.SIDE
@@ -39,9 +39,9 @@ static func definition() -> PuppetDefinition:
 		# The trailing (far) side: the katana arm and the back leg.
 		P.new("trail_upper", "torso", "trail_shoulder", sleeve, "garment", K.ARM_UPPER),
 		P.new("trail_fore", "trail_upper", Vector2(1, 29), forearm, "skin", K.ARM_FORE),
-		P.new("trail_weapon", "trail_fore", Vector2(0, 22), [Vector2(-2, -5), Vector2(2.5, -5), Vector2(2.5, 14), Vector2(-2, 14)], "hilt", K.WEAPON),
-		P.new("trail_tsuba", "trail_weapon", Vector2(0, 14), [Vector2(-5, 0), Vector2(5, 0), Vector2(5, 3), Vector2(-5, 3)], "accent", K.DECO),
-		P.new("trail_blade", "trail_weapon", Vector2(0, 17), [Vector2(-3, 0), Vector2(3, 0), Vector2(2, 80), Vector2(-1, 86), Vector2(-2, 3)], "steel", K.DECO),
+		P.new("trail_weapon", "trail_fore", Vector2(0, 22), [Vector2(-2, -4), Vector2(2, -4), Vector2(2, 9), Vector2(-2, 9)], "hilt", K.WEAPON),
+		P.new("trail_tsuba", "trail_weapon", Vector2(0, 8), [Vector2(-4, 0), Vector2(4, 0), Vector2(4, 2.5), Vector2(-4, 2.5)], "accent", K.DECO),
+		P.new("trail_blade", "trail_weapon", Vector2(0, 10), [Vector2(-3, 0), Vector2(3, 0), Vector2(1.5, 52), Vector2(-1, 56), Vector2(-2, 2)], "steel", K.DECO),
 		P.new("trail_thigh", "hips", "trail_hip", thigh, "garment", K.LEG),
 		P.new("trail_shin", "trail_thigh", Vector2(0, 40), shin, "garment", K.LEG),
 		P.new("trail_foot", "trail_shin", Vector2(0, 37), foot, "tabi", K.LEG),
@@ -57,9 +57,9 @@ static func definition() -> PuppetDefinition:
 		P.new("lead_upper", "torso", "lead_shoulder", sleeve, "garment", K.ARM_UPPER),
 		P.new("mon", "lead_upper", Vector2(1, 14), [Vector2(0, -5), Vector2(3.5, -3.5), Vector2(5, 0), Vector2(3.5, 3.5), Vector2(0, 5), Vector2(-3.5, 3.5), Vector2(-5, 0), Vector2(-3.5, -3.5)], "mon", K.DECO),
 		P.new("lead_fore", "lead_upper", Vector2(1, 30), forearm, "skin", K.ARM_FORE),
-		P.new("lead_weapon", "lead_fore", Vector2(0, 23), [Vector2(-2, -4), Vector2(2, -4), Vector2(2, 9), Vector2(-2, 9)], "hilt", K.WEAPON),
-		P.new("lead_tsuba", "lead_weapon", Vector2(0, 8), [Vector2(-4, 0), Vector2(4, 0), Vector2(4, 2.5), Vector2(-4, 2.5)], "accent", K.DECO),
-		P.new("lead_blade", "lead_weapon", Vector2(0, 10), [Vector2(-3, 0), Vector2(3, 0), Vector2(1.5, 52), Vector2(-1, 56), Vector2(-2, 2)], "steel", K.DECO),
+		P.new("lead_weapon", "lead_fore", Vector2(0, 23), [Vector2(-2, -5), Vector2(2.5, -5), Vector2(2.5, 14), Vector2(-2, 14)], "hilt", K.WEAPON),
+		P.new("lead_tsuba", "lead_weapon", Vector2(0, 14), [Vector2(-5, 0), Vector2(5, 0), Vector2(5, 3), Vector2(-5, 3)], "accent", K.DECO),
+		P.new("lead_blade", "lead_weapon", Vector2(0, 17), [Vector2(-3, 0), Vector2(3, 0), Vector2(2, 80), Vector2(-1, 86), Vector2(-2, 3)], "steel", K.DECO),
 	]
 	var ink := "ink"
 	d.face_teru = [
@@ -86,81 +86,43 @@ static func definition() -> PuppetDefinition:
 	uke.merge({garment = Color("2b3a66"), fold = Color("1e2a4c"), secondary = Color("b6b2aa"),
 			accent = Color("c0c6cc"), paint = Color("233671"), mon = Color("d8dce2")})
 	d.colourways = [tori, uke]
-	# Side-on, feet split; the wakizashi levelled at the opponent, the katana
-	# held high and back; the scabbards pointing back from the obi.
+	# In profile, feet split: the wakizashi in his far hand raised and levelled
+	# at the throat (his light), the katana in his near hand held low before him,
+	# point down (his heavy); the scabbards pointing back from the obi.
 	d.rest = {torso = 6.0,
-			lead_upper = -40.0, lead_fore = -45.0, lead_weapon = -10.0,
-			trail_upper = -160.0, trail_fore = -30.0, trail_weapon = -26.0,
+			ik = {trail = {to = Vector2(40, -130)}, lead = {to = Vector2(30, -98)}},
+			aim = {trail_weapon = -100.0}, lead_weapon = 0.0,
 			lead_thigh = -24.0, lead_shin = 16.0, trail_thigh = 30.0, trail_shin = 6.0,
 			saya_k = 75.0, saya_w = 68.0}
 
 	# Both blades wound most near the tip and least near the guard.
 	var edge := [[0.0, 0.25, 0.4], [0.25, 0.7, 0.8], [0.7, 1.0, 1.0]]
 	d.weapons = [
-		{name = "katana", bone = "trail_weapon", from = Vector2(0, 17), to = Vector2(0, 103), width = 5.0, zones = edge},
-		{name = "wakizashi", bone = "lead_weapon", from = Vector2(0, 10), to = Vector2(0, 66), width = 5.0, zones = edge},
+		{name = "katana", bone = "lead_weapon", from = Vector2(0, 17), to = Vector2(0, 103), width = 5.0, zones = edge},
+		{name = "wakizashi", bone = "trail_weapon", from = Vector2(0, 10), to = Vector2(0, 66), width = 5.0, zones = edge},
 	]
 	# Lights are the wakizashi (near hand), heavies the katana (far hand).
-	var double_thrust := {lead_upper = -95.0, lead_fore = 0.0, lead_weapon = 0.0,
-			trail_upper = -60.0, trail_fore = 0.0, trail_weapon = -2.0, torso = 10.0}
-	var grab := {lead_upper = -75.0, lead_fore = -20.0, trail_upper = -70.0, trail_fore = -20.0, torso = 12.0}
-	d.swings = {
-		stand_light = {strikes = ["wakizashi"], keys = [
-			[1.0, {lead_upper = -20.0, lead_fore = -110.0, lead_weapon = -40.0, torso = 0.0}],
-			[1.3, {lead_upper = -88.0, lead_fore = -2.0, lead_weapon = 0.0, torso = 12.0}],
-			[2.0, {lead_upper = -90.0, lead_fore = 0.0, lead_weapon = 0.0, torso = 12.0}]]},
-		# From jōdan straight down: level through the middle, low by the end.
-		stand_heavy = {strikes = ["katana"], keys = [
-			[1.0, {trail_upper = -175.0, trail_fore = -20.0, trail_weapon = -20.0, torso = -6.0}],
-			[1.75, {trail_upper = -45.0, trail_fore = -5.0, trail_weapon = -5.0, torso = 18.0}],
-			[2.0, {trail_upper = -40.0, trail_fore = -5.0, trail_weapon = -5.0, torso = 18.0}]]},
-		crouch_light = {base = "crouch", strikes = ["wakizashi"], keys = [
-			[1.0, {lead_upper = -20.0, lead_fore = -100.0, lead_weapon = -30.0}],
-			[1.3, {lead_upper = -58.0, lead_fore = -5.0, lead_weapon = -22.0}],
-			[2.0, {lead_upper = -58.0, lead_fore = -5.0, lead_weapon = -22.0}]]},
-		crouch_heavy = {base = "crouch", strikes = ["katana"], keys = [
-			[1.0, {trail_upper = 40.0, trail_fore = -30.0, trail_weapon = 10.0}],
-			[2.0, {trail_upper = -55.0, trail_fore = -5.0, trail_weapon = -32.0}]]},
-		jump_light = {base = "air", strikes = ["wakizashi"], keys = [
-			[1.0, {lead_upper = -10.0, lead_fore = -100.0, lead_weapon = -20.0}],
-			[1.3, {lead_upper = -40.0, lead_fore = 10.0, lead_weapon = 20.0}],
-			[2.0, {lead_upper = -40.0, lead_fore = 10.0, lead_weapon = 20.0}]]},
-		jump_heavy = {base = "air", strikes = ["katana"], keys = [
-			[1.0, {trail_upper = -170.0, trail_fore = -20.0, trail_weapon = -10.0}],
-			[2.0, {trail_upper = -40.0, trail_fore = 10.0, trail_weapon = 10.0}]]},
-		# Two Heavens: a double thrust, the wakizashi high to the upper body
-		# and the katana low.
-		two_heavens = {strikes = ["wakizashi", "katana"], keys = [
-			[1.0, {lead_upper = -20.0, lead_fore = -110.0, lead_weapon = -40.0,
-					trail_upper = -10.0, trail_fore = -110.0, trail_weapon = -30.0, torso = -4.0}],
-			[1.3, double_thrust],
-			[2.0, double_thrust]]},
-		# Void Stance: katana high, wakizashi guarding, waiting.
-		void_stance = {keys = [
-			[0.5, {trail_upper = -170.0, trail_fore = -10.0, trail_weapon = 0.0, lead_upper = -60.0, lead_fore = -60.0, lead_weapon = -10.0}],
-			[2.5, {trail_upper = -170.0, trail_fore = -10.0, trail_weapon = 0.0, lead_upper = -60.0, lead_fore = -60.0, lead_weapon = -10.0}]]},
-		# ...and its answer, a level cut with the katana.
-		void_cut = {strikes = ["katana"], keys = [
-			[1.0, {trail_upper = 50.0, trail_fore = -60.0, trail_weapon = -20.0}],
-			[2.0, {trail_upper = -95.0, trail_fore = 0.0, trail_weapon = 0.0, torso = 14.0}]]},
-		throw = {keys = [
-			[1.0, grab], [2.0, grab],
-			[2.5, {lead_upper = -20.0, lead_fore = -110.0, trail_upper = 10.0, trail_fore = -100.0, torso = -10.0}]]},
-		rush = {strikes = ["katana"], keys = [
-			[1.0, {trail_upper = -40.0, trail_fore = -90.0, trail_weapon = -10.0}],
-			[1.2, {trail_upper = -90.0, trail_fore = 0.0, trail_weapon = 0.0, torso = 18.0}],
-			[2.0, {trail_upper = -90.0, trail_fore = 0.0, trail_weapon = 0.0, torso = 18.0}]]},
-		rising = {strikes = ["katana"], keys = [
-			[0.5, {trail_upper = 0.0, trail_fore = -20.0, trail_weapon = 40.0}],
-			[1.0, {trail_upper = -120.0, trail_fore = -10.0, trail_weapon = 0.0}],
-			[2.0, {trail_upper = -175.0, trail_fore = 0.0, trail_weapon = 0.0}]]},
-		summon = {keys = [
-			[1.0, {lead_upper = -150.0, lead_fore = -20.0, head = -10.0}],
-			[2.0, {lead_upper = -150.0, lead_fore = -20.0, head = -10.0}]]},
-		# The finisher's cut lands exactly as its active frames begin.
-		finisher = {keys = [
-			[0.7, {trail_upper = -175.0, trail_fore = -10.0, trail_weapon = -10.0, lead_upper = -150.0, torso = -8.0}],
-			[1.0, {trail_upper = -60.0, trail_fore = 0.0, trail_weapon = -20.0, lead_upper = 30.0, torso = 18.0}],
-			[2.0, {trail_upper = -60.0, trail_fore = 0.0, trail_weapon = -20.0, lead_upper = 30.0, torso = 18.0}]]},
-	}
+	# His moves from the verbs: light with the wakizashi (far hand), heavy with
+	# the katana (near hand), each traced from the blade that strikes.
+	d.swings = Verbs.kit(d, {traced = true, world_scale = world_scale, verbs = {
+		void_stance = {verb = "gesture", arm = "lead"},
+		void_cut = {verb = "sweep", arm = "lead", base = "stand"},
+	}})
+	var wakizashi := ["stand_light", "crouch_light", "jump_light", "throw"]
+	for id in d.swings:
+		d.swings[id]["strikes"] = ["wakizashi"] if id in wakizashi else ["katana"]
+	d.swings.erase("throw")
+	d.swings["void_stance"].erase("strikes")
+	# Two Heavens, staggered: the wakizashi thrusts high, then a beat later the
+	# katana low, with a step in.
+	var high := Verbs.swing({verb = "thrust", arm = "trail", height = "high", turn = -40.0, world_scale = world_scale}, d)
+	var low := Verbs.swing({verb = "thrust", arm = "lead", height = "low", world_scale = world_scale}, d)
+	var both: Dictionary = (high.keys[1][1] as Dictionary).duplicate(true)
+	both.ik.merge(low.keys[1][1].ik)
+	both.aim = (both.get("aim", {}) as Dictionary).duplicate()
+	both.aim.merge(low.keys[1][1].get("aim", {}))
+	var first: Dictionary = (high.keys[1][1] as Dictionary).duplicate(true)
+	first.ik.merge(low.keys[0][1].ik)
+	d.swings["two_heavens"] = {strikes = ["wakizashi", "katana"], keys = [
+		[0.6, high.keys[0][1]], [1.0, first], [1.35, both], [2.0, both]]}
 	return d

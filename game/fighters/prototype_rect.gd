@@ -52,14 +52,22 @@ static func definition() -> FighterDefinition:
 			motion = Vector2(-8, 0)}),
 
 		# Shared specials: every fighter has an approach and an anti-air.
-		_move({id = &"rush", startup = 10, active = 5, recovery = 20, motion = Vector2(12, 0),
-			damage = 100, knockdown = 45, blockstun = 16, knockback = 10.0, hitstop = 10,
+		# Softened, like the rising: shared moves should not decide fights.
+		# A rush carries a real risk: blocked, it can be punished.
+		_move({id = &"rush", startup = 10, active = 5, recovery = 26, motion = Vector2(12, 0),
+			damage = 60, knockdown = 45, blockstun = 16, knockback = 10.0, hitstop = 10,
 			height = H.MID, hitboxes = [Rect2(20, -130, 60, 80)]}),
 		# Launches itself; invulnerable through its start, lands in recovery.
-		_move({id = &"rising", startup = 3, active = 12, recovery = 25, invulnerable = 8,
-			motion = Vector2(2, -15), damage = 110, knockdown = 50, blockstun = 14,
+		# Softened (it was the computer's main weapon for everyone, which made
+		# fighters alike): 60 damage, 5 frames beyond harm. Its box starts from
+		# the feet, so it catches a short opponent on the way up rather than
+		# rising straight over their head.
+		# Its purpose is the air: jumpers, and a flying giant's cloud. Against a
+		# fighter on the ground it strikes for only a third.
+		_move({id = &"rising", startup = 4, active = 12, recovery = 25, invulnerable = 5, grounded_scale = 0.35,
+			motion = Vector2(2, -15), damage = 60, knockdown = 50, blockstun = 14,
 			knockback = 6.0, hitstop = 10, height = H.MID,
-			hitboxes = [Rect2(-10, -200, 75, 130)]}),
+			hitboxes = [Rect2(-10, -200, 75, 190)]}),
 	]
 	for m in moves:
 		d.moves[m.id] = m
@@ -85,8 +93,9 @@ static func _move(props: Dictionary) -> MoveDefinition:
 	var m := MoveDefinition.new()
 	for key in props:
 		assert(key in m, "MoveDefinition has no property '%s'" % key)
-		if key == "hitboxes":
-			m.hitboxes.assign(props[key])
+		# Typed lists must be filled, not set (a plain list would be refused).
+		if key in ["hitboxes", "spawn_offsets", "spawn_angles"]:
+			(m.get(key) as Array).assign(props[key])
 		else:
 			m.set(key, props[key])
 	return m

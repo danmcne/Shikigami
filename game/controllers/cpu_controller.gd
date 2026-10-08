@@ -74,6 +74,12 @@ var _was_threatened := false
 var _was_grabbed := false
 
 
+## The last few moves chosen: a move used recently is less likely to be chosen
+## again, so no one move is leaned on whatever the opponent does.
+var _recent: Array[String] = []
+const MEMORY := 6
+
+
 func _init(params: Dictionary = EASY, seed_value := 0) -> void:
 	p = params
 	rng.seed = seed_value
@@ -99,6 +105,12 @@ func read(me: Fighter, them: Fighter) -> Intent:
 		_guard_frames -= 1
 		return Intent.from_numpad(2 if _guard_low else 5, me.facing, _guard_chord)
 
+	# In the air against a flying giant: throw what can be thrown from there,
+	# near the top of the jump.
+	if _queue.is_empty() and me.state == Fighter.State.JUMP and them is Monster and absf(me.velocity.y) < 3.0:
+		var thrown := _air_throw(me)
+		if thrown != "":
+			_use(thrown, me)
 	if _queue.is_empty():
 		_think -= 1
 		if _think <= 0:
@@ -131,18 +143,20 @@ func _decide(me: Fighter, them: Fighter) -> void:
 	if not me.actionable():
 		return
 	var gap := absf(them.position.x - me.position.x) - them.definition.stand_hurtbox.size.x / 2.0
+	if them is Monster and _against_giant(me, them as Monster):
+		return
 	var heal := _heal_pattern(me)
 	if heal != "" and _safe_to_heal(them, gap, _move_for(me.definition, heal)) and rng.randf() < p.heal_chance:
 		_queue = inputs_for(heal, me.facing)
 		return
-	if them.airborne and gap < 170.0 and rng.randf() < p.anti_air and _ready(me, "2C"):
-		_queue = inputs_for("2C", me.facing)
+	if them.airborne and gap < 170.0 and rng.randf() < p.anti_air and _ready(me, "2C") and _fresh("2C"):
+		_use("2C", me)
 		return
 	if them.state == Fighter.State.MOVE and them.state_frame >= them.move.startup + them.move.active \
 			and rng.randf() < p.punish:
 		var punisher := _fastest(me, gap, them.move.total_frames() - them.state_frame)
-		if punisher != "":
-			_queue = inputs_for(punisher, me.facing)
+		if punisher != "" and _fresh(punisher):
+			_use(punisher, me)
 			return
 	var utility := _utility(me, them, gap)
 	if utility != "" and rng.randf() < p.utility:
@@ -155,16 +169,99 @@ func _decide(me: Fighter, them: Fighter) -> void:
 	if rng.randf() < p.aggression:
 		var options := _reachable(me, gap)
 		if not options.is_empty():
-			_queue = inputs_for(options[rng.randi() % options.size()], me.facing)
+			_use(_varied(options), me)
 			return
 	if rng.randf() < p.jump_chance:
 		_queue = inputs_for("9", me.facing)
 		return
-	var wanted := rng.randf_range(40.0, 200.0)
+	# Each fighter keeps to the distance at which it does its damage.
+	var at: float = me.definition.preferred_gap if me.definition.preferred_gap > 0.0 else 80.0
+	var wanted := rng.randf_range(maxf(20.0, at - 50.0), at + 50.0)
 	if gap > wanted + 20.0:
 		_hold.x = me.facing
 	elif gap < wanted - 40.0:
 		_hold.x = -me.facing
+
+
+## Against a giant: seal it when beaten (go to its open core and perform the
+## finisher); under a flying giant, strike up at it, or jump to throw at it.
+## True if this decided what to do.
+func _against_giant(me: Fighter, giant: Monster) -> bool:
+	if giant.state == Fighter.State.DAZED:
+		var core_x := giant.to_world(giant.monster.core).get_center().x
+		if absf(core_x - me.position.x) < 70.0:
+			_use(Fighter.FINISHER_COMMAND, me)
+		else:
+			_hold.x = signf(core_x - me.position.x)
+		return true
+	if giant.flying() and giant.position.y < -150.0:
+		var across := absf(giant.position.x - me.position.x)
+		if across < 90.0 and _ready(me, "2C") and rng.randf() < 0.5:
+			_use("2C", me)
+			return true
+		if _air_throw(me) != "" and rng.randf() < 0.5:
+			_use("9" if across > 60.0 else "8", me)
+			return true
+	# Go for the nearest part that can be struck (not the giant's middle,
+	# which may be empty air); if none can be, keep clear and wait.
+	var boxes := giant.hurtboxes()
+	if boxes.is_empty():
+		var away := signf(me.position.x - giant.position.x)
+		if absf(me.position.x - giant.position.x) < 260.0:
+			_hold.x = away if away != 0.0 else 1.0
+		return true
+	var nearest: Rect2 = boxes[0]
+	var nearest_gap := INF
+	for box in boxes:
+		var g := maxf(maxf(box.position.x - me.position.x, me.position.x - box.end.x), 0.0)
+		if g < nearest_gap:
+			nearest_gap = g
+			nearest = box
+	var toward := signf(nearest.get_center().x - me.position.x)
+	var options := _reachable(me, nearest_gap)
+	if not options.is_empty() and toward == me.facing and rng.randf() < p.aggression:
+		_use(_varied(options), me)
+	elif nearest_gap > 30.0 or toward != me.facing:
+		_hold.x = toward
+	return true
+
+
+## A ready special that can be thrown from the air, or "".
+func _air_throw(me: Fighter) -> String:
+	for pattern in me.definition.commands:
+		var m := _move_for(me.definition, pattern)
+		if m and m.air and m.spawn and _ready(me, pattern):
+			return pattern
+	return ""
+
+
+func _use(pattern: String, me: Fighter) -> void:
+	_queue = inputs_for(pattern, me.facing)
+	_recent.append(pattern)
+	if _recent.size() > MEMORY:
+		_recent.pop_front()
+
+
+## Whether a reflex (anti-air, punish) may fire again: less likely the more it
+## has been used of late.
+func _fresh(pattern: String) -> bool:
+	return rng.randf() < 1.0 / (1.0 + 0.6 * _recent.count(pattern))
+
+
+## One of `options`, weighted against those used recently.
+func _varied(options: Array[String]) -> String:
+	var weights: Array[float] = []
+	var total := 0.0
+	for o in options:
+		var w := 1.0 / pow(1.0 + _recent.count(o), 2.0)
+		weights.append(w)
+		total += w
+	var roll := rng.randf() * total
+	for k in options.size():
+		roll -= weights[k]
+		if roll <= 0.0:
+			return options[k]
+	return options[-1]
 
 
 ## Input patterns for every ready normal or command whose move can reach `gap`.
@@ -177,17 +274,28 @@ func _reachable(me: Fighter, gap: float) -> Array[String]:
 	return options
 
 
-## The quickest ready move that reaches `gap` and becomes active in fewer
-## than `frames` frames; "" if none.
+## A ready move that reaches `gap` and becomes active in fewer than `frames`
+## frames, chosen among all that would (weighted by damage, and against those
+## used recently), not always the quickest; "" if none.
 func _fastest(me: Fighter, gap: float, frames: int) -> String:
-	var best := ""
-	var best_startup := frames
+	var options: Array[String] = []
+	var weights: Array[float] = []
+	var total := 0.0
 	for pattern in _patterns(me.definition):
 		var m := _move_for(me.definition, pattern)
-		if m and m.spawn == null and _reach(m) >= gap and m.startup < best_startup and _ready(me, pattern):
-			best = pattern
-			best_startup = m.startup
-	return best
+		if m and m.spawn == null and _reach(m) >= gap and m.startup < frames and _ready(me, pattern):
+			var w := float(maxi(m.damage, 1)) / pow(1.0 + _recent.count(pattern), 2.0)
+			options.append(pattern)
+			weights.append(w)
+			total += w
+	if options.is_empty():
+		return ""
+	var roll := rng.randf() * total
+	for k in options.size():
+		roll -= weights[k]
+		if roll <= 0.0:
+			return options[k]
+	return options[-1]
 
 
 ## A special that is not an attack but fits the moment, or "".

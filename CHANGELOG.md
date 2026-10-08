@@ -2,6 +2,160 @@
 
 Newest first. The README describes the current version only.
 
+## 17.3
+
+- **Rebalancing** after weapon tracing, guided by tournaments (two bouts per pairing, Hard computer) and a new damage tool (`tests/damage.gd`). The tool credits each point of damage to the move that dealt it, and reports each fighter's move that is best against the most opponents.
+- **System fixes that had decided fights:**
+  - **Aiming:** blows now aim at heights in the world. Thrusts and the end of cuts no longer aim at the attacker's own shoulder, and hand-made ground boxes keep their world height while reaching farther for bigger fighters. Before, tall fighters' high blows passed over short ones.
+  - **The rising attack's box** now starts from the feet. It used to rise over a short opponent's head: Musashi's rising connected 93 times in 124 against Tomoe but 42 in 95 against Kawatarō.
+  - **The rising attack's role:** it is for the air. Against a grounded fighter it strikes for a third of its 60 damage; against the airborne and giants, in full. It starts in 4 frames and is invulnerable for 5.
+  - **The rush** does 60 damage with 26 frames of recovery, so it can be punished when blocked.
+  - **Typed lists** (spawn offsets and angles) are now filled correctly from move data. Seimei's pair of birds had silently flown as one.
+- **The computer player:**
+  - It keeps each fighter at its preferred distance: the weighted median of the fighter's damage rate across the distances its moves hit from, weighted toward each move's far reach. This runs from 20 (Tamamo-no-Mae) to 78 (Kojirō).
+  - It remembers its last six moves and favours others, its anti-air and punish reflexes included.
+  - Its punish chooses among every move fast enough to land, weighted by damage, instead of always the fastest.
+  - Against giants: it seals a beaten giant at its core; it strikes up at a flying giant or jumps and throws at it from the air; it goes for the nearest strikeable part.
+- **Fighters, each made more distinct:**
+  - the oni: 1,550 health (his only change);
+  - Benkei: Standing Death armour 40 frames, every 5 seconds;
+  - Kawatarō: 760 health, size 0.86, a slower walk, a weaker water jet, a Charging Grab of 105;
+  - Tamamo-no-Mae: 740 health, Bewitching Dust lasting 1 second;
+  - Hanzō 800 and Danzaburō 950 health; Danzaburō's counter-slam 75;
+  - O-Yuki: shorter slow from her breath, a rarer icicle;
+  - Rokurokubi: a seeking, faster head (lands about 16 times in 39, against 3 in 33), striking for 100; 1,000 health;
+  - Seimei: two birds climbing apart at 25° and 35°, 55 damage, every 48 frames;
+  - Kojirō: hits 10% harder, faster tempo;
+  - Sōjōbō: a gale of 40.
+- **Standings** (two bouts per pairing, about ±11):
+
+  | Range | Fighters |
+  |---|---|
+  | 70–78% | Musashi 78, Kawatarō 78, Benkei 70 |
+  | 50–67% | Hanzō 67, Kojirō 62, Tomoe 53, En no Gyōja 53, O-Yuki 53 |
+  | 35–47% | Rokurokubi 47, Okuni 45, the oni 43, Seimei 38, Tamamo-no-Mae 35 |
+  | Below 35% | Sōjōbō 33, Danzaburō 25, the Jorōgumo 18 |
+
+  These were measured before the rising attack became an air move and before the computer's giant play, which also changes its move choices, so the next run may differ.
+- **Against the giants** (`tests/giant_eval.gd`; the computer at Hard, giants at Normal, three fights each):
+  - **The Nue:** beaten by most fighters (Benkei and Tamamo-no-Mae never won).
+  - **Ushi-oni:** beaten by no one, though the oni takes 55% of his health and most fighters 20–38%.
+  - **Gashadokuro:** no one takes more than 6%. That reflects the computer player, which can't yet fight him (his parts are open only briefly), not the fighters.
+- **Tests:** computed distances (Kojirō farther than Tamamo-no-Mae); Seimei's birds at 25° and 35°.
+
+## 17.2
+
+- **Blows are struck by what's held** (step 3 begun):
+  - every held weapon has a striking segment with damage zones, and every blow struck with one is traced from it;
+  - kicks, free-hand jabs and body blows keep their boxes, as do moves that send something out or take hold.
+- **Reach after tracing** (standing light / heavy):
+
+  | Fighter | Light / heavy |
+  |---|---|
+  | Musashi | 141 / 174 |
+  | Kojirō | 203 / 188 |
+  | Tomoe | 168 / 205 |
+  | Benkei | 112 / 274 |
+  | Hanzō | 102 / 106 |
+  | En no Gyōja | 163 / 203 |
+  | Okuni | 133 / 129 |
+  | Seimei | 85 / 88 |
+  | the oni | 136 / 169 |
+  | Tamamo-no-Mae | 97 / 97 |
+  | Sōjōbō | 155 / 172 |
+  | Kawatarō | 72 / 92 |
+  | O-Yuki | 96 / 91 |
+  | the Jorōgumo | 90 / 117 |
+  | Rokurokubi | 90 / 111 |
+  | Danzaburō | 101 / 103 |
+
+  **Rebalancing is next.** The extremes are Benkei's heavy (274) and the short crouching moves of Tamamo-no-Mae (36), O-Yuki and Seimei.
+- **Motion trails:** a fading streak behind each blow's leading point in the colourway's red or blue; travelling moves trail the whole body.
+- **Naginata Wheel:** the butt of the haft driven back at whoever is behind, then the blade thrust forward; traced, so it strikes behind first and in front after.
+- **Crouching attacks end crouching** instead of standing for a frame.
+- **Hanzō** kicks when crouching and in the air (his rising cut stays the kama's).
+- **Frost Breath and Bewitching Dust are unblockable** (no guard stops a breath or a powder), and short: the breath reaches 105, the dust carries about 150.
+- **Pictures:** Bewitching Dust (drifting fox-fire motes); the gale (streaming, curling wind).
+- **The staff's ring** is a ring, open in the middle.
+- **Tests:** traced moves strike only with what the rig holds; the wheel strikes behind and in front.
+
+## 17.1
+
+- **Flashing fixed:**
+  - **The cause:** a crouching fighter's guard was solved with the body already lowered, so on a crouching move's first frame the arms jumped (up to 170°).
+  - **The fix:** guards are now always solved relative to the standing body, the elbow solver prefers the solution nearest the arm's present angle, and arms at nearly equal depth keep their resting order instead of flickering.
+  - **Measured:** single-frame jumps over 90° fell from 37 to 12, none of them in crouching moves. The rest come from very short start-ups and the second hand on fast polearm swings.
+- **Counter stances** answer from their first frame, and their windows are 10 frames longer (Void Stance 34, Kawarimi 30, Leaf Disguise 40).
+- **Seimei's seal** wards off blows as well as projectiles: a strike that meets it stops there.
+- **Pictures:**
+  - the talisman in flight, a paper strip with a red border and black strokes;
+  - Okuni's Warding Seal, a talisman on the ground in a glowing ring;
+  - Seimei's Five-Element Seal, a pane of light with the five-pointed star and hanging talismans;
+  - held talismans marked to match.
+- **Weapons and stances:**
+  - Musashi's katana extends straight from his near forearm;
+  - the kama is held with its haft up and a little forward, its blade forward and a little down and hooking down (an aim names where a blade across its haft points);
+  - En no Gyōja's staff is held ringed end forward at face height;
+  - Okuni's light and heavy are both the fan (a quick jab, a great swing), her trailing hand throwing talismans.
+- **Crouching heavies differ by weapon:** two-handed weapons thrust low, swords and shouldered weapons sweep, the unarmed kick.
+- **Tests:** the seal wards off blows; counters are ready from the start.
+
+## 17
+
+- **The verb library** (step 2): every fighter's attacks generated from verbs and holds under shared light/heavy conventions; signature moves keep their own swings. Traced arcs cut through their active frames; untraced moves hold contact through them.
+- **Musashi** rebuilt to the convention, his moves from the verbs, each traced from its blade:
+  - the wakizashi in his far hand, raised (light);
+  - the katana in his near hand, held low (heavy);
+  - Two Heavens staggered: wakizashi high, then katana low.
+
+  Reach: light 141, heavy 174, Two Heavens 138.
+- **Weapons and stances:**
+  - Hanzō: kama in his near hand for both blade attacks, shuriken in his far hand;
+  - Sōjōbō: in the boxer's stance, feather fan in his lead hand, a straight double-edged sword in his trailing hand;
+  - Tamamo-no-Mae: claws on both hands;
+  - O-Yuki: claws of ice;
+  - the Jorōgumo: a kama in her near hand, a spider-leg stab for her light;
+  - En no Gyōja: his staff as a polearm in both hands;
+  - Kojirō: seigan, the grip held out before him, the point raised.
+- **Gameplay:**
+  - **Bewitching Dust** replaces Nine Tails: fox-fire powder whose victim swings at phantoms for 1½ seconds (their own blows and throws find nothing; they can still move, guard and send things out).
+  - **Charging Grab** replaces Kawatarō's Sumo Grab: a short run into a grab.
+  - **Leaf Disguise's statue slam** lunges, so its answer reaches the attacker.
+- **Counters checked:** Void Stance (110) and Kawarimi (80) answer and wound at 80 and 140 apart; the statue slam missed at 140 before this fix.
+- **Tests:** Bewitching Dust, the Charging Grab, every fighter's ordinary attacks animated.
+
+## 16
+
+- **The turning upper body,** step 1 of the general animation system.
+  - The rig gains a turn joint (yaw) for the upper body. The shoulders lie on a circle about the spine, so turning moves them forward and back and nearer and farther. Arms layer and shade by depth, behind the torso when turned clearly away, otherwise over it, farther first. The torso's cut follows the turn.
+  - Side, diagonal and front views become resting turns: 0° (or 180°), about 120°, and 90°. They reproduce every fighter's shoulders exactly, and all traced reach measures as before.
+- **Demonstrations:**
+  - Kawatarō's light is a profile jab with his far arm, turning to −60° to bring that shoulder forward;
+  - Tamamo-no-Mae's heavy is a boxer's cross with her free trailing hand, turning from 120° through profile to 225°.
+
+  Both animate over their existing hitboxes; tracing for everyone is step 3.
+- **Tests:** resting turns keep the shoulders; turning gains reach; arms layer by the turn.
+
+## 15.6
+
+- **Rokurokubi:** no separate neck; her head sits on her shoulders. When it flies, it leaves from where it sits, and the long neck grows from that same point and follows the head's path, with no kink.
+- **Nue:** a thick, furry neck joins the front of its body to its head and follows the head when it moves.
+- **Tests:** the flying head leaves from its seat on her body.
+
+## 15.5
+
+- **Nue in cut paper,** the last giant drawn:
+  - a tanuki's round, shaggy body on a billowing, crackling thundercloud;
+  - a red monkey face in a pale ruff;
+  - four striped tiger legs with claws, near and far;
+  - a snake for a tail.
+- **Nue's motion:**
+  - legs tuck in flight, and it bobs;
+  - grounded, it walks;
+  - each attack has its own motion (lightning, dive, tail strike, thrash, claw, tail lash, pounce);
+  - lightning bolts have a jagged picture.
+- **Nue's back** reaches only 50 units up, as Ushi-oni's does: standing blows from there pass over it; strike it crouched.
+
 ## 15.4
 
 - **Gashadokuro:**

@@ -155,6 +155,16 @@ func _init() -> void:
 	_test_skirts_follow_the_legs()
 	_test_icicle_seen_over_ushi_oni()
 	_test_clap_catches_anyone_standing_and_no_one_crouching()
+	_test_long_neck_grows_from_the_body()
+	_test_resting_turn_keeps_the_shoulders()
+	_test_turning_gains_reach()
+	_test_arms_layer_by_the_turn()
+	_test_bewitching_dust()
+	_test_charging_grab_runs_in()
+	_test_every_fighter_moves_by_verbs()
+	_test_seal_wards_off_blows()
+	_test_counters_ready_from_the_start()
+	_test_preferred_distances_and_birds()
 	print("CPU, run, calibration")
 	_test_cpu_enters_motions()
 	_test_cpu_attacks()
@@ -928,8 +938,14 @@ func _test_naginata_wheel_strikes_behind() -> void:
 	a.facing = -1
 	a.perform(&"naginata_wheel")
 	_run(b, 30, _at({}))
-	_check("Tomoe's naginata wheel strikes behind as well as in front",
-			_taken(b, 1) == tomoe.moves[&"naginata_wheel"].damage, "took %d" % _taken(b, 1))
+	# And in front: the blade thrust that follows the butt strike.
+	var c := Bout.new(tomoe, def)
+	c.fighters[0].position.x = 0
+	c.fighters[1].position.x = 140
+	c.fighters[0].perform(&"naginata_wheel")
+	_run(c, 30, _at({}))
+	_check("Tomoe's naginata wheel strikes behind (the butt) and in front (the blade), traced from the naginata",
+			_taken(b, 1) > 0 and _taken(c, 1) > 0, "behind %d, in front %d" % [_taken(b, 1), _taken(c, 1)])
 
 
 func _test_two_heavens_beats_either_guard_height() -> void:
@@ -2131,12 +2147,16 @@ func _test_every_fighter_has_a_sound_rig() -> void:
 		for part in p.parts:
 			if part.kind == PuppetDefinition.Kind.APPENDAGE and not _before(order, part.name, "torso"):
 				problems.append("%s.%s is not behind the torso" % [d.id, part.name])
-		# Basic rigs draw their weapons but leave the hitboxes alone.
-		if not d.id in [&"musashi", &"shuten", &"kojiro"]:
-			for m in d.moves.values():
-				if not m.frame_strikes.is_empty():
-					problems.append("%s.%s is traced" % [d.id, m.id])
-	_check("every fighter has a puppet whose parts join up, appendages behind; basic rigs leave hitboxes alone",
+		# A traced move strikes only with something the rig holds.
+		const Reg := preload("res://game/art/puppets/registry.gd")
+		var rig: PuppetDefinition = Reg.for_id(d.id)
+		var held: Array = rig.weapons.map(func(w: Dictionary) -> String: return w.name)
+		for m in d.moves.values():
+			if not m.frame_strikes.is_empty():
+				for name in rig.swings.get(String(m.id), {}).get("strikes", []):
+					if not name in held:
+						problems.append("%s.%s strikes with %s, which it does not hold" % [d.id, m.id, name])
+	_check("every fighter has a puppet whose parts join up, appendages behind; traced moves strike with what they hold",
 			problems.is_empty(), "%s" % [problems])
 
 
@@ -2286,7 +2306,8 @@ func _test_icicle_falls_over_the_opponent() -> void:
 func _test_pieces_have_pictures() -> void:
 	var missing: Array[String] = []
 	for id in [&"shuriken_star", &"paper_bird", &"water", &"water_wave", &"icicle_shard", &"web_strand",
-			&"thrown_lantern", &"lantern_fire", &"flying_head", &"poison_cloud", &"grasping_hand", &"clapping_hand", &"falling_bone"]:
+			&"thrown_lantern", &"lantern_fire", &"flying_head", &"poison_cloud", &"grasping_hand", &"clapping_hand", &"falling_bone",
+			&"ofuda_paper", &"warding_seal_trap", &"seal_barrier"]:
 		if not Pieces.has_art(id):
 			missing.append(String(id))
 	_check("projectiles, traps and the flying head have pictures", missing.is_empty(), "%s" % [missing])
@@ -2447,3 +2468,152 @@ func _test_clap_catches_anyone_standing_and_no_one_crouching() -> void:
 			bad.append("%s crouching is hit" % d.display_name)
 	_check("the single high clap catches every fighter standing and passes over every fighter crouching",
 			bad.is_empty() and low_gone, "%s" % [bad])
+
+
+func _test_long_neck_grows_from_the_body() -> void:
+	const Registry := preload("res://game/art/puppets/registry.gd")
+	var roku := _r(&"rokurokubi")
+	var p: PuppetDefinition = Registry.for_id(&"rokurokubi")
+	var b := Bout.new(roku, def)
+	b.fighters[0].position.x = -300
+	b.fighters[1].position.x = 300
+	var first := [Vector2.INF]
+	_run(b, 20, _at({0: [5, "C"]}), null, func(x: Bout) -> void:
+		for e in x.entities:
+			if e.move.tethered and first[0] == Vector2.INF:
+				first[0] = e.position)
+	var attach := Puppet.world_point(b.fighters[0], "head", Vector2.ZERO)
+	_check("Rokurokubi has no separate neck; her flying head leaves from where it sits on her body",
+			p.find("neck") == null and first[0].distance_to(attach) < 40.0,
+			"head left %.0f from its seat" % first[0].distance_to(attach))
+
+
+# --- the turning upper body ---------------------------------------------------
+
+func _test_resting_turn_keeps_the_shoulders() -> void:
+	const Registry := preload("res://game/art/puppets/registry.gd")
+	var off: Array[String] = []
+	for id in [&"musashi", &"shuten"]:
+		var p: PuppetDefinition = Registry.for_id(id)
+		var at: Dictionary = p.anchors[p.view]
+		for side in ["lead", "trail"]:
+			var was: Vector2 = at[side + "_shoulder"]
+			var now := p.shoulder_at(side, p.yaw_at_rest())
+			if now.distance_to(was) > 1.0:
+				off.append("%s %s %s vs %s" % [id, side, now, was])
+	_check("each fighter's resting turn puts its shoulders where its view did", off.is_empty(), "%s" % [off])
+
+
+func _test_turning_gains_reach() -> void:
+	const Registry := preload("res://game/art/puppets/registry.gd")
+	var p: PuppetDefinition = Registry.for_id(&"kappa")
+	var reach := func(yaw: float) -> float:
+		var a := p.base_angles("stand")
+		a.yaw = yaw
+		p.reach_with(a, "trail", Vector2(400, -130), -1.0)
+		return (p.pose_transforms(a)["trail_hand"] as Transform2D).origin.x
+	var gained: float = reach.call(-60.0) - reach.call(0.0)
+	var fox: PuppetDefinition = Registry.for_id(&"kitsune")
+	var crossed := fox.shoulder_at("trail", 225.0).x > fox.shoulder_at("lead", 225.0).x
+	_check("turning the upper body gains reach: a profile jab turning to -60, a cross turning the trailing shoulder through",
+			gained > 12.0 and crossed, "jab gains %.0f; cross brings the trailing shoulder forward: %s" % [gained, crossed])
+
+
+func _test_arms_layer_by_the_turn() -> void:
+	const Registry := preload("res://game/art/puppets/registry.gd")
+	var p: PuppetDefinition = Registry.for_id(&"kitsune")
+	var at := func(yaw: float) -> Array:
+		return p.draw_order(p.view, yaw).map(func(part: PuppetDefinition.Part) -> String: return part.name)
+	var profile: Array = at.call(0.0)
+	var diagonal: Array = at.call(120.0)
+	var crossed: Array = at.call(225.0)
+	var ok := _before(profile, "trail_upper", "torso") and _before(profile, "torso", "lead_upper") \
+			and _before(diagonal, "torso", "lead_upper") and _before(diagonal, "torso", "trail_upper") \
+			and _before(diagonal, "lead_upper", "trail_upper") and _before(crossed, "lead_upper", "trail_upper") \
+			and _before(at.call(180.0), "lead_upper", "torso")
+	_check("arms layer by the turn: behind the body when turned away, over it otherwise, the farther first", ok)
+
+
+func _test_bewitching_dust() -> void:
+	var fox := _r(&"kitsune")
+	var b := Bout.new(fox, def)
+	b.fighters[0].position.x = -80  # within its short reach
+	b.fighters[1].position.x = 80
+	_run(b, 50, _at({0: [4, "C"]}, 4))
+	var victim := b.fighters[1]
+	var bewitched := victim.phantom_frames > 0
+	# A bewitched fighter's own blows find nothing.
+	var c := Bout.new(def, def)
+	c.fighters[0].position.x = -50
+	c.fighters[1].position.x = 50
+	c.fighters[0].phantom_frames = 90
+	_run(c, 30, _at({0: [5, "B"]}))
+	_check("Bewitching Dust leaves its victim swinging at phantoms: their own blows find nothing",
+			bewitched and _taken(c, 1) == 0, "bewitched %s, phantom blow did %d" % [bewitched, _taken(c, 1)])
+
+
+func _test_charging_grab_runs_in() -> void:
+	var kappa := _r(&"kappa")
+	# 160 apart: too far for a grab standing still (95 ahead), not for one that
+	# runs in.
+	var b := Bout.new(kappa, def)
+	b.fighters[0].position.x = -80
+	b.fighters[1].position.x = 80
+	_run(b, 40, _at({0: [5, "C"]}))
+	_check("Kawatarō's Charging Grab runs in and seizes from beyond a standing grab's reach",
+			_taken(b, 1) == kappa.moves[&"charging_grab"].damage, "took %d" % _taken(b, 1))
+
+
+func _test_every_fighter_moves_by_verbs() -> void:
+	const Registry := preload("res://game/art/puppets/registry.gd")
+	var missing: Array[String] = []
+	for d in Roster.all():
+		var p: PuppetDefinition = Registry.for_id(d.id)
+		for id in [&"stand_light", &"stand_heavy", &"crouch_light", &"crouch_heavy", &"jump_light", &"jump_heavy", &"rush", &"rising"]:
+			if d.moves.has(id) and not p.swings.has(String(id)):
+				missing.append("%s.%s" % [d.id, id])
+	_check("every fighter's ordinary attacks are animated (by the verbs, or by hand)", missing.is_empty(), "%s" % [missing.slice(0, 6)])
+
+
+func _test_seal_wards_off_blows() -> void:
+	var seimei := _r(&"onmyoji")
+	var b := Bout.new(seimei, def)
+	b.fighters[0].position.x = -60
+	b.fighters[1].position.x = 60
+	_run(b, 16, _at({0: [4, "C"]}, 4))
+	var before := b.fighters[0].health
+	_run(b, 30, _at({1: [5, "B"]}))
+	_check("Seimei's seal wards off blows: a strike that meets it stops there", b.fighters[0].health == before,
+			"took %d" % (before - b.fighters[0].health))
+
+
+func _test_counters_ready_from_the_start() -> void:
+	var musashi := _r(&"musashi")
+	var f := Fighter.new(musashi)
+	f.perform(&"void_stance")
+	f.state_frame = 0
+	var ready_at_once := f.counter_ready()
+	f.state_frame = f.move.startup + f.move.active - 1
+	var ready_late := f.counter_ready()
+	_check("counter stances answer from their first frame to the end of their (longer) window",
+			ready_at_once and ready_late and f.move.active >= 30)
+
+
+func _test_preferred_distances_and_birds() -> void:
+	# Each fighter keeps to where it does its damage: the long blade farther
+	# than the teleporting fox.
+	var kojiro := _r(&"kojiro")
+	var fox := _r(&"kitsune")
+	var all_set := Roster.all().all(func(d: FighterDefinition) -> bool: return d.preferred_gap > 0.0)
+	# Seimei's birds climb apart.
+	var seimei := _r(&"onmyoji")
+	var b := Bout.new(seimei, def)
+	b.fighters[0].position.x = -300
+	b.fighters[1].position.x = 300
+	_run(b, 14, _at({0: [5, "C"]}))
+	var climbs: Array = b.entities.filter(func(e: Entity) -> bool: return e.move.id == &"paper_bird").map(
+			func(e: Entity) -> float: return rad_to_deg(atan2(-e.velocity.y, absf(e.velocity.x))))
+	climbs.sort()
+	_check("every fighter keeps to its own distance (Kojirō farther than Tamamo-no-Mae); Seimei's birds climb apart at 25 and 35 degrees",
+			all_set and kojiro.preferred_gap > fox.preferred_gap and climbs.size() == 2 and absf(climbs[0] - 25.0) < 1.0 and absf(climbs[1] - 35.0) < 1.0,
+			"Kojirō %.0f, Tamamo %.0f, birds %s" % [kojiro.preferred_gap, fox.preferred_gap, climbs])

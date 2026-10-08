@@ -35,14 +35,15 @@ static func draw(ci: CanvasItem, f: Fighter, base: Transform2D, colourway: int, 
 	var dim := 1.25 if f.state == Fighter.State.HITSTUN else 1.0
 	var transforms := p.pose_transforms(pose.angles)
 	var current: MoveDefinition = f.move if f.state == Fighter.State.MOVE else null
-	for part in p.draw_order(p.view):
+	var yaw: float = pose.angles.get("yaw", p.yaw_at_rest())
+	for part in p.draw_order(p.view, yaw):
 		if not p.shows(part, current, f.state_frame):
 			continue
 		var t: Transform2D = placed * transforms[part.name]
 		var c: Color = colours.get(part.slot, Color.MAGENTA)
-		c = c.darkened(p.shade_of(part, p.view))
+		c = c.darkened(p.shade_of(part, p.view, yaw))
 		c = Color(c.r * dim, c.g * dim, c.b * dim, c.a * alpha)
-		var outline := p.outline_of(part, transforms)
+		var outline := p.outline_of(part, transforms) if part.wraps != "" else p.shape_of(part, p.view, yaw)
 		_cut(ci, t, outline, c, alpha)
 		if part.name == "head":
 			for feature in (p.face_kumoru if kumoru else p.face_teru):

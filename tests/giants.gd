@@ -38,12 +38,14 @@ func _init():
 	var plan: Dictionary = {
 		"ushi_oni": [[&"leg_stab", 0.6], [&"leg_stab", 1.5], [&"stomp", 0.8], [&"stomp", 1.5], [&"charge", 1.3], [&"poison_breath", 1.2], [&"buck", 1.5]],
 		"gashadokuro": [[&"left_slam", 0.6], [&"left_slam", 1.5], [&"skull_bite", 0.6], [&"skull_bite", 1.5]],
+		"nue": [[&"lightning", 0.9], [&"dive", 0.6], [&"dive", 1.5], [&"tail_strike", 1.4], [&"thrash", 1.4]],
 	}
 	for pair in plan.get(giant, []):
 		at(m, pair[0], pair[1])
 		await snap("%s_%s" % [pair[0], pair[1]])
 	# Attacks whose pieces must be seen in flight: run the bout forward.
-	var stepped: Dictionary = {"gashadokuro": [[&"left_grab", 46], [&"left_grab", 92], [&"high_clap", 48], [&"bone_rain", 44]]}
+	var stepped: Dictionary = {"gashadokuro": [[&"left_grab", 46], [&"left_grab", 92], [&"high_clap", 48], [&"bone_rain", 44]],
+		"nue": [[&"lightning", 63]]}
 	for pair in stepped.get(giant, []):
 		b.entities.clear()
 		at(m, pair[0], 0.0)
@@ -66,6 +68,18 @@ func _init():
 		m.part_health[2] = 350
 		at(m, &"charge", 2.5)
 		await snap("exposed")
+	if giant == "nue":
+		# Grounded: its cloud broken.
+		m.state = Fighter.State.STAND
+		m.move = null
+		m.part_health[3] = 0
+		m.position.y = 0.0
+		b.entities.clear()
+		await snap("grounded")
+		for pair in [[&"claw", 1.4], [&"tail_lash", 1.4], [&"pounce", 1.4]]:
+			at(m, pair[0], pair[1])
+			m.position.y = 0.0
+			await snap("%s_%s" % [pair[0], pair[1]])
 	if giant == "gashadokuro":
 		m.state = Fighter.State.STAND
 		m.move = null

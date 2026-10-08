@@ -134,11 +134,18 @@ static func build(spec: Dictionary) -> PuppetDefinition:
 		guard = {near + "_upper": -40.0, near + "_fore": -70.0, far + "_upper": -55.0, far + "_fore": -110.0}
 	guard.merge(spec.get("rest", {}), true)
 	d.rest = guard
+	# Its attacks from the verbs, under the shared conventions; a description's
+	# own swings (signature moves) go over them.
+	var custom: Dictionary = spec.get("swings", {})
+	var traced := spec.duplicate()
+	traced["traced"] = true
+	d.swings = Verbs.kit(d, traced)
+	d.swings.merge(custom, true)
 	d.gait = spec.get("gait", "stride")
 	d.crouch_pose = spec.get("crouch_pose", {})
 	d.air_pose = spec.get("air_pose", {})
-	d.swings = spec.get("swings", {})
-	d.weapons = spec.get("weapons", [])
+	for given in spec.get("weapons", []):
+		d.weapons.append(given)
 	for key in ["props", "hidden_during"]:
 		var extra: Dictionary = spec.get(key, {})
 		var have: Dictionary = d.get(key)
@@ -233,8 +240,16 @@ static func _appendages(parts: Array, spec: Dictionary, w: float) -> void:
 
 ## A held thing on the given hand: its grip is the weapon part, the rest
 ## rides on it. A two-handed weapon is also gripped by the other hand.
+## What strikes, for each held thing: a segment along (or across) it in its
+## own space, its width, and where along it a blow is strongest.
+static func _strikes_with(d: PuppetDefinition, name: String, bone: String, from: Vector2, to: Vector2, width: float, zones: Array) -> void:
+	d.weapons.append({name = name, bone = bone, from = from, to = to, width = width, zones = zones})
+
+
 static func _item(d: PuppetDefinition, item: Dictionary) -> void:
 	var hand: String = item.get("hand", "lead")
+	var edge := [[0.0, 0.25, 0.4], [0.25, 0.7, 0.8], [0.7, 1.0, 1.0]]
+	var label: String = hand + "_" + String(item.type)
 	var other := "trail" if hand == "lead" else "lead"
 	var grip := hand + "_weapon"
 	var at := hand + "_hand"
@@ -245,6 +260,7 @@ static func _item(d: PuppetDefinition, item: Dictionary) -> void:
 			d.parts.append(P.new(grip, at, Vector2(0, 4), [Vector2(-2, -4), Vector2(2.5, -4), Vector2(2.5, 10), Vector2(-2, 10)], "black", K.WEAPON))
 			d.parts.append(P.new(grip + "_guard", grip, Vector2(0, 10), [Vector2(-4, 0), Vector2(4, 0), Vector2(4, 2.5), Vector2(-4, 2.5)], "gear", K.DECO))
 			d.parts.append(P.new(grip + "_blade", grip, Vector2(0, 12), [Vector2(-2.5, 0), Vector2(2.5, 0), Vector2(1.5, l - 5), Vector2(-1, l), Vector2(-2, 3)], "steel", K.DECO))
+			_strikes_with(d, label, grip, Vector2(0, 12), Vector2(0, 12 + l), 5.0, edge)
 		"nodachi":
 			# A long grip: the holding hand by the guard, the other further down.
 			var l := length if length > 0.0 else 118.0
@@ -252,21 +268,63 @@ static func _item(d: PuppetDefinition, item: Dictionary) -> void:
 			d.parts.append(P.new(grip + "_guard", grip, Vector2(0, 3), [Vector2(-5, 0), Vector2(5, 0), Vector2(5, 3), Vector2(-5, 3)], "gear", K.DECO))
 			d.parts.append(P.new(grip + "_blade", grip, Vector2(0, 6), [Vector2(-3, 0), Vector2(3, 0), Vector2(2, l - 6), Vector2(-1, l), Vector2(-2, 3)], "steel", K.DECO))
 			d.grips[other] = {part = grip, from = Vector2(0, -24), to = Vector2(0, -8)}
+			_strikes_with(d, label, grip, Vector2(0, 6), Vector2(0, 6 + l), 5.0, edge)
 		"naginata", "staff":
 			var shaft := length if length > 0.0 else 130.0
 			d.parts.append(P.new(grip, at, Vector2(0, 4), [Vector2(-2, -36), Vector2(2, -36), Vector2(2, shaft - 36), Vector2(-2, shaft - 36)], "wood", K.WEAPON))
 			if item.type == "naginata":
 				d.parts.append(P.new(grip + "_blade", grip, Vector2(0, shaft - 36), [Vector2(-3, 0), Vector2(4, 0), Vector2(7, 28), Vector2(0, 38), Vector2(-3, 10)], "steel", K.DECO))
+				# The blade wounds most, the butt fairly, the shaft little.
+				_strikes_with(d, label, grip, Vector2(0, -36), Vector2(0, shaft + 2), 6.0, [[0.0, 0.12, 0.7], [0.12, 0.76, 0.35], [0.76, 1.0, 1.0]])
 			else:
-				d.parts.append(P.new(grip + "_rings", grip, Vector2(0, -36), [Vector2(0, 0), Vector2(8, -6), Vector2(10, -16), Vector2(0, -22), Vector2(-10, -16), Vector2(-8, -6)], "gear", K.DECO))
+				# The ring crowning the far end of the staff: a real ring, open in
+				# the middle (a band, joined to the shaft where it is cut).
+				var ring := PackedVector2Array()
+				for k in 13:
+					var a := PI / 2.0 + 0.35 + k * (TAU - 0.7) / 12.0
+					ring.append(Vector2(cos(a), sin(a) + 1.0) * 12.0)
+				for k in range(12, -1, -1):
+					var a := PI / 2.0 + 0.35 + k * (TAU - 0.7) / 12.0
+					ring.append(Vector2(cos(a), sin(a) + 1.0) * 12.0 * 0.62 + Vector2(0, 12.0 * 0.38))
+				d.parts.append(P.new(grip + "_rings", grip, Vector2(0, shaft - 36), Array(ring), "gear", K.DECO))
+				# The ringed end strikes hardest.
+				_strikes_with(d, label, grip, Vector2(0, -36), Vector2(0, shaft - 12), 7.0, [[0.0, 0.12, 0.6], [0.12, 0.84, 0.45], [0.84, 1.0, 1.0]])
 			if item.get("two_handed", false):
 				d.grips[other] = {part = grip, from = Vector2(0, 26), to = Vector2(0, 66)}
+		"kama":
+			# A sickle: a short haft, its blade set across the end and hooking
+			# back toward the hand. Its edge lies across the haft, so an aim names
+			# where the blade points and the haft turns a quarter to match: held
+			# with the haft up and a little forward, the blade points forward and
+			# a little down.
+			d.parts.append(P.new(grip, at, Vector2(0, 4), [Vector2(-2, -6), Vector2(2, -6), Vector2(2, 30), Vector2(-2, 30)], "wood", K.WEAPON))
+			d.parts.append(P.new(grip + "_blade", grip, Vector2(0, 30), [Vector2(2, -3), Vector2(-26, -6), Vector2(-40, -16), Vector2(-30, -3), Vector2(2, 3)], "steel", K.DECO))
+			d.aim_offsets[grip] = -90.0
+			# Its blade wounds; its haft does not.
+			_strikes_with(d, label, grip, Vector2(0, 30), Vector2(-40, 14), 6.0, [[0.0, 1.0, 1.0]])
+		"straight_sword":
+			# A straight, double-edged blade (not a katana).
+			d.parts.append(P.new(grip, at, Vector2(0, 4), [Vector2(-2, -4), Vector2(2.5, -4), Vector2(2.5, 10), Vector2(-2, 10)], "black", K.WEAPON))
+			d.parts.append(P.new(grip + "_guard", grip, Vector2(0, 10), [Vector2(-7, 0), Vector2(7, 0), Vector2(7, 3), Vector2(-7, 3)], "gear", K.DECO))
+			d.parts.append(P.new(grip + "_blade", grip, Vector2(0, 13), [Vector2(-3, 0), Vector2(3, 0), Vector2(3, 58), Vector2(0, 66), Vector2(-3, 58)], "steel", K.DECO))
+			_strikes_with(d, label, grip, Vector2(0, 13), Vector2(0, 79), 5.0, edge)
+		"shuriken":
+			d.parts.append(P.new(grip, at, Vector2(0, 6), [Vector2(0, -7), Vector2(2, -2), Vector2(7, 0), Vector2(2, 2), Vector2(0, 7), Vector2(-2, 2), Vector2(-7, 0), Vector2(-2, -2)], "steel", K.WEAPON))
+		"claws":
+			# Long nails: three blades from the fingers.
+			d.parts.append(P.new(grip, at, Vector2(0, 6), [Vector2(-4, 0), Vector2(-2, 18), Vector2(0, 0), Vector2(2, 18), Vector2(4, 0)], item.get("slot", "nail"), K.WEAPON))
+			_strikes_with(d, label, grip, Vector2(0, 0), Vector2(0, 18), 8.0, [[0.0, 1.0, 1.0]])
 		"fan", "feather_fan":
 			var slot := "extra" if item.type == "feather_fan" else "paper"
 			d.parts.append(P.new(grip, at, Vector2(0, 5), [Vector2(-2, 0), Vector2(2, 0), Vector2(2, 6), Vector2(-2, 6)], "wood", K.WEAPON))
 			d.parts.append(P.new(grip + "_leaf", grip, Vector2(0, 6), [Vector2(0, 0), Vector2(20, 18), Vector2(22, 30), Vector2(10, 38), Vector2(-10, 38), Vector2(-22, 30), Vector2(-20, 18)], slot, K.DECO))
+			_strikes_with(d, label, grip, Vector2(0, 6), Vector2(0, 44), 24.0, [[0.0, 1.0, 0.8]])
 		"ofuda":
+			# A talisman: paper, red border, black strokes.
 			d.parts.append(P.new(grip, at, Vector2(0, 5), [Vector2(-4, 0), Vector2(4, 0), Vector2(4, 16), Vector2(-4, 16)], "paper", K.WEAPON))
+			d.parts.append(P.new(grip + "_mark", grip, Vector2(0, 2), [Vector2(-1, 0), Vector2(1, 0), Vector2(1, 12), Vector2(-1, 12)], "ink", K.DECO))
+			d.parts.append(P.new(grip + "_border", grip, Vector2(0, 15), [Vector2(-4, -1), Vector2(4, -1), Vector2(4, 0), Vector2(-4, 0)], "mark", K.DECO))
+			_strikes_with(d, label, grip, Vector2(0, 0), Vector2(0, 16), 8.0, [[0.0, 1.0, 0.6]])
 		"lantern":
 			# A paper lantern hanging from the end of a short stick.
 			d.parts.append(P.new(grip, at, Vector2(0, 4), [Vector2(-1.2, -2), Vector2(1.2, -2), Vector2(1.2, 30), Vector2(-1.2, 30)], "wood", K.WEAPON))
@@ -274,9 +332,13 @@ static func _item(d: PuppetDefinition, item: Dictionary) -> void:
 					Vector2(9, 22), Vector2(6, 30), Vector2(-6, 30), Vector2(-9, 22), Vector2(-9, 12), Vector2(-6, 6), Vector2(-0.6, 6)], "lantern", K.DECO)
 			body.hangs = true
 			d.parts.append(body)
+			# The stick, and the lantern hanging from it, which strikes hardest.
+			_strikes_with(d, label, grip, Vector2(0, 0), Vector2(0, 30), 4.0, [[0.0, 1.0, 0.5]])
+			_strikes_with(d, label + "_body", grip + "_body", Vector2(0, 8), Vector2(0, 30), 18.0, [[0.0, 1.0, 1.0]])
 		"flask":
 			d.parts.append(P.new(grip, at, Vector2(0, 4), [Vector2(-2, 0), Vector2(2, 0), Vector2(3, 6), Vector2(-3, 6)], "gear", K.WEAPON))
 			d.parts.append(P.new(grip + "_body", grip, Vector2(0, 6), [Vector2(-3, 0), Vector2(3, 0), Vector2(9, 12), Vector2(8, 22), Vector2(-8, 22), Vector2(-9, 12)], "gear", K.DECO))
+			_strikes_with(d, label, grip, Vector2(0, 0), Vector2(0, 28), 16.0, [[0.0, 1.0, 0.8]])
 
 
 static func _s(points: Array, k: float) -> Array:

@@ -251,6 +251,12 @@ func _release(f: Fighter, side: int) -> Array[Entity]:
 				over.x = f.position.x + signf(over.x - f.position.x) * m.spawn_range
 			at = over + Vector2(offset.x * spread, offset.y)
 		var e := Entity.new(f.pending_spawn, at, f.facing, side, f.summoner >= 0)
+		var k := out.size()
+		if k < m.spawn_angles.size():
+			var a := deg_to_rad(m.spawn_angles[k])
+			e.velocity = Vector2(cos(a), -sin(a)) * f.pending_spawn.motion.length()
+		# A seeking piece comes down where the opponent stands.
+		e.seek(absf(target.position.x - at.x))
 		if f.pending_spawn.converges:
 			e.centre_x = f.position.x
 			e.facing = 1 if e.centre_x > e.position.x else -1
@@ -423,6 +429,10 @@ func _resolve_hits() -> void:
 			if e.owner_index == 1 - i and e.move.tethered and not e.from_spirit and not e.spent:
 				hurt.append_array(e.boxes())
 		var f := fighters[i]
+		# A ward the target has set stops a blow that meets it.
+		if _warded(f, 1 - i):
+			f.move_connected = true
+			continue
 		var landed := _strike_contact(f.active_strikes(), hurt)
 		var contact: Rect2 = landed[0]
 		if contact.has_area():
@@ -482,6 +492,8 @@ func _resolve_hits() -> void:
 			continue
 		# Combo scaling, and where on the weapon it landed.
 		var scale: float = maxf(COMBO_FLOOR, 1.0 - COMBO_STEP * combo[side]) * s[6]
+		if not target.airborne and not target is Monster:
+			scale *= m.grounded_scale
 		target.receive(m, s[2], s[4], scale, s[5])
 		struck[side] = true
 		if target.state in [Fighter.State.HITSTUN, Fighter.State.KNOCKDOWN, Fighter.State.KO]:
@@ -529,6 +541,18 @@ func _clash_entities() -> void:
 ## nowhere.
 ## Where a set of strikes ([box, damage scale] pairs) lands on `targets`, and
 ## the strongest zone that touched: [contact, scale], or an empty contact.
+func _warded(f: Fighter, defender: int) -> bool:
+	for e in entities:
+		if e.owner_index != defender or not e.move.wards or e.spent:
+			continue
+		for strike in f.active_strikes():
+			var box: Rect2 = strike[0] if strike is Array else strike
+			for ward in e.boxes():
+				if box.intersects(ward):
+					return true
+	return false
+
+
 func _strike_contact(strikes: Array, targets: Array[Rect2]) -> Array:
 	var best := [Rect2(), 0.0]
 	for strike in strikes:

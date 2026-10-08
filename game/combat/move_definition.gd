@@ -51,6 +51,9 @@ enum SpawnOrigin { PERFORMER, TARGET }
 @export var spawn_origin: SpawnOrigin = SpawnOrigin.PERFORMER
 ## Several pieces at once, one at each offset; empty means [spawn_offset].
 @export var spawn_offsets: Array[Vector2] = []
+## Per piece sent (with spawn_offsets): the angle above level it flies at, in
+## degrees, at the spawn's own speed (Seimei's birds climbing apart).
+@export var spawn_angles: Array[float] = []
 ## For a spawned move: it travels toward the performer's centreline, from
 ## whichever side it started on, and stops there for the rest of its life (a
 ## giant's hand sweeping in to just under its head).
@@ -79,9 +82,22 @@ enum SpawnOrigin { PERFORMER, TARGET }
 ## For a spawned move: it flies on a circle of this radius about a centre at
 ## `orbit_centre` from where it starts (forward, down), at `orbit_speed`
 ## radians a frame, over the top toward the opponent. Zero: in a line.
+## Damage against a fighter standing on the ground, as a share of its full
+## damage: the rising attack is for the air (jumpers, a flying giant's cloud)
+## and strikes the grounded only lightly.
+@export var grounded_scale: float = 1.0
+## A piece that wards off blows: an opponent's strike that meets it stops
+## there, harming no one (Seimei's seal).
+@export var wards: bool = false
+## A fighter this strikes swings at phantoms for this many frames: none of
+## its own blows or throws connect (Bewitching Dust).
+@export var phantom: int = 0
 @export var orbit_radius: float = 0.0
 @export var orbit_centre: Vector2 = Vector2.ZERO
 @export var orbit_speed: float = 0.0
+## A circling piece sized, as it leaves, to come down on the opponent where
+## they stand (Rokurokubi's head), rather than always at its full reach.
+@export var seeks: bool = false
 ## Traced from a weapon: for each active frame, the boxes the weapon occupies
 ## and the damage scale of each ([Rect2, scale] pairs). When present these
 ## replace `hitboxes` while the move is active; `hitboxes` then holds them

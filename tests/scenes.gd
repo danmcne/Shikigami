@@ -22,6 +22,9 @@ func scene(name: String, a: int, b: int, move: StringName, frames: int, distance
 			i0 = Intent.from_numpad(hold, bout.fighters[0].facing, "")
 		var intents: Array[Intent] = [i0, Intent.new()]
 		bout.step(intents)
+		# Draw every frame, as in play (motion trails gather as they are drawn).
+		main.queue_redraw()
+		await process_frame
 	main.queue_redraw()
 	for k in 2: await process_frame
 	root.get_viewport().get_texture().get_image().get_region(Rect2i(240, 300, 800, 380)).save_png("/tmp/scene_%s.png" % name)
@@ -33,8 +36,12 @@ func _init():
 	for i in 3: await process_frame
 	var ids: Array = main.roster.map(func(d): return d.id)
 	var at := func(id: StringName) -> int: return ids.find(id)
-	await scene("seimei_crouch", at.call(&"onmyoji"), 0, &"", 10, 500.0, false, 2)
-	await scene("yuki_jump", at.call(&"yuki_onna"), 0, &"", 14, 500.0, false, 8)
-	await scene("roku_stride", at.call(&"rokurokubi"), 0, &"", 40, 600.0, true)
-	await scene("yuki_stride", at.call(&"yuki_onna"), 0, &"", 47, 600.0, true)
+	var plan := [["musashi", &"stand_heavy", -3], ["kappa", &"rush", -3], ["kitsune", &"bewitching_dust", 18], ["tengu", &"gale_fan", 22],
+		["tomoe", &"naginata_wheel", 11], ["tomoe", &"naginata_wheel", 19], ["monk", &"", 1], ["hanzo", &"crouch_heavy", -1]]
+	for k in plan.size():
+		var i: int = at.call(StringName(plan[k][0]))
+		var frames: int = plan[k][2]
+		if frames < 0:
+			frames = main.roster[i].moves[plan[k][1]].startup - frames - 2
+		await scene("review_%02d" % k, i, 0, plan[k][1], frames, 380.0, false, 2 if String(plan[k][1]).begins_with("crouch") else 0)
 	quit()

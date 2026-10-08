@@ -28,6 +28,16 @@ extends RefCounted
 ## Nothing ever changes layer to be seen: a weapon behind the torso stays
 ## behind it, so weapons on the far side are large or held up and out.
 ##
+## The upper body also turns (the joint "yaw", in degrees): its shoulders lie
+## on a small circle about the spine, so turning moves them forward and back
+## and nearer or farther. 0 is profile with the lead side near; 90 the chest
+## to the viewer; about 120 the boxer's diagonal; 180 profile with the
+## trailing side near; about 240 the end of a cross. Views set the resting
+## turn; a move may turn through others (a jab turning for reach, a cross
+## turning the trailing shoulder through). An arm clearly behind the body is
+## drawn behind the torso; otherwise both arms are drawn over it, the farther
+## first. Head and legs keep the view (the aspective convention).
+##
 ## Coordinates are puppet units: feet at y = 0, up is -y, forward (toward the
 ## opponent) is +x. Limbs hang down from their pivot at angle 0 and the torso
 ## stands up from the hips; a negative angle swings a hanging limb forward.
@@ -132,6 +142,8 @@ var limits: Dictionary = {fore = [-160.0, 0.0], shin = [0.0, 160.0]}
 ## "stride" walks with legs passing each other (in profile); "shuffle" keeps
 ## the stance, as in the diagonal view or on legs that are not human.
 var gait := "stride"
+## The resting turn of the upper body, in degrees; NAN takes it from the view.
+var rest_yaw := NAN
 ## A puppet's own crouch and jump leg poses, over the shared ones.
 var crouch_pose: Dictionary = {}
 var air_pose: Dictionary = {}
@@ -140,6 +152,10 @@ var air_pose: Dictionary = {}
 ## (a skirt's upper piece swinging with the thighs, its lower piece bending
 ## at the knee with the shins).
 var follows: Dictionary = {}
+## Held parts whose striking edge does not lie along the part (a kama's blade
+## lies across its haft): an aim names where the edge points, and the part
+## turns by this offset to put it there. {part: degrees}
+var aim_offsets: Dictionary = {}
 
 const DEFAULTS := {
 	torso = 4.0, head = -2.0,
@@ -178,8 +194,12 @@ func depth_of(side: String, v: int) -> int:
 
 ## How much a part is darkened for depth in a view: far parts in profile;
 ## only the far leg in the diagonal view, whose arms are drawn as in front.
-func shade_of(part: Part, v: int) -> float:
+func shade_of(part: Part, v: int, yaw := NAN) -> float:
 	var base := _base_of(part)
+	if base.kind in ARM_KINDS:
+		if is_nan(yaw):
+			yaw = yaw_at_rest()
+		return 0.25 if arm_depth(base.side, yaw) < BEHIND else 0.0
 	if depth_of(base.side, v) != Depth.FAR:
 		return 0.0
 	if v == View.SIDE:
@@ -189,11 +209,54 @@ func shade_of(part: Part, v: int) -> float:
 	return 0.0
 
 
-## The parts in the order they are drawn in a view, back to front.
-func draw_order(v: int) -> Array:
+## The upper body's resting turn.
+func yaw_at_rest() -> float:
+	if not is_nan(rest_yaw):
+		return rest_yaw
+	match view:
+		View.DIAGONAL:
+			return 120.0
+		View.FRONT:
+			return 90.0
+	return 0.0 if side_lead_near else 180.0
+
+
+## The shoulders' circle about the spine: [centre x, radius, profile offset, y],
+## from the anchors the view gives, so a resting turn reproduces them.
+func _shoulder_circle() -> Array:
+	var at: Dictionary = anchors.get(view, {})
+	var lead: Vector2 = at.get("lead_shoulder", Vector2(5, -52))
+	var trail: Vector2 = at.get("trail_shoulder", Vector2(-5, -52))
+	var centre := (lead.x + trail.x) / 2.0
+	var half := (lead.x - trail.x) / 2.0
+	if view == View.SIDE:
+		return [centre, 20.0, half, lead.y]
+	var phi := deg_to_rad(yaw_at_rest())
+	var profile := 5.0
+	return [centre, (half - profile * cos(phi)) / sin(phi), profile, lead.y]
+
+
+## Where a shoulder is in the torso at a turn, and how near it is (+ near,
+## - far, in units of the circle's radius).
+func shoulder_at(side: String, yaw: float) -> Vector2:
+	var c := _shoulder_circle()
+	var phi := deg_to_rad(yaw)
+	var sgn := 1.0 if side == "lead" else -1.0
+	return Vector2(c[0] + sgn * (c[1] * sin(phi) + c[2] * cos(phi)), c[3])
+
+
+func arm_depth(side: String, yaw: float) -> float:
+	return (1.0 if side == "lead" else -1.0) * cos(deg_to_rad(yaw))
+
+
+## The parts in the order they are drawn in a view, back to front, at a turn
+## of the upper body.
+func draw_order(v: int, yaw := NAN) -> Array:
+	if is_nan(yaw):
+		yaw = yaw_at_rest()
 	var keyed: Array = []
 	for i in parts.size():
-		keyed.append([_layer_key(parts[i], v), i, parts[i]])
+		keyed.append([_layer_key(parts[i], v, yaw), i, parts[i]])
 	keyed.sort_custom(func(a: Array, b: Array) -> bool:
 		for k in 3:
 			if a[0][k] != b[0][k]:
@@ -204,8 +267,26 @@ func draw_order(v: int) -> Array:
 
 ## [layer group, depth rank, order of declaration of the base part]: decos
 ## take their base part's key, so they follow it.
-func _layer_key(part: Part, v: int) -> Array:
+const ARM_KINDS := [Kind.ARM_UPPER, Kind.ARM_FORE, Kind.HAND, Kind.WEAPON]
+## An arm whose shoulder has turned further back than this is behind the body.
+const BEHIND := -0.6
+
+
+func _layer_key(part: Part, v: int, yaw := NAN) -> Array:
 	var base := _base_of(part)
+	if base.kind in ARM_KINDS:
+		# Arms follow the turn of the upper body: behind the torso when turned
+		# clearly away, otherwise over it, upper arms, then forearms, then hands
+		# and what they hold, the farther arm first.
+		if is_nan(yaw):
+			yaw = yaw_at_rest()
+		var z := arm_depth(base.side, yaw)
+		var segment: float = {Kind.ARM_UPPER: 0.0, Kind.ARM_FORE: 0.1, Kind.HAND: 0.2, Kind.WEAPON: 0.2}[base.kind]
+		var group: float = -0.5 + segment if z < BEHIND else 3.0 + segment
+		# Arms at nearly equal depth (the chest square to the viewer) keep their
+		# resting order rather than flickering between frames.
+		var rank := snappedf(z, 0.25)
+		return [group, rank, arm_depth(base.side, yaw_at_rest()), parts.find(base)]
 	var depth := depth_of(base.side, v)
 	if base.kind == Kind.APPENDAGE:
 		return [-1, depth, parts.find(base)]
@@ -240,8 +321,12 @@ func find(part_name: String) -> Part:
 
 ## The outline drawn for a part in a view. The diagonal view takes torso and
 ## clothing from the front view and head and limbs from the side view.
-func shape_of(part: Part, v: int) -> PackedVector2Array:
+func shape_of(part: Part, v: int, yaw := NAN) -> PackedVector2Array:
 	var base := _base_of(part)
+	# The upper body's cut follows its turn: front when the chest is turned
+	# toward us, profile when it is not.
+	if base.kind in [Kind.BODY, Kind.CLOTHING] and not is_nan(yaw) and part.shapes.has("front") and part.shapes.has("side"):
+		return part.shapes["front" if absf(sin(deg_to_rad(yaw))) >= 0.5 else "side"]
 	var order: Array = [VIEW_NAMES[v]]
 	if v == View.DIAGONAL:
 		order.append("front" if base.kind in [Kind.BODY, Kind.CLOTHING] else "side")
@@ -290,6 +375,7 @@ func pivot_of(part: Part, v: int) -> Vector2:
 ## The resting angles for a context: standing, crouching or in the air.
 func base_angles(context: String) -> Dictionary:
 	var a := DEFAULTS.duplicate()
+	a["yaw"] = yaw_at_rest()
 	for joint in rest:
 		if rest[joint] is float or rest[joint] is int:
 			a[joint] = float(rest[joint])
@@ -300,8 +386,11 @@ func base_angles(context: String) -> Dictionary:
 		a.merge(AIR, true)
 		a.merge(air_pose, true)
 	limit(a)
-	# A guard may be described by where a hand is and where a weapon points.
-	resolve(a, rest, Vector2(0, CROUCH_DROP if context == "crouch" else 0.0))
+	# A guard may be described by where a hand is and where a weapon points,
+	# always relative to the standing body: crouching lowers the whole guard
+	# with the body, so a crouching move begins from the guard the fighter
+	# actually holds.
+	resolve(a, rest, Vector2.ZERO)
 	return a
 
 
@@ -320,7 +409,7 @@ func resolve(a: Dictionary, pose: Dictionary, root := Vector2.ZERO) -> void:
 		while q != null and q.parent != "":
 			q = find(q.parent)
 			above += a.get(q.name, 0.0)
-		a[part_name] = aims[part_name] - above
+		a[part_name] = aims[part_name] + aim_offsets.get(part_name, 0.0) - above
 
 
 ## Swings clothing with the legs it covers.
@@ -430,8 +519,10 @@ func reach_with(a: Dictionary, side: String, target: Variant, bend: float, root 
 	var d := clampf(to_goal.length(), absf(l1 - l2) + 0.01, l1 + l2 - 0.01)
 	var cos_a := clampf((l1 * l1 + d * d - l2 * l2) / (2.0 * l1 * d), -1.0, 1.0)
 	var toward := _hanging(to_goal)
-	# Of the two ways the elbow could bend, take the one the joint allows
-	# (preferring `bend` when both do).
+	# Of the two ways the elbow could bend, take the one the joint allows; when
+	# both do, the one nearer the arm's present angle, so arms move
+	# continuously rather than flipping between solutions.
+	var present: float = a.get(upper.name, 0.0)
 	var best: Array = []
 	for way in [bend, -bend]:
 		var upper_abs: float = toward + way * acos(cos_a)
@@ -443,7 +534,9 @@ func reach_with(a: Dictionary, side: String, target: Variant, bend: float, root 
 		var upper_deg := rad_to_deg(upper_abs - parent_angle)
 		var fore_deg := wrapf(rad_to_deg(fore_abs - upper_abs), -180.0, 180.0)
 		var allowed: bool = not limits.has("fore") or (fore_deg >= limits.fore[0] - 0.5 and fore_deg <= limits.fore[1] + 0.5)
-		if best.is_empty() or (allowed and not best[2]):
+		var nearer: bool = not best.is_empty() and allowed == best[2] \
+				and absf(wrapf(upper_deg - present, -180.0, 180.0)) < absf(wrapf(best[0] - present, -180.0, 180.0)) - 1.0
+		if best.is_empty() or (allowed and not best[2]) or nearer:
 			best = [upper_deg, fore_deg, allowed]
 	# The same direction written nearest the arm's angle before, so that
 	# moving between poses takes the short way round, not behind the back.
@@ -507,7 +600,11 @@ func weapon_strikes(swing: Dictionary, m: MoveDefinition, frame: int, scale: flo
 func _place(part: Part, angles: Dictionary, out: Dictionary, top: Transform2D) -> Transform2D:
 	if out.has(part.name):
 		return out[part.name]
-	var own := Transform2D(deg_to_rad(angles.get(part.name, 0.0)), pivot_of(part, view))
+	var pivot := pivot_of(part, view)
+	if part.anchor in ["lead_shoulder", "trail_shoulder"]:
+		# The shoulders follow the turn of the upper body.
+		pivot = shoulder_at(part.anchor.get_slice("_", 0), angles.get("yaw", yaw_at_rest()))
+	var own := Transform2D(deg_to_rad(angles.get(part.name, 0.0)), pivot)
 	var t := top * own
 	if part.parent != "":
 		t = _place(find(part.parent), angles, out, top) * own

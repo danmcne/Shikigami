@@ -39,6 +39,7 @@ static func draw(ci: CanvasItem, bout: Bout, names: Array[String], show_boxes: b
 		if f is Monster:
 			_monster(ci, f, show_boxes, base, bout)
 		elif Puppet.has_puppet(f):
+			_trail(ci, f, colourways[i])
 			Puppet.draw(ci, f, base, colourways[i])
 			Pieces.draw_effect(ci, f, base)
 			_labels(ci, f, show_boxes)
@@ -65,7 +66,8 @@ static func draw(ci: CanvasItem, bout: Bout, names: Array[String], show_boxes: b
 			var neck := owner.hurtbox().get_center()
 			if rig:
 				skin = rig.colourways[colourways[e.owner_index]].get("skin", skin)
-				neck = Puppet.world_point(owner, "neck" if rig.find("neck") else "torso", Vector2(0, -8))
+				# From where the head attaches to the body.
+				neck = Puppet.world_point(owner, "head", Vector2.ZERO)
 			var line := PackedVector2Array([neck])
 			line.append_array(e._path)
 			line.append(e.position + Vector2(0, 12))
@@ -111,7 +113,58 @@ static func lines(ci: CanvasItem, at: Vector2, rows: Array, width: float,
 ## closed, broken parts greyed), its attacks' start-up shown in red as a
 ## warning of where they will land.
 const GIANT_ART := {&"ushi_oni": preload("res://game/art/giants/ushi_oni_art.gd"),
-		&"gashadokuro": preload("res://game/art/giants/gashadokuro_art.gd")}
+		&"gashadokuro": preload("res://game/art/giants/gashadokuro_art.gd"),
+		&"nue": preload("res://game/art/giants/nue_art.gd")}
+
+
+## A comet's tail behind a blow: the path its leading point took over the last
+## few frames (a weapon's tip, a fist, a foot), or, for a move that carries the
+## fighter, the body's. Red for the first colourway, blue for the second.
+static func _trail(ci: CanvasItem, f: Fighter, colourway: int) -> void:
+	# A travelling move trails the body from its first frame; a blow, its
+	# leading point from just before contact.
+	var body := f.state == Fighter.State.MOVE and f.move != null and absf(f.move.motion.x) > 4.0
+	var striking := f.state == Fighter.State.MOVE and f.move != null \
+			and f.state_frame >= (0 if body else f.move.startup - 2) and f.state_frame < f.move.startup + f.move.active + 2
+	if not striking:
+		f.trail.clear()
+		f.trail_frame = -1
+		return
+	var p := PuppetsRegistry.for_id(f.definition.id)
+	if p == null:
+		return
+	if f.trail_frame != f.state_frame:
+		f.trail_frame = f.state_frame
+		var at := f.hurtbox().get_center()
+		if not body:
+			var swing: Dictionary = p.swings.get(String(f.move.id), {})
+			var tip: Array = swing.get("tip", [])
+			var strikes: Array = swing.get("strikes", [])
+			if not strikes.is_empty():
+				for w in p.weapons:
+					if w.name == strikes[-1]:
+						tip = [w.bone, w.to]
+			if tip.is_empty():
+				return
+			at = Puppet.world_point(f, tip[0], tip[1])
+		f.trail.append(at)
+		if f.trail.size() > (14 if body else 7):
+			f.trail.pop_front()
+	if f.trail.size() < 2:
+		return
+	var colour := Color(0.92, 0.22, 0.15) if colourway == 0 else Color(0.25, 0.45, 0.95)
+	var width := f.hurtbox().size.y * 0.55 if body else 9.0
+	var n := f.trail.size()
+	for k in range(1, n):
+		var a: Vector2 = f.trail[k - 1]
+		var b: Vector2 = f.trail[k]
+		if a.distance_to(b) < 0.5:
+			continue
+		var across := (b - a).normalized().orthogonal()
+		var wa := width * float(k - 1) / n
+		var wb := width * float(k) / n
+		var shade := Color(colour, 0.12 + 0.5 * float(k) / n)
+		ci.draw_colored_polygon(PackedVector2Array([a + across * wa / 2.0, b + across * wb / 2.0, b - across * wb / 2.0, a - across * wa / 2.0]), shade)
 
 
 static func _giant_tint(m: Monster) -> Color:

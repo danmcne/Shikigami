@@ -14,6 +14,10 @@ enum Kind { HUMAN, YOKAI, MONSTER }
 @export var display_name: String
 @export var kind: Kind = Kind.HUMAN
 @export var max_health: int = 1000
+## How far from the opponent this fighter prefers to fight (the computer plays
+## it there); zero for fighting at close quarters. A trait of those built to
+## fight at range.
+@export var preferred_gap: float = 0.0
 @export var walk_forward: float = 4.0
 @export var walk_back: float = 3.0
 @export var jump_velocity: float = 18.0
