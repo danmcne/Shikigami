@@ -4,7 +4,7 @@ A 2D fighting game set in a fantasy Japan, in the lineage of Street Fighter and 
 
 The guiding principle: **the fighting is the game; the campaign exists to produce unusual fights.** There are no levels, stat sheets or grinding.
 
-This is version 17.3: sixteen humans and yokai and three giants. Musashi and Shuten-dōji are now cut-paper puppets against a painted shore, the first art test, and they strike with their actual weapons; the rest are still rectangles. History is in [CHANGELOG.md](CHANGELOG.md), and the first art and audio direction is in [docs/art_and_audio.md](docs/art_and_audio.md).
+This is version 18.3: sixteen humans and yokai and three giants. Musashi and Shuten-dōji are now cut-paper puppets against a painted shore, the first art test, and they strike with their actual weapons; the rest are still rectangles. History is in [CHANGELOG.md](CHANGELOG.md), and the first art and audio direction is in [docs/art_and_audio.md](docs/art_and_audio.md).
 
 ## Running
 
@@ -228,6 +228,11 @@ Musashi and Shuten-dōji are drawn as cut-paper puppets on a shared humanoid rig
 
   Every blow struck with one is traced from it frame by frame. Kicks, free-hand jabs and body blows keep their own boxes, as do moves that send something out or take hold.
 - **Motion trails.** While a blow is active, the leading point (a weapon's tip, a fist, a foot) leaves a fading streak in the player's colourway, red or blue. A move that carries the fighter trails the whole body.
+- **Sound.** Everything is synthesized when first needed; no recorded audio is shipped.
+  - **Effects:** a temple bell (kane) rings as the "ROUND" banner goes; a deeper gong marks a knockout; blows land with a thump and crack (heavier for heavy hits); a giant's attack is heard as it goes out, hit or miss (a rush of air for swings and grabs, a ground-shaking slam for blows that strike the ground, thunder for the Nue's lightning), and lands on a fighter with a heavy boom; a block knocks like wood; menus tick.
+  - **Music:** two looping tunes for a small ensemble on the hirajōshi scale: shamisen, shakuhachi, taiko and kotsuzumi. The menu tune is slow and spacious, the fight tune quick and driving on the taiko. They are made on a background thread at start-up, so the game never waits for them.
+  - **Controls:** F9 toggles sound and F10 music, and both settings are remembered.
+- **Faces.** Each fighter's face is its own. A description can list face features (kitsune markings, a beak, a beard, a cloth mask, white make-up and red lips, blackened teeth, stubble, a moustache, heavy brows, a tanuki's eye patches, a row of spider eyes) and hair styles (a high ponytail, a bun with a hairpin, hair falling over the face, a headband).
 - **Joints.** Elbows bend only forward and knees only backward, and the solver always picks the bend the joint allows. Spider legs are exempt. Key poses can route a hand through a point, so a drink arcs out in front rather than folding up.
 - **Two-handed weapons.** The second hand grips the weapon and slides along a long grip, the rig's one flexible joint. A key pose can release it, as in Kojirō's lunge.
 - **Guards and swings** can name where a hand goes and where a weapon points, as a fencer would describe a guard.
@@ -398,7 +403,7 @@ godot --headless --path . --import          # once, to build the class cache
 godot --headless --path . --script res://tests/selftest.gd
 ```
 
-There are 147 checks. They cover:
+There are 150 checks. They cover:
 
 - **The rules:** guards, throws, combos, commands, timing.
 - **Every fighter's specials:** each one completes.

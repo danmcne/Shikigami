@@ -135,7 +135,12 @@ static func swing(d: Dictionary, p: PuppetDefinition) -> Dictionary:
 	match verb:
 		"kick":
 			out["tip"] = ["lead_foot", Vector2(12, 0)]
-		"body", "gesture", "limbs":
+		"limbs":
+			# The end of the striking limb (a spider leg's foot).
+			for part in d.get("limbs", {}):
+				if String(part).ends_with("_foot"):
+					out["tip"] = [part, Vector2(0, 40)]
+		"body", "gesture":
 			pass
 		_:
 			if p.find(arm + "_hand"):

@@ -55,6 +55,14 @@ static func yokai_unlocked() -> bool:
 	return _read("game", "yokai_unlocked", false)
 
 
+static func sound_on() -> bool:
+	return _read("game", "sound", true)
+
+
+static func music_on() -> bool:
+	return _read("game", "music", true)
+
+
 static func set_option(key: String, value: Variant) -> void:
 	_write("game", key, value)
 

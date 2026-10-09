@@ -12,7 +12,14 @@ extends RefCounted
 ##            is gripped by the other hand too, which slides along its grip.
 ##   off_hand = a second item for the other hand (same form)
 ##   hat = eboshi | tokin | kasa | hood | dish | none;  hair = short | long | tied | none
-##   ears = "fox" | "tanuki";  face = "fox" (kitsune mask markings);  nose = "tengu"
+##   ears = "fox" | "tanuki";  nose = "tengu"
+##   face = a feature or a list of them: fox (kitsune markings), beak, beard,
+##          mask (a cloth over the lower face), makeup (red lips on white),
+##          ohaguro (blackened teeth), stubble, moustache, brows (heavy),
+##          patches (a tanuki's dark eye patches), lips (in the "lips" colour),
+##          spider_eyes (a row of small eyes across the brow)
+##   hair also: ponytail (high) | bun (with a hairpin) | long_front (falling
+##          over the face);  headband = true
 ##   tails = count;  tail = "fox" | "tanuki";  wings = scale (0 for none);  shell = true
 ##   belly = true;  sleeves = true;  neck = true
 ##   hem = "robe" (covering the legs, not the feet; wide below and toward the
@@ -60,6 +67,9 @@ static func build(spec: Dictionary) -> PuppetDefinition:
 		head_at = Vector2(0, -9)
 	parts.append(P.new("head", head_parent, head_at, _s([Vector2(-10, 0), Vector2(10, 0), Vector2(13, -14), Vector2(11, -26), Vector2(1, -31), Vector2(-9, -27), Vector2(-12, -14)], hs), "skin", K.HEAD))
 	_hair(parts, spec.get("hair", "short"), hs)
+	if spec.get("headband", false):
+		parts.append(P.new("headband", "head", Vector2.ZERO, _s([Vector2(-13, -19), Vector2(12, -22), Vector2(12, -18), Vector2(-13, -15)], hs), "band", K.DECO))
+		parts.append(P.new("headband_tails", "head", _s1(Vector2(-12, -18), hs), _s([Vector2(0, 0), Vector2(-14, 6), Vector2(-20, 14), Vector2(-12, 8), Vector2(0, 4)], hs), "band", K.DECO))
 	_ears(parts, spec.get("ears", ""), hs)
 	_hat(parts, spec.get("hat", "none"), hs)
 	if spec.get("nose", "") == "tengu":
@@ -109,16 +119,57 @@ static func build(spec: Dictionary) -> PuppetDefinition:
 	d.face_kumoru = [[[Vector2(-1, -17), Vector2(8, -18), Vector2(9, -16), Vector2(0, -15)], "ink"],
 			[[Vector2(2, -14), Vector2(9, -14), Vector2(9, -13), Vector2(2, -13)], "ink"],
 			[[Vector2(3, -5), Vector2(9, -4), Vector2(9, -3), Vector2(3, -4)], "ink"]]
-	if spec.get("face", "") == "fox":
-		# A kitsune mask's red markings over the eye and cheek.
-		var marks := [[[Vector2(0, -22), Vector2(10, -27), Vector2(11, -24), Vector2(2, -20)], "mark"],
-				[[Vector2(4, -11), Vector2(12, -12), Vector2(11, -9), Vector2(4, -9)], "mark"]]
-		d.face_teru += marks
-		d.face_kumoru += marks
+	# Features that make each face its own: some lie under the eyes (patches,
+	# a mask's cloth over the mouth is over them), some over.
+	var styles: Variant = spec.get("face", [])
+	var features: Array = [styles] if styles is String else styles
+	var under: Array = []
+	var over: Array = []
+	for f in features:
+		match f:
+			"fox":
+				over += [[[Vector2(0, -22), Vector2(10, -27), Vector2(11, -24), Vector2(2, -20)], "mark"],
+						[[Vector2(4, -11), Vector2(12, -12), Vector2(11, -9), Vector2(4, -9)], "mark"]]
+			"patches":
+				under.append([[Vector2(-1, -21), Vector2(11, -22), Vector2(12, -12), Vector2(0, -11)], "patch"])
+			"stubble":
+				under.append([[Vector2(-7, -1), Vector2(11, -1), Vector2(13, -9), Vector2(8, -11), Vector2(-3, -9)], "stubble"])
+			"beak":
+				# Two triangles: the smaller lower mandible, then the larger upper
+				# one over it, overlapping.
+				over.append([[Vector2(8, -8), Vector2(18, -5), Vector2(8, -2)], "beak_low"])
+				over.append([[Vector2(7, -13), Vector2(22, -9), Vector2(8, -6)], "beak"])
+			"beard":
+				over.append([[Vector2(1, -7), Vector2(11, -7), Vector2(9, 6), Vector2(3, 18), Vector2(-4, 6)], "beard"])
+			"moustache":
+				over.append([[Vector2(5, -9), Vector2(12, -9), Vector2(14, -5), Vector2(11, -7), Vector2(5, -7)], "ink"])
+			"brows":
+				over.append([[Vector2(-2, -22), Vector2(11, -25), Vector2(12, -21), Vector2(-1, -19)], "ink"])
+			"mask":
+				over.append([[Vector2(-11, -12), Vector2(14, -12), Vector2(13, 1), Vector2(-11, 1)], "black"])
+			"makeup":
+				over.append([[Vector2(5, -7), Vector2(10, -7), Vector2(10, -4), Vector2(5, -4)], "lips"])
+			"lips":
+				over.append([[Vector2(4, -7), Vector2(10, -7), Vector2(10, -4), Vector2(4, -4)], "lips"])
+			"ohaguro":
+				over.append([[Vector2(4, -7), Vector2(10, -7), Vector2(10, -4), Vector2(4, -4)], "black"])
+			"spider_eyes":
+				for k in 4:
+					var x := -1.0 + k * 3.5
+					over.append([[Vector2(x, -27), Vector2(x + 2, -27), Vector2(x + 2, -25), Vector2(x, -25)], "spider_eye"])
+	# A beak takes the place of the mouth.
+	var teru: Array = d.face_teru
+	var kumoru: Array = d.face_kumoru
+	if "beak" in features:
+		teru = teru.slice(0, 2)
+		kumoru = kumoru.slice(0, 2)
+	d.face_teru = under + teru + over
+	d.face_kumoru = under + kumoru + over
 	d.points = {mouth = ["head", Vector2(10, -8)], before = ["torso", Vector2(38, -22)]}
 	var common := {ink = Color("141010"), face = Color("f5f0e6"), steel = Color("dde2e6"), paper = Color("f4efe3"),
 			wood = Color("6b4a2e"), black = Color("1d1818"), mark = Color("c3261c"), leaf = Color("5f8f3e"),
-			belly = Color("e6d2b0")}
+			belly = Color("e6d2b0"), beak = Color("c9b24a"), beak_low = Color("8f7d2a"), beard = Color("ece7dc"), lips = Color("b8322a"),
+			stubble = Color("6b5446"), patch = Color("3b2a20"), spider_eye = Color("8a1020"), band = Color("c0392b")}
 	var tori: Dictionary = common.duplicate()
 	tori.merge(spec.colours.tori, true)
 	var uke: Dictionary = common.duplicate()
@@ -165,6 +216,23 @@ static func _hair(parts: Array, style: String, hs: float) -> void:
 			parts.append(P.new("tail_of_hair", "head", _s1(Vector2(-11, -24), hs), _s([Vector2(0, 0), Vector2(-6, 2), Vector2(-14, 30), Vector2(-8, 32), Vector2(-2, 8)], hs), "hair", K.DECO))
 		"long":
 			parts.append(P.new("hair", "head", Vector2.ZERO, _s([Vector2(-12, -10), Vector2(-11, -27), Vector2(-1, -33), Vector2(10, -29), Vector2(12, -20), Vector2(4, -26), Vector2(-6, -22), Vector2(-10, 6), Vector2(-14, 40), Vector2(-20, 38), Vector2(-16, 0)], hs), "hair", K.DECO))
+		"long_front":
+			# Long hair, with strands falling forward over the face.
+			parts.append(P.new("hair", "head", Vector2.ZERO, _s([Vector2(-12, -10), Vector2(-11, -27), Vector2(-1, -33), Vector2(10, -29), Vector2(12, -20), Vector2(4, -26), Vector2(-6, -22), Vector2(-10, 6), Vector2(-14, 40), Vector2(-20, 38), Vector2(-16, 0)], hs), "hair", K.DECO))
+			parts.append(P.new("hair_front", "head", Vector2.ZERO, _s([Vector2(5, -29), Vector2(12, -24), Vector2(13, 2), Vector2(10, 10), Vector2(9, -18)], hs), "hair", K.DECO))
+		"ponytail":
+			# Gathered high at the crown and falling back in a long tail.
+			parts.append(P.new("hair", "head", Vector2.ZERO, _s(cap, hs), "hair", K.DECO))
+			parts.append(P.new("tail_of_hair", "head", _s1(Vector2(-6, -32), hs), _s([Vector2(0, 0), Vector2(-4, -6), Vector2(-22, 6), Vector2(-30, 30), Vector2(-22, 26), Vector2(-10, 6)], hs), "hair", K.DECO))
+		"bun":
+			# Hair up in a bun, a hairpin through it.
+			parts.append(P.new("hair", "head", Vector2.ZERO, _s(cap, hs), "hair", K.DECO))
+			var bun := []
+			for k in 10:
+				var a := k * TAU / 10.0
+				bun.append(Vector2(-8, -33) + Vector2(cos(a) * 9.0, sin(a) * 7.0))
+			parts.append(P.new("bun", "head", Vector2.ZERO, _s(bun, hs), "hair", K.DECO))
+			parts.append(P.new("hairpin", "head", Vector2.ZERO, _s([Vector2(-20, -38), Vector2(4, -30), Vector2(4, -28), Vector2(-20, -36)], hs), "gear", K.DECO))
 
 
 static func _ears(parts: Array, ears: String, hs: float) -> void:

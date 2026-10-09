@@ -50,7 +50,7 @@ static func _table() -> Array:
 					counter = {id = &"void_cut", startup = 2, active = 4, recovery = 14, damage = 110,
 						knockdown = 45, knockback = 9.0, hitstop = 12, hitboxes = [Rect2(0, -150, 110, 120)]}}]},
 		{id = &"kojiro", name = "Sasaki Kojirō", kind = HUMAN,
-			p = {health = 950, size = 1.05, speed = 1.05, jump = 1.0, power = 1.1, tempo = -1},
+			p = {health = 950, size = 1.05, speed = 1.05, jump = 1.0, power = 1.0, tempo = -1},
 			# Tsubame Gaeshi: a cut that turns back on itself like a swallow, from the air too.
 			specials = [{id = &"swallow_cut", startup = 6, active = 8, recovery = 20, cooldown = 90, air = true,
 					damage = 90, knockdown = 40, knockback = 7.0, hitstop = 10,
@@ -75,7 +75,7 @@ static func _table() -> Array:
 		{id = &"benkei", name = "Benkei", kind = HUMAN,
 			p = {health = 1250, size = 1.25, speed = 0.75, jump = 0.9, power = 1.25, tempo = 1},
 			# He died standing on the bridge, still blocking it: armour while he advances.
-			specials = [{id = &"standing_death", startup = 4, active = 40, recovery = 20, cooldown = 300,
+			specials = [{id = &"standing_death", startup = 4, active = 40, recovery = 20, cooldown = 360,
 					armor = 40, motion = Vector2(5, 0), damage = 90, hitstun = 20, blockstun = 14,
 					knockback = 10.0, hitstop = 10, hitboxes = [Rect2(10, -170, 90, 150)]},
 				{id = &"seven_weapons", startup = 8, active = 3, recovery = 30, cooldown = 180, throw = true,
@@ -122,7 +122,7 @@ static func _table() -> Array:
 			specials = [{id = &"paper_birds", startup = 10, active = 1, recovery = 18, cooldown = 48, air = true,
 					spawn_offset = Vector2(40, -70), spawn_offsets = [Vector2(40, -70), Vector2(36, -80)], spawn_angles = [25.0, 35.0],
 					spawn = {id = &"paper_bird", startup = 0, active = 80, recovery = 0, motion = Vector2(7, -1.8),
-						damage = 55, hitstun = 16, blockstun = 12, knockback = 5.0, hitstop = 5,
+						damage = 62, hitstun = 16, blockstun = 12, knockback = 5.0, hitstop = 5,
 						hitboxes = [Rect2(-15, -10, 30, 20)]}},
 				# A five-element seal: stops projectiles, repels whoever walks into it.
 				{id = &"five_element_seal", startup = 8, active = 1, recovery = 16, cooldown = 240,
@@ -149,7 +149,7 @@ static func _table() -> Array:
 					damage = 60, knockdown = 50, knockback = 3.0, hitstop = 12, height = H.LOW,
 					hitboxes = [Rect2(-230, -18, 460, 18)]}]},
 		{id = &"kitsune", name = "Tamamo-no-Mae", kind = YOKAI,
-			p = {health = 740, size = 0.85, speed = 1.35, jump = 1.06, power = 0.8, tempo = -1},
+			p = {health = 800, size = 0.85, speed = 1.35, jump = 1.06, power = 0.8, tempo = -1},
 			# Fox illusion: gone, then behind you.
 			specials = [{id = &"fox_step", startup = 20, active = 4, recovery = 16, cooldown = 240, teleport_range = 160.0,
 					invulnerable = 16, teleport_frame = 14, teleport_distance = 45.0,
@@ -166,7 +166,7 @@ static func _table() -> Array:
 						damage = 10, hitstun = 14, blockstun = 8, knockback = 2.0, hitstop = 4, height = H.HIGH_LOW,
 						phantom = 60, hitboxes = [Rect2(-30, -30, 60, 60)]}}]},
 		{id = &"tengu", name = "Sōjōbō", kind = YOKAI,
-			p = {health = 1000, size = 1.05, speed = 1.1, jump = 1.15, power = 1.0, tempo = 0},
+			p = {health = 1000, size = 1.05, speed = 1.1, jump = 1.15, power = 1.1, tempo = 0},
 			# The feather fan: a gust that hurls more than it hurts.
 			specials = [{id = &"gale_fan", startup = 12, active = 1, recovery = 20, cooldown = 90,
 					spawn_offset = Vector2(50, 0),
@@ -179,7 +179,7 @@ static func _table() -> Array:
 		{id = &"kappa", name = "Kawatarō", kind = YOKAI,
 			# Child-sized, so hard to hit; it pays for that in health and power,
 			# as small, quick fighters must.
-			p = {health = 760, size = 0.86, speed = 0.78, jump = 1.0, power = 1.0, tempo = 0},
+			p = {health = 720, size = 0.86, speed = 0.78, jump = 1.0, power = 1.0, tempo = 0},
 			# Kappa challenge travellers to sumo.
 			# The Charging Grab: a short run that seizes whoever it reaches.
 			specials = [{id = &"charging_grab", startup = 10, active = 10, recovery = 28, cooldown = 180, throw = true,
@@ -188,7 +188,7 @@ static func _table() -> Array:
 				# Water from the dish on its head, along the ground: a low projectile.
 				# Leaning forward, he spits a jet from the water in his head: it
 				# drives down at 30 degrees, and on meeting the ground runs on along it.
-				{id = &"water_jet", startup = 12, active = 1, recovery = 20, cooldown = 60,
+				{id = &"water_jet", startup = 12, active = 1, recovery = 20, cooldown = 85,
 					spawn_offset = Vector2(45, -125),
 					spawn = {id = &"water", startup = 0, active = 70, recovery = 0, motion = Vector2(8, 4.6),
 						damage = 38, hitstun = 16, blockstun = 12, knockback = 5.0, hitstop = 5, height = H.MID,
@@ -213,11 +213,13 @@ static func _table() -> Array:
 						hitboxes = [Rect2(-12, -30, 24, 30)]}}]},
 		{id = &"jorogumo", name = "Jorōgumo", kind = YOKAI,
 			p = {health = 950, size = 1.0, speed = 1.0, jump = 1.0, power = 1.0, tempo = 0},
+			# Her spider legs are her reach: the leg stabs reach as far as a leg.
+			frames = {stand_light = {hitboxes = [Rect2(20, -120, 110, 30)]}, crouch_light = {hitboxes = [Rect2(20, -50, 105, 30)]}},
 			# Silk that reels the victim in (negative knockback).
 			specials = [{id = &"web", startup = 12, active = 1, recovery = 22, cooldown = 120,
 					spawn_offset = Vector2(40, -110),
 					spawn = {id = &"web_strand", startup = 0, active = 70, recovery = 0, motion = Vector2(8, 0),
-						damage = 30, hitstun = 22, blockstun = 12, knockback = -14.0, hitstop = 6,
+						damage = 30, hitstun = 40, blockstun = 12, knockback = -14.0, hitstop = 6,
 						hitboxes = [Rect2(-15, -15, 30, 30)]}},
 				# Up into the rafters, out of reach, and down again on top of you.
 				{id = &"ceiling_drop", startup = 20, active = 12, recovery = 18, cooldown = 120, invulnerable = 18,
@@ -251,7 +253,7 @@ static func _table() -> Array:
 							damage = 40, hitstun = 18, blockstun = 12, knockback = 4.0, hitstop = 6, height = H.MID,
 							hitboxes = [Rect2(-55, -60, 110, 60)]}}}]},
 		{id = &"tanuki", name = "Danzaburō-danuki", kind = YOKAI,
-			p = {health = 950, size = 0.9, speed = 0.9, jump = 1.0, power = 0.95, tempo = 0},
+			p = {health = 1050, size = 0.9, speed = 0.9, jump = 1.0, power = 0.95, tempo = 0},
 			# Hara-tsuzumi, the belly drum: a low shockwave to both sides.
 			specials = [{id = &"belly_drum", startup = 14, active = 6, recovery = 22, cooldown = 120,
 					damage = 70, knockdown = 40, knockback = 6.0, hitstop = 9, height = H.LOW,
@@ -275,7 +277,11 @@ static func _build(e: Dictionary) -> FighterDefinition:
 	var frames: Dictionary = e.get("frames", {})
 	for move_id in frames:
 		for key in frames[move_id]:
-			d.moves[move_id].set(key, frames[move_id][key])
+			# Typed lists must be filled, not set.
+			if key in ["hitboxes", "spawn_offsets", "spawn_angles"]:
+				(d.moves[move_id].get(key) as Array).assign(frames[move_id][key])
+			else:
+				d.moves[move_id].set(key, frames[move_id][key])
 	var patterns := ["C", "4C"]
 	for k in e.specials.size():
 		var m := _special(e.specials[k])

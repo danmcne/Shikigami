@@ -165,6 +165,9 @@ func _init() -> void:
 	_test_seal_wards_off_blows()
 	_test_counters_ready_from_the_start()
 	_test_preferred_distances_and_birds()
+	_test_every_attack_can_land()
+	_test_sounds()
+	_test_blows_counted_whatever_they_cost()
 	print("CPU, run, calibration")
 	_test_cpu_enters_motions()
 	_test_cpu_attacks()
@@ -2617,3 +2620,67 @@ func _test_preferred_distances_and_birds() -> void:
 	_check("every fighter keeps to its own distance (Kojirō farther than Tamamo-no-Mae); Seimei's birds climb apart at 25 and 35 degrees",
 			all_set and kojiro.preferred_gap > fox.preferred_gap and climbs.size() == 2 and absf(climbs[0] - 25.0) < 1.0 and absf(climbs[1] - 35.0) < 1.0,
 			"Kojirō %.0f, Tamamo %.0f, birds %s" % [kojiro.preferred_gap, fox.preferred_gap, climbs])
+
+
+func _test_every_attack_can_land() -> void:
+	# With bodies kept apart by their push boxes, every ordinary attack can
+	# reach a standing opponent (a crouching one for a low) of any size.
+	var bad: Array[String] = []
+	for d in Roster.all():
+		for target in [_r(&"musashi"), _r(&"shuten"), _r(&"kappa")]:
+			for id in [&"stand_light", &"stand_heavy", &"crouch_light", &"crouch_heavy", &"jump_light", &"jump_heavy", &"rush", &"rising", &"throw"]:
+				var m: MoveDefinition = d.moves.get(id, null)
+				if m == null:
+					continue
+				var frames: Array = m.frame_strikes if not m.frame_strikes.is_empty() else [m.hitboxes.map(func(b): return [b, 1.0])]
+				var low := m.height == MoveDefinition.Height.LOW
+				var body: Rect2 = target.crouch_hurtbox if low else target.stand_hurtbox
+				var lifts := [0.0] if not String(id).begins_with("jump") else [-40.0, -80.0, -120.0]
+				var closest: float = d.pushbox.size.x / 2.0 + target.pushbox.size.x / 2.0
+				var lands := false
+				for lift in lifts:
+					for centre in range(int(closest), 420, 5):
+						var at := Rect2(Vector2(centre + body.position.x, body.position.y), body.size)
+						for strikes in frames:
+							for s in strikes:
+								var box: Rect2 = s[0] if s is Array else s
+								box.position.y += lift
+								if box.intersects(at):
+									lands = true
+				if not lands:
+					bad.append("%s.%s vs %s" % [d.id, id, target.id])
+	_check("every ordinary attack can land on an opponent of any size, bodies kept apart", bad.is_empty(), "%s" % [bad.slice(0, 6)])
+
+
+func _test_sounds() -> void:
+	var sound := Sound.new()
+	var bad: Array[String] = []
+	var started := Time.get_ticks_msec()
+	for name in ["bell", "gong", "hit", "hit_heavy", "giant_hit", "giant_slam", "giant_swing", "thunder", "block", "tick", "menu", "fight"]:
+		var w := sound.stream(name)
+		if w.data.size() < 200:
+			bad.append(name)
+	var took := Time.get_ticks_msec() - started
+	var loops := sound.stream("menu").loop_mode == AudioStreamWAV.LOOP_FORWARD and sound.stream("fight").loop_mode == AudioStreamWAV.LOOP_FORWARD
+	var bell_secs := sound.stream("bell").data.size() / 2.0 / Sound.RATE
+	sound.free()
+	_check("every sound is synthesized (bell, gong, hits, a giant's boom, block, tick, two looping tunes)",
+			bad.is_empty() and loops and bell_secs > 2.5, "missing %s, loops %s, bell %.1f s, made in %d ms" % [bad, loops, bell_secs, took])
+
+
+func _test_blows_counted_whatever_they_cost() -> void:
+	# A blow that lands is counted (and heard) even on an invincible fighter;
+	# a blocked one is counted as blocked.
+	var b := Bout.new(def, def)
+	b.fighters[0].position.x = -40
+	b.fighters[1].position.x = 40
+	b.fighters[1].invincible = true
+	_run(b, 30, _at({0: [5, "B"]}))
+	var landed := b.fighters[1].blows_taken
+	var c := Bout.new(def, def)
+	c.fighters[0].position.x = -40
+	c.fighters[1].position.x = 40
+	_run(c, 30, _at({0: [5, "B"]}), _at({}, 5, "G"))
+	_check("blows that land are counted even on the invincible, and blocked blows as blocked",
+			landed == 1 and b.fighters[1].health == def.max_health and c.fighters[1].blocks_taken == 1,
+			"landed %d (health %d), blocked %d" % [landed, b.fighters[1].health, c.fighters[1].blocks_taken])

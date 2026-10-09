@@ -55,7 +55,7 @@ static func definition() -> FighterDefinition:
 		# Softened, like the rising: shared moves should not decide fights.
 		# A rush carries a real risk: blocked, it can be punished.
 		_move({id = &"rush", startup = 10, active = 5, recovery = 26, motion = Vector2(12, 0),
-			damage = 60, knockdown = 45, blockstun = 16, knockback = 10.0, hitstop = 10,
+			damage = 45, knockdown = 45, blockstun = 16, knockback = 10.0, hitstop = 10,
 			height = H.MID, hitboxes = [Rect2(20, -130, 60, 80)]}),
 		# Launches itself; invulnerable through its start, lands in recovery.
 		# Softened (it was the computer's main weapon for everyone, which made

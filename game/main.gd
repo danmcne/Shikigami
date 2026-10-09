@@ -54,7 +54,19 @@ var tournament_from_command_line := false
 var _paper: ColorRect
 
 
+## The game's sounds and music.
+var sound: Sound
+var _bell_rung := false
+var _giant_active := false
+var _bout_heard: Bout = null
+var _blows_before := [0, 0]
+var _blocks_before := [0, 0]
+var _ko_before := [false, false]
+
+
 func _ready() -> void:
+	sound = Sound.new()
+	add_child(sound)
 	InputSetup.register()
 	# A faint washi grain over the whole screen.
 	var paper := ColorRect.new()
@@ -119,10 +131,74 @@ func _physics_process(_delta: float) -> void:
 		Screen.CALIBRATE:
 			var intents: Array[Intent] = [players[0].read(null, null), players[1].read(null, null)]
 			calibration.observe(intents)
+	_listen()
 	queue_redraw()
 
 
+## Sounds from what changed this frame: the bell as a round begins, a hit
+## (heavy for a big one) when a blow lands, a knock when one is blocked, the
+## gong at a knockout; and the music for the screen.
+func _listen() -> void:
+	var fighting := (screen == Screen.RUN or screen == Screen.VERSUS) and bout != null
+	sound.music("fight" if fighting else "menu")
+	if not fighting:
+		return
+	# A new bout: nothing to compare with yet.
+	if bout != _bout_heard:
+		_bout_heard = bout
+		for i in 2:
+			_blows_before[i] = bout.fighters[i].blows_taken
+			_blocks_before[i] = bout.fighters[i].blocks_taken
+			_ko_before[i] = false
+		_giant_active = false
+	# The bell rings as the round banner goes, once per round.
+	var in_banner := bout.phase != Bout.Phase.FIGHT or bout.phase_frame < Bout.BANNER_FRAMES
+	if in_banner:
+		_bell_rung = false
+	elif not _bell_rung:
+		_bell_rung = true
+		sound.play("bell", -4.0)
+	for i in 2:
+		var f := bout.fighters[i]
+		# A blow that lands is heard whatever it costs (invincible, armoured).
+		if f.blows_taken > _blows_before[i]:
+			if bout.fighters[1 - i] is Monster:
+				sound.play("giant_hit", -3.0)
+			else:
+				sound.play("hit_heavy" if f.last_blow >= 60 else "hit", -6.0)
+		if f.blocks_taken > _blocks_before[i]:
+			sound.play("block", -8.0)
+		_blows_before[i] = f.blows_taken
+		_blocks_before[i] = f.blocks_taken
+		var ko := f.state == Fighter.State.KO
+		if ko and not _ko_before[i]:
+			sound.play("gong", -3.0)
+		_ko_before[i] = ko
+	# A giant's attack is heard as it goes out, whether it lands or not; a
+	# lightning bolt as it strikes.
+	for f in bout.fighters:
+		if f is Monster:
+			var active: bool = f.state == Fighter.State.MOVE and f.move != null and f.move.is_active_on(f.state_frame)
+			if active and not _giant_active:
+				var cue := Sound.giant_cue(f.move.id)
+				if cue != "":
+					sound.play(cue, -2.0)
+			_giant_active = active
+	for e in bout.entities:
+		if e.move.id == &"bolt" and e.frame == e.move.startup:
+			sound.play("thunder", -2.0)
+
+
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		match (event as InputEventKey).keycode:
+			KEY_F9:
+				Settings.set_option("sound", not Settings.sound_on())
+			KEY_F10:
+				Settings.set_option("music", not Settings.music_on())
+			KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_ENTER, KEY_W, KEY_S, KEY_A, KEY_D:
+				if screen != Screen.RUN and screen != Screen.VERSUS:
+					sound.play("tick", -10.0)
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
 	var key: int = event.physical_keycode
@@ -251,11 +327,13 @@ func _start_versus() -> void:
 		defs.append(playable[versus_choice[1]])
 	var loadouts: Array = []
 	for d in defs:
-		# In versus each fighter carries two spirits it could bind, each with
-		# its first special.
+		# In versus each fighter carries spirits it could bind, drawn at random
+		# each match, each with one of its specials at random.
 		var bound: Array[SpiritBinding] = []
-		for o in roster.filter(func(o: FighterDefinition) -> bool: return d.binds(o)).slice(0, Run.SLOTS):
-			bound.append(SpiritBinding.new(o, o.specials[0]))
+		var candidates: Array = roster.filter(func(o: FighterDefinition) -> bool: return d.binds(o))
+		candidates.shuffle()
+		for o in candidates.slice(0, Run.SLOTS):
+			bound.append(SpiritBinding.new(o, o.specials.pick_random()))
 		loadouts.append(bound)
 	if beast_index >= 0:
 		bout = _make_monster_bout(defs[0], loadouts[0], Bestiary.all()[beast_index], Time.get_ticks_usec())

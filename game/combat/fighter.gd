@@ -32,6 +32,12 @@ var input := InputHistory.new()
 var chord_window := InputHistory.DEFAULT_CHORD
 ## A practice cheat: hits still land and stun, but take no health.
 var invincible := false
+## Blows that landed on this fighter (whatever they cost: invincibility and
+## armour do not change that they landed), blows it blocked, and how hard the
+## last that landed was. Read by the sound.
+var blows_taken := 0
+var blocks_taken := 0
+var last_blow := 0
 ## Frames left swinging at phantoms: none of this fighter's own blows or
 ## throws connect.
 var phantom_frames := 0
@@ -317,6 +323,7 @@ func receive(m: MoveDefinition, from_facing: int, from_spirit := false, scale :=
 		trigger_counter()
 		return
 	if guards_against(m, from_facing, from_spirit):
+		blocks_taken += 1
 		move = null
 		_started_rank = -1
 		stun = m.blockstun
@@ -329,6 +336,8 @@ func receive(m: MoveDefinition, from_facing: int, from_spirit := false, scale :=
 		slow_frames = maxi(slow_frames, m.slows)
 		show_notice("SLOWED")
 	var damage := roundi(m.damage * scale)
+	blows_taken += 1
+	last_blow = damage
 	if armor_frames > 0 and not m.throw:
 		if not invincible:
 			health = maxi(health - damage, 0)

@@ -39,8 +39,11 @@ static func draw(ci: CanvasItem, bout: Bout, names: Array[String], show_boxes: b
 		if f is Monster:
 			_monster(ci, f, show_boxes, base, bout)
 		elif Puppet.has_puppet(f):
-			_trail(ci, f, colourways[i])
+			# A body's tail goes behind the fighter, a blow's over it (a fist's tail
+			# lies along the arm and would be hidden beneath it).
+			_trail(ci, f, colourways[i], true)
 			Puppet.draw(ci, f, base, colourways[i])
+			_trail(ci, f, colourways[i], false)
 			Pieces.draw_effect(ci, f, base)
 			_labels(ci, f, show_boxes)
 		else:
@@ -120,12 +123,14 @@ const GIANT_ART := {&"ushi_oni": preload("res://game/art/giants/ushi_oni_art.gd"
 ## A comet's tail behind a blow: the path its leading point took over the last
 ## few frames (a weapon's tip, a fist, a foot), or, for a move that carries the
 ## fighter, the body's. Red for the first colourway, blue for the second.
-static func _trail(ci: CanvasItem, f: Fighter, colourway: int) -> void:
+static func _trail(ci: CanvasItem, f: Fighter, colourway: int, behind: bool) -> void:
 	# A travelling move trails the body from its first frame; a blow, its
 	# leading point from just before contact.
 	var body := f.state == Fighter.State.MOVE and f.move != null and absf(f.move.motion.x) > 4.0
+	if body != behind:
+		return
 	var striking := f.state == Fighter.State.MOVE and f.move != null \
-			and f.state_frame >= (0 if body else f.move.startup - 2) and f.state_frame < f.move.startup + f.move.active + 2
+			and f.state_frame >= (0 if body else f.move.startup - 6) and f.state_frame < f.move.startup + f.move.active + 2
 	if not striking:
 		f.trail.clear()
 		f.trail_frame = -1
@@ -144,16 +149,27 @@ static func _trail(ci: CanvasItem, f: Fighter, colourway: int) -> void:
 				for w in p.weapons:
 					if w.name == strikes[-1]:
 						tip = [w.bone, w.to]
+			# A blow with nothing recorded as leading it: the hand its swing reaches
+			# with, or failing that the striking arm's.
+			if tip.is_empty():
+				var arm := p.striking_arm(f.move)
+				for key in swing.get("keys", []):
+					var reaches: Dictionary = key[1].get("ik", {})
+					if not reaches.is_empty():
+						arm = reaches.keys()[0]
+						break
+				if p.find(arm + "_hand"):
+					tip = [arm + "_hand", Vector2(0, 6)]
 			if tip.is_empty():
 				return
 			at = Puppet.world_point(f, tip[0], tip[1])
 		f.trail.append(at)
-		if f.trail.size() > (14 if body else 7):
+		if f.trail.size() > (14 if body else 9):
 			f.trail.pop_front()
 	if f.trail.size() < 2:
 		return
 	var colour := Color(0.92, 0.22, 0.15) if colourway == 0 else Color(0.25, 0.45, 0.95)
-	var width := f.hurtbox().size.y * 0.55 if body else 9.0
+	var width := f.hurtbox().size.y * 0.55 if body else 13.0
 	var n := f.trail.size()
 	for k in range(1, n):
 		var a: Vector2 = f.trail[k - 1]
@@ -386,7 +402,7 @@ static func _hud(ci: CanvasItem, bout: Bout, names: Array[String]) -> void:
 
 	match bout.phase:
 		Bout.Phase.FIGHT:
-			if bout.phase_frame < 60:
+			if bout.phase_frame < Bout.BANNER_FRAMES:
 				message(ci, "ROUND %d" % bout.round_number)
 		Bout.Phase.ROUND_OVER:
 			message(ci, "DOUBLE K.O." if bout.round_winner < 0 else "K.O.")

@@ -142,10 +142,13 @@ static func definition() -> PuppetDefinition:
 	var drink := {ik = {lead = {to = "mouth", bend = 1.0}}, gourd_hand = 175.0, head = -22.0, torso = -8.0}
 	d.swings = {
 		# The jab: the free lead fist, straight out.
+		# A jab angled down, so it lands on the smallest opponent as well as
+		# reaching the chest of most (a level jab from his height passed over
+		# Kawatarō).
 		stand_light = {strikes = ["fist"], keys = [
 			[1.0, {lead_upper = -40.0, lead_fore = -120.0, torso = 0.0}],
-			[1.2, {lead_upper = -88.0, lead_fore = -2.0, torso = 10.0}],
-			[2.0, {lead_upper = -90.0, lead_fore = 0.0, torso = 10.0}]]},
+			[1.2, {ik = {lead = {to = Vector2(74, -110)}}, torso = 14.0}],
+			[2.0, {ik = {lead = {to = Vector2(76, -110)}}, torso = 14.0}]]},
 		# From the shoulder to overhead, then down in front with the elbow
 		# bent; it ends low enough to catch a crouching opponent.
 		stand_heavy = {strikes = ["club"], keys = [

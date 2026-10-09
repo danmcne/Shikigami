@@ -44,6 +44,9 @@ var finish_frames := FINISH_FRAMES
 var round_number := 1
 var phase := Phase.FIGHT
 var phase_frame := 0
+## How long the "ROUND n" banner shows at the start of a round's fighting; the
+## bell rings as it goes.
+const BANNER_FRAMES := 60
 ## Index of the last round's winner, or -1 for a double KO.
 var round_winner := -1
 var hitstop := 0

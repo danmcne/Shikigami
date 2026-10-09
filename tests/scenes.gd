@@ -36,12 +36,9 @@ func _init():
 	for i in 3: await process_frame
 	var ids: Array = main.roster.map(func(d): return d.id)
 	var at := func(id: StringName) -> int: return ids.find(id)
-	var plan := [["musashi", &"stand_heavy", -3], ["kappa", &"rush", -3], ["kitsune", &"bewitching_dust", 18], ["tengu", &"gale_fan", 22],
-		["tomoe", &"naginata_wheel", 11], ["tomoe", &"naginata_wheel", 19], ["monk", &"", 1], ["hanzo", &"crouch_heavy", -1]]
+	var plan := [["kappa", &"stand_light", -2], ["kitsune", &"stand_heavy", -2], ["jorogumo", &"stand_light", -2]]
 	for k in plan.size():
 		var i: int = at.call(StringName(plan[k][0]))
-		var frames: int = plan[k][2]
-		if frames < 0:
-			frames = main.roster[i].moves[plan[k][1]].startup - frames - 2
-		await scene("review_%02d" % k, i, 0, plan[k][1], frames, 380.0, false, 2 if String(plan[k][1]).begins_with("crouch") else 0)
+		var frames: int = main.roster[i].moves[plan[k][1]].startup + 1
+		await scene("tail_%02d" % k, i, 0, plan[k][1], frames, 300.0)
 	quit()

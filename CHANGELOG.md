@@ -2,6 +2,131 @@
 
 Newest first. The README describes the current version only.
 
+## 18.3
+
+- **Hits are heard when they land, not when health falls.**
+  - Fighters and giants now count the blows they receive and the blows they block, and the sound follows those counts. A blow on an invincible or armoured fighter is heard.
+  - The silence in 18.1 was invincibility, not the sound: no health fell, so no hit played. 18.2's guess that the boom was too low for small speakers was wrong.
+- **The 18.1 boom returns** for the heavy hit and the giant's hit; 18.2's mid-range crunch made them raspy.
+- **A softer slam:** the giants' ground slam is a heavy thud with a soft rumble, without the crunching debris.
+- **The giants' swing and thunder sounds stay,** so a miss is still heard.
+- **Versus:** each fighter's shikigami are drawn at random each match from those it can bind, each with one of its specials at random. Before, it always got the first two in roster order with their first specials.
+- **Tests:** blows that land are counted on the invincible, and blocked blows as blocked.
+
+## 18.2
+
+- **Giants are heard.**
+  - **Why they weren't:** the boom for a giant's blow lay almost wholly below 150 Hz (1.5% of its energy above it), below what laptop speakers and most headphones reproduce. Impacts now have a body, a crunch and a rumble in the mid range: about 21% of the giant's hit lies above 150 Hz, and the fighters' heavy hit is filled out the same way.
+  - **New sounds:** each giant attack plays a sound as it goes out, whether or not it lands. Swings, stabs, grabs, claps and bites rush like wind; slams, stomps and the Nue's dive and pounce strike the ground with a thud and scattering debris. Each lightning bolt strikes with a crack and a long roll of thunder.
+- **Sounds are no longer dropped.**
+  - There are now ten sound players.
+  - The same sound asked for again within 70 ms is heard once, so a volley of bolts rolls one thunder.
+  - When every player is busy, the one furthest through its sound gives way.
+
+  Before, a volley of thunder filled all six players and any further sound, a hit included, was silently lost.
+- **No stray hits between fights:** the health compared to detect hits resets when a new bout begins.
+- **One-off sounds** are mixed into silence of their full length, so a long tail no longer wraps onto the start (the thunder had folded into 0.1 s).
+- **Kawatarō's beak:** a larger upper triangle over a smaller, darker lower one, overlapping; the human mouth is gone.
+
+## 18.1
+
+- **The ensemble:** the music is rebuilt for four synthesized instruments in place of the koto.
+  - **Shamisen:** a plucked string (Karplus–Strong) with a bright bachi attack and a buzz.
+  - **Shakuhachi:** a breathy flute with vibrato that grows as a note is held.
+  - **Taiko.**
+  - **Kotsuzumi:** its "pon" rising in pitch.
+
+  Each tune is a four-bar phrase played twice, the second time varied: the shamisen carries the phrase, the flute holds long notes over it, taiko marks the bars and kotsuzumi answers off the beat. Fight tune: 132 bpm; menu tune: 76 bpm, with more flute and space. Measured by energy, the fight tune is about 23% drums, 35% shamisen, 34% flute; nothing clips.
+- **Tunes made in the background:** about a second each, on a worker thread at start-up; the music starts as soon as its tune is ready.
+- **The round bell** rings as the "ROUND n" banner goes, on the first frame of fighting (frame 60), not as it appears. Banner and bell share one constant, `Bout.BANNER_FRAMES`.
+- **Giants' blows** land with their own sound: a deep boom, a crack and a lingering rumble.
+
+## 18
+
+- **Sound and music,** all synthesized (`game/audio/sound.gd`):
+  - **The bell:** a temple bell of inharmonic partials (about 1, 2.76, 5.4 and 8.9 times its fundamental) with a slow beat, rung as each round's fight begins.
+  - **Effects:** a deeper gong at a knockout; hits as a thump and a crack, heavy at 60 damage or more; a wooden knock as a fighter starts to block; a tick on menu keys.
+  - **Music:** two seamless looping tunes on D hirajōshi (D, E, F, A, B♭), koto-like plucks over taiko, 72 bpm for menus and 132 for fights. Each is scaled after mixing so it never clips.
+  - **Controls:** F9 toggles sound and F10 music, both remembered.
+  - **Cost:** the slowest sound to make (the fight tune) takes about 0.4 s, once, the first time it's needed.
+  - **To listen:** `tests/export_sounds.gd` writes them all as WAV files.
+- **Faces:** each fighter's face is its own (Musashi, the oni and Sōjōbō already were).
+  - Humans:
+    - Kojirō: a high ponytail.
+    - Tomoe: a red headband.
+    - Benkei: stubble and heavy brows.
+    - Hanzō: a cloth mask.
+    - En no Gyōja: a long white beard and heavy brows.
+    - Okuni: white make-up, red lips, hair in a bun with a hairpin.
+    - Seimei: a moustache.
+  - Yokai:
+    - Kawatarō: a beak.
+    - O-Yuki: blue lips and hair falling across her face.
+    - The Jorōgumo: a row of spider eyes and dark lips.
+    - Rokurokubi: a white face and blackened teeth.
+    - Danzaburō: a tanuki's dark eye patches.
+- **Tests:** every sound is made, and both tunes loop.
+
+## 17.5
+
+- **Balance by Bayesian updating.**
+  - **Method:**
+    - `tests/pairs.gd` records every bout's winner;
+    - `tests/bayes.py` gives each pairing a Beta posterior under a uniform prior, and calls it settled once one side is more than 90% likely the favourite;
+    - each fighter's win rate is the mean of its posterior chances, with a 90% credible interval;
+    - more bouts are spent only on open pairings;
+    - after a change, only pairings involving the changed fighters are remeasured, while the rest keep their evidence (`tests/bouts_17_5.jsonl`).
+  - **Changes, only to fighters whose intervals excluded 50%:**
+    - the Jorōgumo's leg stabs reach as far as a spider's leg (110 standing, 105 crouching);
+    - Seimei's birds strike for 62;
+    - Kawatarō's water jet comes round every 85 frames, and his health is 720;
+    - Benkei's Standing Death comes round every 6 seconds;
+    - Kojirō keeps his quicker tempo at normal power.
+
+    Typed lists can now be set in a fighter's own move data (they were silently refused).
+  - **Standings** (664 bouts, posterior means with 90% intervals):
+
+    | Fighter | Win rate |
+    |---|---|
+    | Benkei | 64 (57–72) |
+    | Musashi | 64 (58–71) |
+    | Kawatarō | 62 (55–69) |
+    | Kojirō | 55 |
+    | Tomoe | 54 |
+    | Hanzō | 53 |
+    | O-Yuki | 49 |
+    | En no Gyōja | 48 |
+    | the oni | 47 |
+    | Tamamo-no-Mae | 47 |
+    | Rokurokubi | 45 |
+    | Okuni | 45 |
+    | Danzaburō | 44 |
+    | Sōjōbō | 43 |
+    | Seimei | 42 |
+    | the Jorōgumo | 40 (33–47) |
+
+## 17.4
+
+- **Every attack can land.** A new check gives every ordinary attack of every fighter, with bodies held apart by their push boxes, a chance to land on a normal, the widest and the smallest opponent. The oni's jab was the one that couldn't: level at his height, it passed over Kawatarō. It is now angled down; reach 118 (it was 136).
+- **Comet tails restored:**
+  - a blow's tail is drawn over the fighter (a fist's tail lay along the arm, hidden beneath it), a travelling body's behind;
+  - a tail collects from six frames before contact, so it traces the whole drive;
+  - a blow with no recorded leading point follows the hand its swing reaches with;
+  - limb strikes follow the limb's end.
+- **Balance:**
+  - **Rush:** 45 damage. With the rising attack moved to the air, the rush had become the move every fighter leaned on.
+  - **The Jorōgumo's web:** holds its victim for 40 frames, time for her kama to follow the pull.
+  - **Toughness:** Danzaburō 1,050 health, Tamamo-no-Mae 800.
+  - **Sōjōbō:** hits 10% harder.
+- **Standings** (two bouts per pairing, margins about ±12; differences under about 15 points are within run-to-run noise):
+
+  | Range | Fighters |
+  |---|---|
+  | 68–78% | Benkei 78; Musashi, Kojirō and Kawatarō 68 each |
+  | 45–58% | Hanzō 58, En no Gyōja 53, Tomoe 52, the oni 50, O-Yuki 48, Rokurokubi 47, Danzaburō 47, Sōjōbō 45 |
+  | Below 35% | Tamamo-no-Mae 35, Okuni 33, Seimei 25, the Jorōgumo 23 |
+- **The giants** are left to playtesting: they need their own tactics, not the fighters' computer player.
+
 ## 17.3
 
 - **Rebalancing** after weapon tracing, guided by tournaments (two bouts per pairing, Hard computer) and a new damage tool (`tests/damage.gd`). The tool credits each point of damage to the move that dealt it, and reports each fighter's move that is best against the most opponents.

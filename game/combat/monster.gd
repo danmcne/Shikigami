@@ -224,6 +224,8 @@ func receive(m: MoveDefinition, _from_facing: int, _from_spirit := false, scale 
 	var k := _part_at(contact)
 	var part: MonsterDefinition.Part = monster.parts[k]
 	var damage := roundi(m.damage * scale * part.damage_scale)
+	blows_taken += 1
+	last_blow = damage
 	if not invincible:
 		health = maxi(health - damage, 0)
 	if health == 0:
